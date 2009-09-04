@@ -16,11 +16,16 @@
 
   <dependencies>
     <dependency>
-      <artifactId>akka-kernel</artifactId>
+      <artifactId>akka-util</artifactId>
       <groupId>se.scalablesolutions.akka</groupId>
       <version>0.6</version>
     </dependency>
     <dependency>
+      <artifactId>akka-actors</artifactId>
+      <groupId>se.scalablesolutions.akka</groupId>
+      <version>0.6</version>
+    	</dependency>
+   <dependency>
       <groupId>com.rabbitmq</groupId>
       <artifactId>rabbitmq-client</artifactId>
       <version>0.9.1</version>
