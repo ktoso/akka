@@ -11,14 +11,14 @@ import org.springframework.core.io.ResourceEditor
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 /**
- * Test for ActiveObjectFactoryBean
+ * Test for TypedActorFactoryBean
  * @author michaelkober
  */
 @RunWith(classOf[JUnitRunner])
-class ActiveObjectFactoryBeanTest extends Spec with ShouldMatchers {
+class TypedActorFactoryBeanTest extends Spec with ShouldMatchers {
 
-  describe("A ActiveObjectFactoryBean") {
-    val bean = new ActiveObjectFactoryBean
+  describe("A TypedActorFactoryBean") {
+    val bean = new TypedActorFactoryBean
     it("should have java getters and setters for all properties") {
       bean.setTarget("java.lang.String")
       assert(bean.getTarget == "java.lang.String")
@@ -26,7 +26,7 @@ class ActiveObjectFactoryBeanTest extends Spec with ShouldMatchers {
       assert(bean.getTimeout == 1000)
     }
 
-    it("should create a remote active object when a host is set") {
+    it("should create a remote typed actor when a host is set") {
       bean.setHost("some.host.com");
       assert(bean.isRemote)
     }
@@ -36,7 +36,7 @@ class ActiveObjectFactoryBeanTest extends Spec with ShouldMatchers {
       assert(bean.hasInterface)
     }
 
-    it("should create an active object with dispatcher if dispatcher is set") {
+    it("should create an typed actor with dispatcher if dispatcher is set") {
       val props = new DispatcherProperties()
       props.dispatcherType = "executor-based-event-driven"
       bean.setDispatcher(props);
@@ -48,8 +48,43 @@ class ActiveObjectFactoryBeanTest extends Spec with ShouldMatchers {
       assert(bean.getObjectType == classOf[String])
     }
 
+/*
+    it("should create an application context and verify dependency injection") {
+      var ctx = new ClassPathXmlApplicationContext("appContext.xml");
+      val target:ResourceEditor = ctx.getBean("bean").asInstanceOf[ResourceEditor]
+      assert(target.getSource === "someString")
+
+      val pojoInf = ctx.getBean("pojoInf").asInstanceOf[PojoInf];
+      Thread.sleep(200)
+      assert(pojoInf.isPostConstructInvoked)
+      assert(pojoInf.getString == "akka rocks")
+      assert(pojoInf.gotApplicationContext)
+    }
+
+    it("should stop the created typed actor when scope is singleton and the context is closed") {
+      var ctx = new ClassPathXmlApplicationContext("appContext.xml");
+      val target = ctx.getBean("bean-singleton").asInstanceOf[SampleBean]
+      assert(!target.down)
+      ctx.close
+      assert(target.down)
+    }
+
+    it("should not stop the created typed actor when scope is prototype and the context is closed") {
+      var ctx = new ClassPathXmlApplicationContext("appContext.xml");
+      val target = ctx.getBean("bean-prototype").asInstanceOf[SampleBean]
+      assert(!target.down)
+      ctx.close
+      assert(!target.down)
+    }
+    */
+  }
+}
+
+/*
+   // ------ NOTE: Can't work now when we only support POJO with interface -----
+   
     it("should create a proxy of type ResourceEditor") {
-      val bean = new ActiveObjectFactoryBean()
+      val bean = new TypedActorFactoryBean()
       // we must have a java class here
       bean.setTarget("org.springframework.core.io.ResourceEditor")
       val entries = new PropertyEntries()
@@ -64,34 +99,4 @@ class ActiveObjectFactoryBeanTest extends Spec with ShouldMatchers {
       val target:ResourceEditor = bean.createInstance.asInstanceOf[ResourceEditor]
       assert(target.getSource === entry.value)
     }
-
-    it("should create an application context and verify dependency injection") {
-      var ctx = new ClassPathXmlApplicationContext("appContext.xml");
-      val target:ResourceEditor = ctx.getBean("bean").asInstanceOf[ResourceEditor]
-      assert(target.getSource === "someString")
-	  
-	  val pojoInf = ctx.getBean("pojoInf").asInstanceOf[PojoInf];
-	  println("pojoInf = " + pojoInf.getString)
-	  Thread.sleep(200)
-	  assert(pojoInf.isPostConstructInvoked)
-	  assert(pojoInf.getString == "akka rocks")
-	  assert(pojoInf.gotApplicationContext)
-    }
-
-    it("should stop the created active object when scope is singleton and the context is closed") {
-      var ctx = new ClassPathXmlApplicationContext("appContext.xml");
-      val target = ctx.getBean("bean-singleton").asInstanceOf[SampleBean]
-      assert(!target.down)
-      ctx.close
-      assert(target.down)
-    }
-
-    it("should not stop the created active object when scope is prototype and the context is closed") {
-      var ctx = new ClassPathXmlApplicationContext("appContext.xml");
-      val target = ctx.getBean("bean-prototype").asInstanceOf[SampleBean]
-      assert(!target.down)
-      ctx.close
-      assert(!target.down)
-    }
-  }
-}
+*/
