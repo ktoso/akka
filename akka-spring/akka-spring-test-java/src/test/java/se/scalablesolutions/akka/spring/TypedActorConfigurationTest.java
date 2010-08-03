@@ -21,10 +21,10 @@ import se.scalablesolutions.akka.remote.RemoteNode;
 import se.scalablesolutions.akka.spring.foo.MyPojo;
 
 /**
- * Tests for spring configuration of active objects and supervisor configuration.
+ * Tests for spring configuration of typed actors and supervisor configuration.
  * @author michaelkober
  */
-public class ActiveObjectConfigurationTest {
+public class TypedActorConfigurationTest {
 
   private ApplicationContext context = null;
 
@@ -34,7 +34,7 @@ public class ActiveObjectConfigurationTest {
   }
 
   /**
-   * Tests that the &lt;akka:active-object/&gt; and &lt;akka:supervision/&gt; and &lt;akka:dispatcher/&gt; element
+   * Tests that the &lt;akka:typed-actor/&gt; and &lt;akka:supervision/&gt; and &lt;akka:dispatcher/&gt; element
    * can be used as a top level element.
    */
   @Test
@@ -43,43 +43,43 @@ public class ActiveObjectConfigurationTest {
     DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
     XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(beanFactory);
     reader.loadBeanDefinitions(CONTEXT);
-    assertTrue(beanFactory.containsBeanDefinition("simple-active-object"));
-    assertTrue(beanFactory.containsBeanDefinition("remote-active-object"));
+    assertTrue(beanFactory.containsBeanDefinition("simple-typed-actor"));
+    assertTrue(beanFactory.containsBeanDefinition("remote-typed-actor"));
     assertTrue(beanFactory.containsBeanDefinition("supervision1"));
     assertTrue(beanFactory.containsBeanDefinition("dispatcher1"));
   }
 
   @Test
-  public void testSimpleActiveObject() {
-    MyPojo myPojo = (MyPojo) context.getBean("simple-active-object");
+  public void testSimpleTypedActor() {
+    MyPojo myPojo = (MyPojo) context.getBean("simple-typed-actor");
     String msg = myPojo.getFoo();
     msg += myPojo.getBar();
     assertEquals("wrong invocation order", "foobar", msg);
   }
 
   @Test(expected = FutureTimeoutException.class)
-  public void testSimpleActiveObject_Timeout() {
-    MyPojo myPojo = (MyPojo) context.getBean("simple-active-object");
+  public void testSimpleTypedActor_Timeout() {
+    MyPojo myPojo = (MyPojo) context.getBean("simple-typed-actor");
     myPojo.longRunning();
   }
 
   @Test
-  public void testSimpleActiveObject_NoTimeout() {
-    MyPojo myPojo = (MyPojo) context.getBean("simple-active-object-long-timeout");
+  public void testSimpleTypedActor_NoTimeout() {
+    MyPojo myPojo = (MyPojo) context.getBean("simple-typed-actor-long-timeout");
     String msg = myPojo.longRunning();
     assertEquals("this took long", msg);
   }
 
   @Test
-  public void testTransactionalActiveObject() {
-    MyPojo myPojo = (MyPojo) context.getBean("transactional-active-object");
+  public void testTransactionalTypedActor() {
+    MyPojo myPojo = (MyPojo) context.getBean("transactional-typed-actor");
     String msg = myPojo.getFoo();
     msg += myPojo.getBar();
     assertEquals("wrong invocation order", "foobar", msg);
   }
 
   @Test
-  public void testRemoteActiveObject() {
+  public void testRemoteTypedActor() {
     new Thread(new Runnable() {
       public void run() {
         RemoteNode.start();
@@ -91,7 +91,7 @@ public class ActiveObjectConfigurationTest {
     }
     Config.config();
 
-    MyPojo myPojo = (MyPojo) context.getBean("remote-active-object");
+    MyPojo myPojo = (MyPojo) context.getBean("remote-typed-actor");
     assertEquals("foo", myPojo.getFoo());
   }
 
