@@ -10,24 +10,22 @@ import scala.collection.JavaConversions._
 import se.scalablesolutions.akka.actor.IllegalActorStateException
 
 /**
- * Parser trait for custom namespace configuration for active-object.
+ * Parser trait for custom namespace configuration for typed-actor.
  * @author michaelkober
  * @author <a href="johan.rask@jayway.com">Johan Rask</a>
  * @author Martin Krasser
  */
-trait ActiveObjectParser extends BeanParser with DispatcherParser {
+trait TypedActorParser extends BeanParser with DispatcherParser {
   import AkkaSpringConfigurationTags._
 
   /**
-   * Parses the given element and returns a ActiveObjectProperties.
+   * Parses the given element and returns a TypedActorProperties.
    * @param element dom element to parse
-   * @return configuration for the active object
+   * @return configuration for the typed actor
    */
-  def parseActiveObject(element: Element): ActiveObjectProperties = {
-    val objectProperties = new ActiveObjectProperties()
+  def parseTypedActor(element: Element): TypedActorProperties = {
+    val objectProperties = new TypedActorProperties()
     val remoteElement = DomUtils.getChildElementByTagName(element, REMOTE_TAG);
-    val restartCallbacksElement = DomUtils.getChildElementByTagName(element, RESTART_CALLBACKS_TAG);
-    val shutdownCallbackElement = DomUtils.getChildElementByTagName(element, SHUTDOWN_CALLBACK_TAG);
     val dispatcherElement = DomUtils.getChildElementByTagName(element, DISPATCHER_TAG)
     val propertyEntries = DomUtils.getChildElementsByTagName(element,PROPERTYENTRY_TAG)
 
@@ -36,29 +34,17 @@ trait ActiveObjectParser extends BeanParser with DispatcherParser {
       objectProperties.port = mandatory(remoteElement, PORT).toInt
     }
 
-    if (restartCallbacksElement != null) {
-      objectProperties.preRestart = restartCallbacksElement.getAttribute(PRE_RESTART)
-      objectProperties.postRestart = restartCallbacksElement.getAttribute(POST_RESTART)
-      if ((objectProperties.preRestart.isEmpty) && (objectProperties.preRestart.isEmpty)) {
-        throw new IllegalActorStateException("At least one of pre or post must be defined.")
-      }
-    }
-
-    if (shutdownCallbackElement != null) {
-      objectProperties.shutdown = shutdownCallbackElement.getAttribute("method")
-    }
-
     if (dispatcherElement != null) {
       val dispatcherProperties = parseDispatcher(dispatcherElement)
       objectProperties.dispatcher = dispatcherProperties
     }
 
-    for(element <- propertyEntries) {
-            val entry = new PropertyEntry()
-            entry.name = element.getAttribute("name");
-        entry.value = element.getAttribute("value")
-                entry.ref   = element.getAttribute("ref")
-                objectProperties.propertyEntries.add(entry)
+    for (element <- propertyEntries) {
+      val entry = new PropertyEntry
+      entry.name = element.getAttribute("name");
+      entry.value = element.getAttribute("value")
+      entry.ref   = element.getAttribute("ref")
+      objectProperties.propertyEntries.add(entry)
     }
 
     try {
@@ -69,7 +55,7 @@ trait ActiveObjectParser extends BeanParser with DispatcherParser {
         throw nfe
     }
 
-    objectProperties.target = mandatory(element, TARGET)
+    objectProperties.target = mandatory(element, IMPLEMENTATION)
     objectProperties.transactional = if (element.getAttribute(TRANSACTIONAL).isEmpty) false else element.getAttribute(TRANSACTIONAL).toBoolean
 
     if (!element.getAttribute(INTERFACE).isEmpty) {
