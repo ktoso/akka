@@ -1,6 +1,10 @@
-Tutorial: write a scalable, fault-tolerant, persistent network chat server and client (Scala)
+Tutorial: write a scalable, fault-tolerant, network chat server and client (Scala)
 =============================================================================================
 
+.. sidebar:: Contents
+
+   .. contents:: :local:
+   
 Introduction
 ------------
 
@@ -44,6 +48,8 @@ Here is a little example before we dive into a more interesting one.
 
 .. code-block:: scala
 
+  import akka.actor.Actor
+  
   class MyActor extends Actor {
     def receive = {
       case "test" => println("received test")
@@ -81,12 +87,53 @@ We will try to write a simple chat/IM system. It is client-server based and uses
 
 We will use many of the features of Akka along the way. In particular; Actors, fault-tolerance using Actor supervision, remote Actors, Software Transactional Memory (STM) and persistence.
 
-But let's start by defining the messages that will flow in our system.
+Creating an Akka SBT project
+----------------------------
+
+First we need to create an SBT project for our tutorial. You do that by stepping into the directory you want to create your project in and invoking the ``sbt`` command answering the questions for setting up your project::
+
+    $ sbt
+    Project does not exist, create new project? (y/N/s) y
+    Name: Chat
+    Organization: Hakkers Inc
+    Version [1.0]:
+    Scala version [2.9.0.RC1]:
+    sbt version [0.7.6.RC0]:
+
+Add the Akka SBT plugin definition to your SBT project by creating a ``Plugins.scala`` file in the ``project/plugins`` directory containing::
+
+    import sbt._
+
+    class Plugins(info: ProjectInfo) extends PluginDefinition(info) {
+      val akkaRepo   = "Akka Repo" at "http://akka.io/repository"
+      val akkaPlugin = "se.scalablesolutions.akka" % "akka-sbt-plugin" % "1.1-M1"
+    }
+
+Create a project definition ``project/build/Project.scala`` file containing::
+
+    import sbt._
+
+    class ChatProject(info: ProjectInfo) extends DefaultProject(info) with AkkaProject {
+      val akkaRepo = "Akka Repo" at "http://akka.io/repository"
+      val akkaSTM    = akkaModule("stm")
+      val akkaRemote = akkaModule("remote")
+    }
+
+
+Make SBT download the dependencies it needs. That is done by invoking::
+
+    > reload
+    > update
+
+From the SBT project you can generate files for your IDE:
+
+- `SbtEclipsify <https://github.com/musk/SbtEclipsify>`_ to generate Eclipse project. Detailed instructions are available in :ref:`getting-started-first-scala-eclipse`.
+- `sbt-idea <https://github.com/mpeltonen/sbt-idea>`_ to generate IntelliJ IDEA project.
 
 Creating messages
 -----------------
 
-It is very important that all messages that will be sent around in the system are immutable. The Actor model relies on the simple fact that no state is shared between Actors and the only way to guarantee that is to make sure we don't pass mutable state around as part of the messages.
+Let's start by defining the messages that will flow in our system. It is very important that all messages that will be sent around in the system are immutable. The Actor model relies on the simple fact that no state is shared between Actors and the only way to guarantee that is to make sure we don't pass mutable state around as part of the messages.
 
 In Scala we have something called `case classes <http://www.scala-lang.org/node/107>`_. These make excellent messages since they are both immutable and great to pattern match on.
 
@@ -118,7 +165,8 @@ Sometimes however, there is a need for sequential logic, sending a message and w
     def login                 = chat ! Login(name)
     def logout                = chat ! Logout(name)
     def post(message: String) = chat ! ChatMessage(name, name + ": " + message)
-    def chatLog               = (chat !! GetChatLog(name)).as[ChatLog].getOrElse(throw new Exception("Couldn't get the chat log from ChatServer"))
+    def chatLog               = (chat !! GetChatLog(name)).as[ChatLog]
+                                  .getOrElse(throw new Exception("Couldn't get the chat log from ChatServer"))
   }
 
 As you can see, we are using the 'Actor.remote.actorFor' to lookup the chat server on the remote node. From this call we will get a handle to the remote instance and can use it as it is local.
@@ -221,7 +269,7 @@ I'll try to show you how we can make use Scala's mixins to decouple the Actor im
     protected def sessionManagement: Receive
     protected def shutdownSessions(): Unit
 
-    override def postStop = {
+    override def postStop() = {
       EventHandler.info(this, "Chat server is shutting down...")
       shutdownSessions
       self.unlink(storage)
@@ -358,7 +406,7 @@ It responds to two different messages; 'ChatMessage' and 'GetChatLog'. The 'Chat
 
 The 'GetChatLog' message handler retrieves all the messages in the chat log storage inside an atomic block, iterates over them using the 'map' combinator transforming them from 'Array[Byte] to 'String'. Then it invokes the 'reply(message)' function that will send the chat log to the original sender; the 'ChatClient'.
 
-You might rememeber that the 'ChatServer' was supervising the 'ChatStorage' actor. When we discussed that we showed you the supervising Actor's view. Now is the time for the supervised Actor's side of things. First, a supervised Actor need to define a life-cycle in which it declares if it should be seen as a:
+You might remember that the 'ChatServer' was supervising the 'ChatStorage' actor. When we discussed that we showed you the supervising Actor's view. Now is the time for the supervised Actor's side of things. First, a supervised Actor need to define a life-cycle in which it declares if it should be seen as a:
 
 * 'Permanent': which means that the actor will always be restarted.
 * 'Temporary': which means that the actor will not be restarted, but it will be shut down through the regular shutdown process so the 'postStop' callback function will called.
@@ -422,7 +470,7 @@ We have now created the full functionality for the chat server, all nicely decou
     SessionManagement with
     ChatManagement with
     MemoryChatStorageFactory {
-    override def preStart = {
+    override def preStart() = {
       remote.start("localhost", 2552);
       remote.register("chat:service", self) //Register the actor with the specified service id
     }

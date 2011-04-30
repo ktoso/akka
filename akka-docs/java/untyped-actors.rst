@@ -1,7 +1,9 @@
 Actors (Java)
 =============
 
-=
+.. sidebar:: Contents
+
+   .. contents:: :local:
 
 Module stability: **SOLID**
 
@@ -16,11 +18,15 @@ Here is an example:
 
 .. code-block:: java
 
+  import akka.actor.UntypedActor;
+  import akka.event.EventHandler;
+
   public class SampleUntypedActor extends UntypedActor {
 
     public void onReceive(Object message) throws Exception {
       if (message instanceof String) 
-        EventHandler.info(this, String.format("Received String message: %s", message));
+        EventHandler.info(this, String.format("Received String message: %s",
+          message));
       else 
         throw new IllegalArgumentException("Unknown message: " + message);
     }
@@ -51,7 +57,7 @@ You can also create & start the actor in one statement:
 
   ActorRef myActor = actorOf(SampleUntypedActor.class).start();
 
-The call to 'actorOf' returns an instance of 'ActorRef'. This is a handle to the 'UntypedActor' instance which you can use to interact with the Actor, like send messages to it etc. more on this shortly. The 'ActorRef' is immutble and has a one to one relationship with the Actor it represents. The 'ActorRef' is also serializable and network-aware. This means that you can serialize it, send it over the wire and use it on a remote host and it will still be representing the same Actor on the original node, across the network.
+The call to 'actorOf' returns an instance of 'ActorRef'. This is a handle to the 'UntypedActor' instance which you can use to interact with the Actor, like send messages to it etc. more on this shortly. The 'ActorRef' is immutable and has a one to one relationship with the Actor it represents. The 'ActorRef' is also serializable and network-aware. This means that you can serialize it, send it over the wire and use it on a remote host and it will still be representing the same Actor on the original node, across the network.
 
 Creating Actors with non-default constructor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -103,7 +109,7 @@ Messages are sent to an Actor through one of the 'send' methods.
 * 'sendRequestReply' means “send-and-reply-eventually”, e.g. send a message asynchronously and wait for a reply through a Future. Here you can specify a timeout. Using timeouts is very important. If no timeout is specified then the actor’s default timeout (set by the 'getContext().setTimeout(..)' method in the 'ActorRef') is used. This method throws an 'ActorTimeoutException' if the call timed out.
 * 'sendRequestReplyFuture' sends a message asynchronously and returns a 'Future'.
 
-In all these methods you have the option of passing along your 'ActorRef' context variable. Make it a practive of doing so because it will allow the receiver actors to be able to respond to your message, since the sender reference is sent along with the message.
+In all these methods you have the option of passing along your 'ActorRef' context variable. Make it a practice of doing so because it will allow the receiver actors to be able to respond to your message, since the sender reference is sent along with the message.
 
 Fire-forget
 ^^^^^^^^^^^
@@ -138,7 +144,7 @@ Here are some examples:
 
 .. code-block:: java
 
-  UnypedActorRef actorRef = ...
+  UntypedActorRef actorRef = ...
 
   try {
     Object result = actorRef.sendRequestReply("Hello", getContext(), 1000);
@@ -256,7 +262,7 @@ The 'replyUnsafe' method throws an 'IllegalStateException' if unable to determin
 Reply using the sender reference
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the sender reference (the sender's 'ActorRef') is passed into one ofe the 'send*' methods it will be implicitly passed along together with the message and will be available in the 'Option<ActorRef> getSender()' method on the 'ActorRef. This means that you can use this field to send a message back to the sender.
+If the sender reference (the sender's 'ActorRef') is passed into one of the 'send*' methods it will be implicitly passed along together with the message and will be available in the 'Option<ActorRef> getSender()' method on the 'ActorRef. This means that you can use this field to send a message back to the sender.
 
 On this 'Option' you can invoke 'boolean isDefined()' or 'boolean isEmpty()' to check if the sender is available or not, and if it is call 'get()' to get the reference. It's important to know that 'getSender().get()' will throw an exception if there is no sender in scope. The same pattern holds for using the 'getSenderFuture()' in the section below.
 
@@ -267,7 +273,7 @@ On this 'Option' you can invoke 'boolean isDefined()' or 'boolean isEmpty()' to 
       String msg = (String)message;
       if (msg.equals("Hello")) {
         // Reply to original sender of message using the sender reference
-        // also passing along my own refererence (the context)
+        // also passing along my own reference (the context)
         if (getContext().getSender().isDefined)
           getContext().getSender().get().sendOneWay(msg + " from " + getContext().getUuid(), getContext());
       }
@@ -279,7 +285,7 @@ Reply using the sender future
 
 If a message was sent with the 'sendRequestReply' or 'sendRequestReplyFuture' methods, which both implements request-reply semantics using Future's, then you either have the option of replying using the 'reply' method as above. This method will then resolve the Future. But you can also get a reference to the Future directly and resolve it yourself or if you would like to store it away to resolve it later, or pass it on to some other Actor to resolve it.
 
-The reference to the Future resides in the 'ActorRef' instance and can be retreived using 'Option<CompletableFuture> getSenderFuture()'.
+The reference to the Future resides in the 'ActorRef' instance and can be retrieved using 'Option<CompletableFuture> getSenderFuture()'.
 
 CompletableFuture is a future with methods for 'completing the future:
 * completeWithResult(..)
@@ -337,7 +343,7 @@ Actors are started by invoking the ‘start’ method.
   ActorRef actor = actorOf(SampleUntypedActor.class);
   myActor.start();
 
-You can create and start the Actor in a oneliner like this:
+You can create and start the Actor in a one liner like this:
 
 .. code-block:: java
 
@@ -409,8 +415,9 @@ Actor life-cycle
 
 The actor has a well-defined non-circular life-cycle.
 
-`<code>`_
-NEW (newly created actor) - can't receive messages (yet)
-    => STARTED (when 'start' is invoked) - can receive messages
-        => SHUT DOWN (when 'exit' or 'stop' is invoked) - can't do anything
-`<code>`_
+::
+
+  NEW (newly created actor) - can't receive messages (yet)
+      => STARTED (when 'start' is invoked) - can receive messages
+          => SHUT DOWN (when 'exit' or 'stop' is invoked) - can't do anything
+

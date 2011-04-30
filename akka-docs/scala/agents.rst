@@ -1,6 +1,10 @@
 Agents (Scala)
 ==============
 
+.. sidebar:: Contents
+
+   .. contents:: :local:
+   
 Module stability: **SOLID**
 
 Agents in Akka were inspired by `agents in Clojure <http://clojure.org/agents>`_.
@@ -26,7 +30,7 @@ An Agent will be running until you invoke ``close`` on it. Then it will be eligi
 
 .. code-block:: scala
 
-  agent.close
+  agent.close()
 
 Updating Agents
 ---------------
@@ -88,6 +92,29 @@ Transactional Agents
 
 If an Agent is used within an enclosing transaction, then it will participate in that transaction. If you send to an Agent within a transaction then the dispatch to the Agent will be held until that transaction commits, and discarded if the transaction is aborted.
 
+.. code-block:: scala
+
+  import akka.agent.Agent
+  import akka.stm._
+
+  def transfer(from: Agent[Int], to: Agent[Int], amount: Int): Boolean = {
+    atomic {
+      if (from.get < amount) false
+      else {
+        from send (_ - amount)
+        to send (_ + amount)
+        true
+      }
+    }
+  }
+
+  val from = Agent(100)
+  val to = Agent(20)
+  val ok = transfer(from, to, 50)
+
+  from() // -> 50
+  to()   // -> 70
+
 Monadic usage
 -------------
 
@@ -101,6 +128,7 @@ Example of a monadic usage:
   val agent2 = Agent(5)
 
   // uses foreach
+  var result = 0
   for (value <- agent1) {
     result = value + 1
   }
@@ -115,7 +143,7 @@ Example of a monadic usage:
     value2 <- agent2
   } yield value1 + value2
 
-  agent1.close
-  agent2.close
-  agent3.close
-  agent4.close
+  agent1.close()
+  agent2.close()
+  agent3.close()
+  agent4.close()
