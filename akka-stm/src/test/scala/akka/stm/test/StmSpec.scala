@@ -1,7 +1,7 @@
 package akka.stm.test
 
 import akka.actor.Actor
-import Actor._
+import akka.actor.Actor._
 
 import org.multiverse.api.exceptions.ReadonlyException
 
