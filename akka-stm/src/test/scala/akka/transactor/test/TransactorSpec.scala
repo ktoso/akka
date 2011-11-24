@@ -1,14 +1,12 @@
-package akka.transactor.test
+package akka.transactor
 
 import org.scalatest.WordSpec
 import org.scalatest.matchers.MustMatchers
 
 import akka.actor.ActorSystem
-import akka.transactor.Transactor
 import akka.actor._
 import akka.stm._
 import akka.util.duration._
-import akka.transactor.CoordinatedTransactionException
 import akka.testkit._
 
 object TransactorIncrement {
@@ -84,9 +82,9 @@ class TransactorSpec extends AkkaSpec {
   val numCounters = 3
 
   def createTransactors = {
-    def createCounter(i: Int) = app.actorOf(Props(new Counter("counter" + i)))
+    def createCounter(i: Int) = system.actorOf(Props(new Counter("counter" + i)))
     val counters = (1 to numCounters) map createCounter
-    val failer = app.actorOf(Props(new Failer))
+    val failer = system.actorOf(Props(new Failer))
     (counters, failer)
   }
 
@@ -124,7 +122,7 @@ class TransactorSpec extends AkkaSpec {
 
   "Transactor" should {
     "be usable without overriding normally" in {
-      val transactor = app.actorOf(Props(new Setter))
+      val transactor = system.actorOf(Props(new Setter))
       val ref = Ref(0)
       val latch = TestLatch(1)
       transactor ! Set(ref, 5, latch)

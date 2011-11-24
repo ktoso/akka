@@ -1,13 +1,11 @@
-package akka.transactor.test
+package akka.transactor
 
 import org.scalatest.BeforeAndAfterAll
 
 import akka.actor.ActorSystem
-import akka.transactor.Coordinated
 import akka.actor._
 import akka.stm.{ Ref, TransactionFactory }
 import akka.util.duration._
-import akka.transactor.CoordinatedTransactionException
 import akka.testkit._
 
 object CoordinatedIncrement {
@@ -61,9 +59,9 @@ class CoordinatedIncrementSpec extends AkkaSpec with BeforeAndAfterAll {
   val numCounters = 4
 
   def actorOfs = {
-    def createCounter(i: Int) = app.actorOf(Props(new Counter("counter" + i)))
+    def createCounter(i: Int) = system.actorOf(Props(new Counter("counter" + i)))
     val counters = (1 to numCounters) map createCounter
-    val failer = app.actorOf(Props(new Failer))
+    val failer = system.actorOf(Props(new Failer))
     (counters, failer)
   }
 

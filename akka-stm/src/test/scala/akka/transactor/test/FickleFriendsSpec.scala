@@ -1,14 +1,12 @@
-package akka.transactor.test
+package akka.transactor
 
 import org.scalatest.WordSpec
 import org.scalatest.matchers.MustMatchers
 import org.scalatest.BeforeAndAfterAll
 import akka.actor.ActorSystem
-import akka.transactor.Coordinated
 import akka.actor._
 import akka.stm._
 import akka.util.duration._
-import akka.transactor.CoordinatedTransactionException
 import akka.testkit._
 import scala.util.Random.{ nextInt ⇒ random }
 import java.util.concurrent.CountDownLatch
@@ -104,9 +102,9 @@ class FickleFriendsSpec extends AkkaSpec with BeforeAndAfterAll {
   val numCounters = 2
 
   def actorOfs = {
-    def createCounter(i: Int) = app.actorOf(Props(new FickleCounter("counter" + i)))
+    def createCounter(i: Int) = system.actorOf(Props(new FickleCounter("counter" + i)))
     val counters = (1 to numCounters) map createCounter
-    val coordinator = app.actorOf(Props(new Coordinator("coordinator")))
+    val coordinator = system.actorOf(Props(new Coordinator("coordinator")))
     (counters, coordinator)
   }
 
@@ -116,7 +114,7 @@ class FickleFriendsSpec extends AkkaSpec with BeforeAndAfterAll {
         EventFilter[ExpectedFailureException](),
         EventFilter[CoordinatedTransactionException](),
         EventFilter[ActorTimeoutException]())
-      app.eventStream.publish(Mute(ignoreExceptions))
+      system.eventStream.publish(Mute(ignoreExceptions))
       val (counters, coordinator) = actorOfs
       val latch = new CountDownLatch(1)
       coordinator ! FriendlyIncrement(counters, latch)
