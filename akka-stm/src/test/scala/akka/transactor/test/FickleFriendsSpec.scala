@@ -1,14 +1,12 @@
-package akka.transactor.test
+package akka.transactor
 
 import org.scalatest.WordSpec
 import org.scalatest.matchers.MustMatchers
 import org.scalatest.BeforeAndAfterAll
 import akka.actor.ActorSystem
-import akka.transactor.Coordinated
 import akka.actor._
 import akka.stm._
 import akka.util.duration._
-import akka.transactor.CoordinatedTransactionException
 import akka.testkit._
 import scala.util.Random.{ nextInt ⇒ random }
 import java.util.concurrent.CountDownLatch

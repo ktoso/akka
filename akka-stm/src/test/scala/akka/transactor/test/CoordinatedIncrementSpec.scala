@@ -1,13 +1,11 @@
-package akka.transactor.test
+package akka.transactor
 
 import org.scalatest.BeforeAndAfterAll
 
 import akka.actor.ActorSystem
-import akka.transactor.Coordinated
 import akka.actor._
 import akka.stm.{ Ref, TransactionFactory }
 import akka.util.duration._
-import akka.transactor.CoordinatedTransactionException
 import akka.testkit._
 
 object CoordinatedIncrement {

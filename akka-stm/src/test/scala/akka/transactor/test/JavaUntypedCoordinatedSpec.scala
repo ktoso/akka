@@ -1,4 +1,4 @@
-package akka.transactor.test
+package akka.transactor
 
 import org.scalatest.junit.JUnitWrapperSuite
 

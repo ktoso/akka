@@ -1,14 +1,12 @@
-package akka.transactor.test
+package akka.transactor
 
 import org.scalatest.WordSpec
 import org.scalatest.matchers.MustMatchers
 
 import akka.actor.ActorSystem
-import akka.transactor.Transactor
 import akka.actor._
 import akka.stm._
 import akka.util.duration._
-import akka.transactor.CoordinatedTransactionException
 import akka.testkit._
 
 object TransactorIncrement {
