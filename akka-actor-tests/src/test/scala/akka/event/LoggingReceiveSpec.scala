@@ -159,12 +159,13 @@ class LoggingReceiveSpec extends WordSpec with BeforeAndAfterEach with BeforeAnd
           val sname = supervisor.path.toString
           val sclass = classOf[TestLogActor]
 
-          val supervisorSet = receiveWhile(messages = 2) {
-            case Logging.Debug(`lname`, _, msg: String) if msg startsWith "now supervising" ⇒ 1
-            case Logging.Debug(`sname`, `sclass`, msg: String) if msg startsWith "started"  ⇒ 2
+          val supervisorSet = receiveWhile(messages = 3) {
+            case Logging.Debug(_, _, msg: String) if msg startsWith "now watched by"        ⇒ 1
+            case Logging.Debug(`lname`, _, msg: String) if msg startsWith "now supervising" ⇒ 2
+            case Logging.Debug(`sname`, `sclass`, msg: String) if msg startsWith "started"  ⇒ 3
           }.toSet
           expectNoMsg(Duration.Zero)
-          assert(supervisorSet == Set(1, 2), supervisorSet + " was not Set(1, 2)")
+          assert(supervisorSet == Set(1, 2, 3), supervisorSet + " was not Set(1, 2, 3)")
 
           val actor = TestActorRef[TestLogActor](Props[TestLogActor], supervisor, "none")
           val aname = actor.path.toString

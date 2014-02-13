@@ -611,6 +611,7 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
     provider.init(this)
     if (settings.LogDeadLetters > 0)
       logDeadLetterListener = Some(systemActorOf(Props[DeadLetterListener], "deadLetterListener"))
+    startEventStreamTerminationWatcher(eventStream)
     registerOnTermination(stopScheduler())
     loadExtensions()
     if (LogConfigOnStart) logConfiguration()
@@ -640,6 +641,10 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
   def shutdown(): Unit = {
     if (!settings.LogDeadLettersDuringShutdown) logDeadLetterListener foreach stop
     guardian.stop()
+  }
+
+  def startEventStreamTerminationWatcher(eventStream: EventStream) {
+    systemActorOf(Props(classOf[EventStreamTerminatedUnsubscriber], eventStream, DebugEventStream), "eventStreamTerminatedUnsubscriber")
   }
 
   //#create-scheduler

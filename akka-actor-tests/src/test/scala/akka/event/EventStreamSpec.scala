@@ -6,7 +6,7 @@ package akka.event
 import language.postfixOps
 
 import scala.concurrent.duration._
-import akka.actor.{ Actor, ActorRef, ActorSystemImpl, ActorSystem, Props, UnhandledMessage }
+import akka.actor.{ Actor, ActorRef, ActorSystemImpl, ActorSystem, Props, UnhandledMessage, PoisonPill }
 import com.typesafe.config.ConfigFactory
 import scala.collection.JavaConverters._
 import akka.event.Logging.InitializeLogger
@@ -28,7 +28,7 @@ object EventStreamSpec {
       akka {
         actor.serialize-messages = off
         stdout-loglevel = WARNING
-        loglevel = DEBUG
+        loglevel = WARNING
         actor.debug.unhandled = on
       }
       """)
@@ -274,6 +274,80 @@ class EventStreamSpec extends AkkaSpec(EventStreamSpec.config) {
       es.unsubscribe(a1.ref, classOf[AT]) should be(true)
       es.unsubscribe(a2.ref, classOf[BTT]) should be(true)
     }
+
+    "unsubscribe an actor on it's termination" in {
+      val sys = ActorSystem("EventStreamSpecUnsubscribeOnTerminated",
+        ConfigFactory.parseString("akka.actor.debug.event-stream = on").withFallback(configUnhandled))
+
+      try {
+        val es = sys.eventStream
+        val a1, a2 = TestProbe()
+        val tm = new A
+
+        val target = system.actorOf(Props(new Actor {
+          def receive = { case in ⇒ a1.ref forward in }
+        }), "to-be-killed")
+
+        es.subscribe(a2.ref, classOf[Any])
+        es.subscribe(target, classOf[A]) should be(true)
+        es.subscribe(target, classOf[A]) should be(false)
+
+        target ! PoisonPill
+        fishForDebugMessage(a2, s"unsubscribing $target from all channels")
+
+        es.publish(tm)
+
+        a1.expectNoMsg(1 second)
+        a2.expectMsg(tm)
+      } finally {
+        sys.shutdown()
+      }
+    }
+
+    "unsubscribe the actor, when it subscribes already in terminated state" in {
+      val sys = ActorSystem("EventStreamSpecUnsubscribeTerminated",
+        ConfigFactory.parseString("akka.actor.debug.event-stream = on").withFallback(configUnhandled))
+
+      try {
+        val es = sys.eventStream
+        val a1, a2 = TestProbe()
+
+        val target = system.actorOf(Props(new Actor {
+          def receive = { case in ⇒ a1.ref forward in }
+        }), "to-be-killed")
+        target ! PoisonPill
+
+        es.subscribe(a2.ref, classOf[Any])
+
+        // target1 is Terminated; When subscribing, it will be unsubscribed by the Unsubscriber right away
+        es.subscribe(target, classOf[A]) should be(true)
+        es.subscribe(target, classOf[A]) should be(false)
+        fishForDebugMessage(a2, s"unsubscribing $target from all channels")
+
+        es.subscribe(target, classOf[A]) should be(true)
+        fishForDebugMessage(a2, s"unsubscribing $target from all channels")
+      } finally {
+        sys.shutdown()
+      }
+    }
+
+    "not allow initializing a TerminatedUnsubscriber twice" in {
+      val sys = ActorSystem("MustNotAllowDoubleInitOfTerminatedUnsubscriber", config)
+      // initializes an TerminatedUnsubscriber during start
+
+      try {
+        val es = sys.eventStream
+        val p = TestProbe()
+
+        val refWillBeUsedAsUnsubscriber = es.initTerminatedUnsubscriber(p.ref)
+
+        refWillBeUsedAsUnsubscriber should equal(false)
+
+      } finally {
+        sys.shutdown()
+      }
+    }
+
   }
 
   private def verifyLevel(bus: LoggingBus, level: Logging.LogLevel) {
@@ -282,6 +356,13 @@ class EventStreamSpec extends AkkaSpec(EventStreamSpec.config) {
     val msg = allmsg filter (_.level <= level)
     allmsg foreach bus.publish
     msg foreach (expectMsg(_))
+  }
+
+  private def fishForDebugMessage(a: TestProbe, messagePrefix: String) {
+    a.fishForMessage(3 seconds) {
+      case Logging.Debug(_, _, msg: String) if msg startsWith messagePrefix ⇒ true
+      case other ⇒ false
+    }
   }
 
 }
