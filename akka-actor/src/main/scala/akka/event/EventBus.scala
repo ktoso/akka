@@ -175,6 +175,12 @@ trait SubchannelClassification { this: EventBus ⇒
     recv foreach (publish(event, _))
   }
 
+  /**
+   * INTERNAL API
+   */
+  private[akka] def hasSubscriptions(subscriber: Subscriber): Boolean =
+    cache.values exists { _ contains subscriber }
+
   private def removeFromCache(changes: immutable.Seq[(Classifier, Set[Subscriber])]): Unit =
     cache = (cache /: changes) {
       case (m, (c, cs)) ⇒ m.updated(c, m.getOrElse(c, Set.empty[Subscriber]) -- cs)
@@ -184,6 +190,7 @@ trait SubchannelClassification { this: EventBus ⇒
     cache = (cache /: changes) {
       case (m, (c, cs)) ⇒ m.updated(c, m.getOrElse(c, Set.empty[Subscriber]) ++ cs)
     }
+
 }
 
 /**
