@@ -31,7 +31,7 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
   type Classifier = Class[_]
 
   /** Either the list of subscribed actors, or a ref to an [[akka.event.EventStreamUnsubscriber]] */
-  private val initiallySubscribedOrUnsubscriber = new AtomicReference[Either[Seq[ActorRef], ActorRef]](Left(Nil))
+  private val initiallySubscribedOrUnsubscriber = new AtomicReference[Either[Set[ActorRef], ActorRef]](Left(Set.empty))
 
   protected implicit val subclassification = new Subclassification[Class[_]] {
     def isEqual(x: Class[_], y: Class[_]) = x == y
@@ -53,6 +53,7 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
 
   override def unsubscribe(subscriber: ActorRef, channel: Class[_]): Boolean = {
     if (subscriber eq null) throw new IllegalArgumentException("subscriber is null")
+    unregisterFromUnsubscriber(subscriber)
     val ret = super.unsubscribe(subscriber, channel)
     if (debug) publish(Logging.Debug(simpleName(this), this.getClass, "unsubscribing " + subscriber + " from channel " + channel))
     ret
@@ -60,6 +61,7 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
 
   override def unsubscribe(subscriber: ActorRef) {
     if (subscriber eq null) throw new IllegalArgumentException("subscriber is null")
+    unregisterFromUnsubscriber(subscriber)
     super.unsubscribe(subscriber)
     if (debug) publish(Logging.Debug(simpleName(this), this.getClass, "unsubscribing " + subscriber + " from all channels"))
   }
@@ -72,7 +74,7 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
       case value @ Left(subscribers) ⇒
         if (initiallySubscribedOrUnsubscriber.compareAndSet(value, Right(unsubscriber))) {
           if (debug) publish(Logging.Debug(simpleName(this), this.getClass, "initialized unsubscriber to: " + unsubscriber + ", registering " + subscribers.size + " initial subscribers with it"))
-          subscribers foreach { unsubscriber ! _ }
+          subscribers foreach registerWithUnsubscriber
           true
         } else {
           // recurse, because either new subscribers have been registered since `get` (retry Left case),
@@ -92,11 +94,25 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
   private[akka] def registerWithUnsubscriber(subscriber: ActorRef): Unit = {
     initiallySubscribedOrUnsubscriber.get match {
       case value @ Left(subscribers) ⇒
-        if (!initiallySubscribedOrUnsubscriber.compareAndSet(value, Left(subscriber +: subscribers)))
+        if (!initiallySubscribedOrUnsubscriber.compareAndSet(value, Left(subscribers + subscriber)))
           registerWithUnsubscriber(subscriber)
 
       case Right(unsubscriber) ⇒
-        unsubscriber ! subscriber
+        unsubscriber ! EventStreamUnsubscriber.Register(subscriber)
+    }
+  }
+
+  /**
+   * INTERNAL API
+   */
+  private[akka] def unregisterFromUnsubscriber(subscriber: ActorRef): Unit = {
+    initiallySubscribedOrUnsubscriber.get match {
+      case value @ Left(subscribers) ⇒
+        if (!initiallySubscribedOrUnsubscriber.compareAndSet(value, Left(subscribers - subscriber)))
+          unregisterFromUnsubscriber(subscriber)
+
+      case Right(unsubscriber) ⇒
+        unsubscriber ! EventStreamUnsubscriber.Unregister(subscriber)
     }
   }
 
