@@ -64,7 +64,10 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
     if (debug) publish(Logging.Debug(simpleName(this), this.getClass, "unsubscribing " + subscriber + " from all channels"))
   }
 
-  private[akka] def initTerminatedUnsubscriber(unsubscriber: ActorRef): Boolean = {
+  /**
+   * INTERNAL API
+   */
+  private[akka] def initUnsubscriber(unsubscriber: ActorRef): Boolean = {
     initiallySubscribedOrUnsubscriber.get match {
       case value @ Left(subscribers) ⇒
         if (initiallySubscribedOrUnsubscriber.compareAndSet(value, Right(unsubscriber))) {
@@ -74,7 +77,7 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
         } else {
           // recurse, because either new subscribers have been registered since `get` (retry Left case),
           // or another thread has succeeded in setting it's unsubscriber (end on Right case)
-          initTerminatedUnsubscriber(unsubscriber)
+          initUnsubscriber(unsubscriber)
         }
 
       case Right(presentUnsubscriber) ⇒
@@ -83,6 +86,9 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
     }
   }
 
+  /**
+   * INTERNAL API
+   */
   private[akka] def registerWithUnsubscriber(subscriber: ActorRef): Unit = {
     initiallySubscribedOrUnsubscriber.get match {
       case value @ Left(subscribers) ⇒

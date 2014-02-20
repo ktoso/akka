@@ -13,7 +13,7 @@ class EventStreamUnsubscriber(eventStream: EventStream, debug: Boolean = false) 
 
   override def preStart() {
     if (debug) eventStream.publish(Logging.Debug(simpleName(getClass), getClass, s"registering unsubscriber with $eventStream"))
-    eventStream initTerminatedUnsubscriber self
+    eventStream initUnsubscriber self
   }
 
   def receive = {

@@ -318,7 +318,7 @@ class EventStreamSpec extends AkkaSpec(EventStreamSpec.config) {
 
         a1.watch(target)
         target ! PoisonPill
-        a1.expectMsg(Terminated(target)(true, false))
+        a1.expectTerminated(target)
 
         es.subscribe(a2.ref, classOf[Any])
 
@@ -342,7 +342,7 @@ class EventStreamSpec extends AkkaSpec(EventStreamSpec.config) {
         val es = sys.eventStream
         val p = TestProbe()
 
-        val refWillBeUsedAsUnsubscriber = es.initTerminatedUnsubscriber(p.ref)
+        val refWillBeUsedAsUnsubscriber = es.initUnsubscriber(p.ref)
 
         refWillBeUsedAsUnsubscriber should equal(false)
 
