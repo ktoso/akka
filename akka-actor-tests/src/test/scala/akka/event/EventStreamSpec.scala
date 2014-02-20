@@ -6,7 +6,7 @@ package akka.event
 import language.postfixOps
 
 import scala.concurrent.duration._
-import akka.actor.{ Actor, ActorRef, ActorSystemImpl, ActorSystem, Props, UnhandledMessage, PoisonPill }
+import akka.actor._
 import com.typesafe.config.ConfigFactory
 import scala.collection.JavaConverters._
 import akka.event.Logging.InitializeLogger
@@ -275,7 +275,7 @@ class EventStreamSpec extends AkkaSpec(EventStreamSpec.config) {
       es.unsubscribe(a2.ref, classOf[BTT]) should be(true)
     }
 
-    "unsubscribe an actor on it's termination" in {
+    "unsubscribe an actor on its termination" in {
       val sys = ActorSystem("EventStreamSpecUnsubscribeOnTerminated",
         ConfigFactory.parseString("akka.actor.debug.event-stream = on").withFallback(configUnhandled))
 
@@ -284,7 +284,7 @@ class EventStreamSpec extends AkkaSpec(EventStreamSpec.config) {
         val a1, a2 = TestProbe()
         val tm = new A
 
-        val target = system.actorOf(Props(new Actor {
+        val target = sys.actorOf(Props(new Actor {
           def receive = { case in ⇒ a1.ref forward in }
         }), "to-be-killed")
 
@@ -315,7 +315,10 @@ class EventStreamSpec extends AkkaSpec(EventStreamSpec.config) {
         val target = system.actorOf(Props(new Actor {
           def receive = { case in ⇒ a1.ref forward in }
         }), "to-be-killed")
+
+        a1.watch(target)
         target ! PoisonPill
+        a1.expectMsg(Terminated(target)(true, false))
 
         es.subscribe(a2.ref, classOf[Any])
 

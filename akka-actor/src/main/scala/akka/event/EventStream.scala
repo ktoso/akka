@@ -30,7 +30,7 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
   type Event = AnyRef
   type Classifier = Class[_]
 
-  /** Either the list of subscribed actors, or a ref to an [[akka.event.EventStreamTerminatedUnsubscriber]] */
+  /** Either the list of subscribed actors, or a ref to an [[akka.event.EventStreamUnsubscriber]] */
   private val initiallySubscribedOrUnsubscriber = new AtomicReference[Either[Seq[ActorRef], ActorRef]](Left(Nil))
 
   protected implicit val subclassification = new Subclassification[Class[_]] {
@@ -64,7 +64,7 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
     if (debug) publish(Logging.Debug(simpleName(this), this.getClass, "unsubscribing " + subscriber + " from all channels"))
   }
 
-  @tailrec final def initTerminatedUnsubscriber(unsubscriber: ActorRef): Boolean = {
+  private[akka] def initTerminatedUnsubscriber(unsubscriber: ActorRef): Boolean = {
     initiallySubscribedOrUnsubscriber.get match {
       case value @ Left(subscribers) ⇒
         if (initiallySubscribedOrUnsubscriber.compareAndSet(value, Right(unsubscriber))) {
@@ -83,7 +83,7 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
     }
   }
 
-  @tailrec final def registerWithUnsubscriber(subscriber: ActorRef): Unit = {
+  private[akka] def registerWithUnsubscriber(subscriber: ActorRef): Unit = {
     initiallySubscribedOrUnsubscriber.get match {
       case value @ Left(subscribers) ⇒
         if (!initiallySubscribedOrUnsubscriber.compareAndSet(value, Left(subscriber +: subscribers)))

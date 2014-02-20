@@ -9,7 +9,7 @@ import akka.event.Logging.simpleName
 /**
  * Watches all actors which subscribe on the given event stream, and unsubscribes them from it when they are Terminated.
  */
-class EventStreamTerminatedUnsubscriber(eventStream: EventStream, debug: Boolean = false) extends Actor with ActorLogging {
+class EventStreamUnsubscriber(eventStream: EventStream, debug: Boolean = false) extends Actor with ActorLogging {
 
   override def preStart() {
     if (debug) eventStream.publish(Logging.Debug(simpleName(getClass), getClass, s"registering unsubscriber with $eventStream"))
