@@ -49,10 +49,6 @@ class ActorClassificationUnsubscriber(classification: ActorClassification) exten
 
   import EventStreamUnsubscriber._
 
-  override def preStart() {
-    classification initUnsubscriber self
-  }
-
   def receive = {
     case Register(actor)   ⇒ context watch actor
     case Unregister(actor) ⇒ context unwatch actor

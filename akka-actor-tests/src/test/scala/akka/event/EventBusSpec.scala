@@ -180,6 +180,7 @@ class ActorEventBusSpec extends EventBusSpec("ActorEventBus") {
       val event = events.head
 
       bus.subscribe(subs, classifierFor(event))
+      ??? // todo test is in progress
     }
   }
 }
