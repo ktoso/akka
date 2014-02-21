@@ -9,7 +9,7 @@ import akka.event.Logging.simpleName
 /**
  * Watches all actors which subscribe on the given event stream, and unsubscribes them from it when they are Terminated.
  */
-class EventStreamUnsubscriber(eventStream: EventStream, debug: Boolean = false) extends Actor with ActorLogging {
+class EventStreamUnsubscriber(eventStream: EventStream, debug: Boolean) extends Actor {
 
   import EventStreamUnsubscriber._
 
@@ -34,6 +34,38 @@ class EventStreamUnsubscriber(eventStream: EventStream, debug: Boolean = false) 
 }
 
 object EventStreamUnsubscriber {
+
+  def props(eventStream: EventStream, debug: Boolean = false) =
+    Props(classOf[EventStreamUnsubscriber], eventStream, debug)
+
+  final case class Register(actor: ActorRef)
+  final case class Unregister(actor: ActorRef)
+}
+
+/**
+ * Watches all actors which subscribe on the given event stream, and unsubscribes them from it when they are Terminated.
+ */
+class ActorClassificationUnsubscriber(classification: ActorClassification) extends Actor {
+
+  import EventStreamUnsubscriber._
+
+  override def preStart() {
+    classification initUnsubscriber self
+  }
+
+  def receive = {
+    case Register(actor)   ⇒ context watch actor
+    case Unregister(actor) ⇒ context unwatch actor
+    case Terminated(actor) ⇒ classification unsubscribe actor
+  }
+}
+
+object ActorClassificationUnsubscriber {
+
+  def props(eventBus: EventBus) = Props(classOf[ActorClassificationUnsubscriber], eventBus)
+}
+
+object Unsubscriber {
   final case class Register(actor: ActorRef)
   final case class Unregister(actor: ActorRef)
 }

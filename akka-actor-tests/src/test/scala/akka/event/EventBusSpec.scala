@@ -23,7 +23,7 @@ object EventBusSpec {
 }
 
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])
-abstract class EventBusSpec(busName: String) extends AkkaSpec with BeforeAndAfterEach {
+abstract class EventBusSpec(val busName: String) extends AkkaSpec with BeforeAndAfterEach {
   import EventBusSpec._
   type BusType <: EventBus
 
@@ -168,6 +168,20 @@ class ActorEventBusSpec extends EventBusSpec("ActorEventBus") {
   def classifierFor(event: BusType#Event) = event.toString
 
   def disposeSubscriber(system: ActorSystem, subscriber: BusType#Subscriber): Unit = system.stop(subscriber)
+
+  busName must {
+
+    val bus = createNewEventBus()
+
+    "use unsubscriber, to unsubscribe terminated actors, when they terminate" in {
+      val p, observer = TestProbe()
+      val subs = createSubscriber(p.ref)
+      val events = createEvents(20)
+      val event = events.head
+
+      bus.subscribe(subs, classifierFor(event))
+    }
+  }
 }
 
 object ScanningEventBusSpec {

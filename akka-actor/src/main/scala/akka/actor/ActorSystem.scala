@@ -644,7 +644,7 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
   }
 
   def startEventStreamUnsubscriber(eventStream: EventStream) {
-    systemActorOf(Props(classOf[EventStreamUnsubscriber], eventStream, DebugEventStream), "eventStreamUnsubscriber")
+    systemActorOf(EventStreamUnsubscriber.props(eventStream, DebugEventStream), "eventStreamUnsubscriber")
   }
 
   //#create-scheduler

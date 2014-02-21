@@ -4,13 +4,16 @@
 
 package akka.event
 
-import akka.actor.ActorRef
+import akka.actor.{ ActorSystem, ActorRef }
 import akka.util.Index
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.Comparator
 import akka.util.{ Subclassification, SubclassifiedIndex }
 import scala.collection.immutable.TreeSet
 import scala.collection.immutable
+import scala.collection.mutable
+import scala.collection._
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Represents the base type for EventBuses
@@ -55,6 +58,8 @@ trait EventBus {
  */
 trait ActorEventBus extends EventBus {
   type Subscriber = ActorRef
+  //  // the actor system will be used to spin up an actor that will watch refs in this event bus for termination
+  //  def system: ActorSystem // todo not sure if require system or better something else... method to create the actor? not really; hm...
   protected def compareSubscribers(a: ActorRef, b: ActorRef) = a compareTo b
 }
 
@@ -248,27 +253,30 @@ trait ScanningClassification { self: EventBus ⇒
 trait ActorClassification { this: ActorEventBus with ActorClassifier ⇒
   import java.util.concurrent.ConcurrentHashMap
   import scala.annotation.tailrec
+
+  def system: ActorSystem
   private val empty = TreeSet.empty[ActorRef]
   private val mappings = new ConcurrentHashMap[ActorRef, TreeSet[ActorRef]](mapSize)
+
+  /** Ref to [[akka.event.ActorClassificationUnsubscriber]], which unsubscribes terminated actors. */
+  private val unsubscriber = new AtomicReference[ActorRef](null)
 
   @tailrec
   protected final def associate(monitored: ActorRef, monitor: ActorRef): Boolean = {
     val current = mappings get monitored
+
     current match {
       case null ⇒
-        if (monitored.isTerminated) false
-        else {
-          if (mappings.putIfAbsent(monitored, empty + monitor) ne null) associate(monitored, monitor)
-          else if (monitored.isTerminated) !dissociate(monitored, monitor) else true
-        }
+        if (mappings.putIfAbsent(monitored, empty + monitor) ne null) associate(monitored, monitor)
+        else true
+
       case raw: TreeSet[_] ⇒
         val v = raw.asInstanceOf[TreeSet[ActorRef]]
-        if (monitored.isTerminated) false
         if (v.contains(monitor)) true
         else {
           val added = v + monitor
           if (!mappings.replace(monitored, v, added)) associate(monitored, monitor)
-          else if (monitored.isTerminated) !dissociate(monitored, monitor) else true
+          else true
         }
     }
   }
@@ -314,8 +322,10 @@ trait ActorClassification { this: ActorEventBus with ActorClassifier ⇒
         val removed = v - monitor
         if (removed eq raw) false
         else if (removed.isEmpty) {
+          unregisterFromUnsubscriber(monitor)
           if (!mappings.remove(monitored, v)) dissociate(monitored, monitor) else true
         } else {
+          unregisterFromUnsubscriber(monitor)
           if (!mappings.replace(monitored, v, removed)) dissociate(monitored, monitor) else true
         }
     }
@@ -349,4 +359,49 @@ trait ActorClassification { this: ActorEventBus with ActorClassifier ⇒
   def unsubscribe(subscriber: Subscriber): Unit =
     if (subscriber eq null) throw new IllegalArgumentException("Subscriber is null")
     else dissociate(subscriber)
+
+  /**
+   * INTERNAL API
+   *
+   * Initialize with [[akka.event.ActorClassificationUnsubscriber]] ref, in order to unsubscribe actors when they terminate.
+   * Can only be called once.
+   */
+  private[akka] def initUnsubscriber(unsubscriberActor: ActorRef): Boolean =
+    if (unsubscriber.compareAndSet(null, unsubscriberActor)) {
+      @tailrec def registerAllMonitored(alreadyRegistered: mutable.Set[ActorRef]): Boolean = {
+        // mutable.Set used only to avoid too many conversions
+        import collection.JavaConverters._
+
+        val ks = mappings.keySet.asScala
+        ks foreach { unsubscriberActor ! Unsubscriber.Register(_) }
+
+        val diff = mappings.keySet.asScala diff ks
+        if (diff.isEmpty) true
+        else registerAllMonitored(ks)
+      }
+
+      registerAllMonitored(mutable.Set.empty)
+    } else false
+
+  /**
+   * INTERNAL API
+   */
+  private[akka] def registerWithUnsubscriber(subscriber: ActorRef): Boolean = {
+    val unsubscriberActor = unsubscriber.get
+    if (unsubscriberActor ne null) {
+      unsubscriberActor ! Unsubscriber.Register(subscriber)
+      true
+    } else false
+  }
+
+  /**
+   * INTERNAL API
+   */
+  private[akka] def unregisterFromUnsubscriber(subscriber: ActorRef): Boolean = {
+    val unsubscriberActor = unsubscriber.get
+    if (unsubscriberActor ne null) {
+      unsubscriberActor ! Unsubscriber.Unregister(subscriber)
+      true
+    } else false
+  }
 }
