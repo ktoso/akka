@@ -327,7 +327,6 @@ class EventStreamSpec extends AkkaSpec(EventStreamSpec.config) {
 
         // target1 is Terminated; When subscribing, it will be unsubscribed by the Unsubscriber right away
         es.subscribe(target, classOf[A]) should be(true)
-        es.subscribe(target, classOf[A]) should be(false)
         fishForDebugMessage(a2, s"unsubscribing $target from all channels")
 
         es.subscribe(target, classOf[A]) should be(true)
