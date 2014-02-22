@@ -373,6 +373,36 @@ class EventStreamSpec extends AkkaSpec(EventStreamSpec.config) {
       }
     }
 
+    "unwatch an actor from unsubscriber when that actor unsubscribes from channels it subscribed" in {
+      val sys = ActorSystem("MustUnregisterWhenNoMoreChannelSubscriptions", configUnhandledWithDebug)
+
+      try {
+        val es = sys.eventStream
+        val a1, a2 = TestProbe()
+
+        es.subscribe(a1.ref, classOf[Logging.Debug])
+
+        es.subscribe(a2.ref, classOf[A])
+        es.subscribe(a2.ref, classOf[T])
+        fishForDebugMessage(a1, s"watching ${a2.ref}")
+
+        es.unsubscribe(a2.ref, classOf[A]) should equal(true)
+        fishForDebugMessage(a1, s"unsubscribing ${a2.ref} from channel class akka.event.EventStreamSpec$$A")
+        a1.expectNoMsg(1 second)
+
+        es.unsubscribe(a2.ref, classOf[T]) should equal(true)
+        fishForDebugMessage(a1, s"subscriber ${a2.ref} has now 0 channel subscriptions")
+        fishForDebugMessage(a1, s"unsubscribing ${a2.ref} from channel interface akka.event.EventStreamSpec$$T")
+        fishForDebugMessage(a1, s"unwatching ${a2.ref}")
+        a1.expectNoMsg(1 second)
+
+        es.unsubscribe(a2.ref, classOf[T]) should equal(false)
+
+      } finally {
+        sys.shutdown()
+      }
+    }
+
   }
 
   private def verifyLevel(bus: LoggingBus, level: Logging.LogLevel) {

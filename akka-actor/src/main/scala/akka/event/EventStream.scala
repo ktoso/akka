@@ -53,16 +53,16 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
 
   override def unsubscribe(subscriber: ActorRef, channel: Class[_]): Boolean = {
     if (subscriber eq null) throw new IllegalArgumentException("subscriber is null")
-    unregisterFromUnsubscriber(subscriber)
     val ret = super.unsubscribe(subscriber, channel)
+    unregisterIfNoMoreSubscribedChannels(ret, subscriber, channel)
     if (debug) publish(Logging.Debug(simpleName(this), this.getClass, "unsubscribing " + subscriber + " from channel " + channel))
     ret
   }
 
   override def unsubscribe(subscriber: ActorRef) {
     if (subscriber eq null) throw new IllegalArgumentException("subscriber is null")
-    unregisterFromUnsubscriber(subscriber)
     super.unsubscribe(subscriber)
+    unregisterFromUnsubscriber(subscriber)
     if (debug) publish(Logging.Debug(simpleName(this), this.getClass, "unsubscribing " + subscriber + " from all channels"))
   }
 
@@ -113,6 +113,16 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
 
       case Right(unsubscriber) ⇒
         unsubscriber ! EventStreamUnsubscriber.Unregister(subscriber)
+    }
+  }
+
+  /**
+   * INTERNAL API
+   */
+  private[akka] def unregisterIfNoMoreSubscribedChannels(unsubscribeHadDiff: Boolean, subscriber: ActorRef, channel: Class[_]) {
+    if (!unsubscribeHadDiff || !hasSubscriptions(subscriber)) {
+      if (debug) publish(Logging.Debug(simpleName(this), this.getClass, "subscriber " + subscriber + " has now 0 channel subscriptions, after unsubscribing from channel" + channel))
+      unregisterFromUnsubscriber(subscriber)
     }
   }
 
