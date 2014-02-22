@@ -4,7 +4,7 @@
 
 package akka.event
 
-import akka.actor.{ ActorSystem, ActorRef }
+import akka.actor.{ PoisonPill, ActorSystemImpl, ActorSystem, ActorRef }
 import akka.util.Index
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.Comparator
@@ -58,8 +58,6 @@ trait EventBus {
  */
 trait ActorEventBus extends EventBus {
   type Subscriber = ActorRef
-  //  // the actor system will be used to spin up an actor that will watch refs in this event bus for termination
-  //  def system: ActorSystem // todo not sure if require system or better something else... method to create the actor? not really; hm...
   protected def compareSubscribers(a: ActorRef, b: ActorRef) = a compareTo b
 }
 
@@ -255,22 +253,21 @@ trait ScanningClassification { self: EventBus ⇒
 }
 
 /**
- * Maps ActorRefs to ActorRefs to form an EventBus where ActorRefs can listen to other ActorRefs
+ * Maps ActorRefs to ActorRefs to form an EventBus where ActorRefs can listen to other ActorRefs.
+ *
+ * All subscribers will be watched by an [[akka.event.ActorClassificationUnsubscriber]] and unsubscribed when they terminate.
+ * When finished using this EventBus, you must call [[shutdown]] to stop the underlying unsubsriber.
  */
 trait ActorClassification { this: ActorEventBus with ActorClassifier ⇒
   import java.util.concurrent.ConcurrentHashMap
   import scala.annotation.tailrec
 
-  def system: ActorSystem
+  protected val system: ActorSystem
 
   private val empty = TreeSet.empty[ActorRef]
   private val mappings = new ConcurrentHashMap[ActorRef, TreeSet[ActorRef]](mapSize)
 
-  // todo should be system actor?
-  val unsubscriber = system.actorOf(ActorClassificationUnsubscriber.props(this), "actorClassificationUnsubscriber")
-
-  //  /** Ref to [[akka.event.ActorClassificationUnsubscriber]], which unsubscribes terminated actors. */
-  //  private val unsubscriber = new AtomicReference[ActorRef](null)
+  private[akka] lazy val unsubscriber = ActorClassificationUnsubscriber(system).newUnsubscriber(this)
 
   @tailrec
   protected final def associate(monitored: ActorRef, monitor: ActorRef): Boolean = {
@@ -280,20 +277,18 @@ trait ActorClassification { this: ActorEventBus with ActorClassifier ⇒
       case null ⇒
         if (mappings.putIfAbsent(monitored, empty + monitor) ne null) associate(monitored, monitor)
         else {
-          registerWithUnsubscriber(monitor) // todo which one actually? rethink
+          registerWithUnsubscriber(monitor)
           true
         }
 
       case raw: TreeSet[_] ⇒
         val v = raw.asInstanceOf[TreeSet[ActorRef]]
-        if (v.contains(monitor)) {
-          registerWithUnsubscriber(monitor) // todo which one actually? rethink
-          true
-        } else {
+        if (v.contains(monitor)) false
+        else {
           val added = v + monitor
           if (!mappings.replace(monitored, v, added)) associate(monitored, monitor)
           else {
-            registerWithUnsubscriber(monitor) // todo which one actually? rethink
+            registerWithUnsubscriber(monitor)
             true
           }
         }
@@ -321,8 +316,7 @@ trait ActorClassification { this: ActorEventBus with ActorClassifier ⇒
         v match {
           case raw: TreeSet[_] ⇒
             val monitors = raw.asInstanceOf[TreeSet[ActorRef]]
-            if (monitors.contains(monitor))
-              dissociate(entry.getKey, monitor)
+            if (monitors.contains(monitor)) dissociate(entry.getKey, monitor)
           case _ ⇒ //Dun care
         }
       }
@@ -342,10 +336,9 @@ trait ActorClassification { this: ActorEventBus with ActorClassifier ⇒
         if (removed eq raw) false
         else if (removed.isEmpty) {
           unregisterFromUnsubscriber(monitor)
-          if (!mappings.remove(monitored, v)) dissociate(monitored, monitor) else true
+          mappings.remove(monitored, v) || dissociate(monitored, monitor)
         } else {
-          unregisterFromUnsubscriber(monitor)
-          if (!mappings.replace(monitored, v, removed)) dissociate(monitored, monitor) else true
+          mappings.replace(monitored, v, removed) || dissociate(monitored, monitor)
         }
     }
   }
@@ -380,16 +373,25 @@ trait ActorClassification { this: ActorEventBus with ActorClassifier ⇒
     else dissociate(subscriber)
 
   /**
-   * INTERNAL API
+   * Stops the underlying unsubscriber actor
    */
-  private[akka] def registerWithUnsubscriber(subscriber: ActorRef) {
-    unsubscriber ! Unsubscriber.Register(subscriber)
+  def shutdown() {
+    // todo should we mark this bus at stopped and throw when someone tries to use it?
+    system stop unsubscriber
   }
 
   /**
    * INTERNAL API
    */
-  private[akka] def unregisterFromUnsubscriber(subscriber: ActorRef) {
-    unsubscriber ! Unsubscriber.Unregister(subscriber)
+  private[akka] def registerWithUnsubscriber(subscriber: ActorRef) {
+    unsubscriber ! EventBusUnsubscriber.Register(subscriber)
+  }
+
+  /**
+   * INTERNAL API
+   */
+  private[akka] def unregisterFromUnsubscriber(subscriber: ActorRef): Boolean = {
+    unsubscriber ! EventBusUnsubscriber.Unregister(subscriber)
+    true
   }
 }

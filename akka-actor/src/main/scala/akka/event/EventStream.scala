@@ -98,7 +98,7 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
           registerWithUnsubscriber(subscriber)
 
       case Right(unsubscriber) ⇒
-        unsubscriber ! EventStreamUnsubscriber.Register(subscriber)
+        unsubscriber ! EventBusUnsubscriber.Register(subscriber)
     }
   }
 
@@ -112,7 +112,7 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
           unregisterFromUnsubscriber(subscriber)
 
       case Right(unsubscriber) ⇒
-        unsubscriber ! EventStreamUnsubscriber.Unregister(subscriber)
+        unsubscriber ! EventBusUnsubscriber.Unregister(subscriber)
     }
   }
 
