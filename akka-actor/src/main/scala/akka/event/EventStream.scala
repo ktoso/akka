@@ -120,10 +120,8 @@ class EventStream(private val debug: Boolean = false) extends LoggingBus with Su
    * INTERNAL API
    */
   private[akka] def unregisterIfNoMoreSubscribedChannels(unsubscribeHadDiff: Boolean, subscriber: ActorRef, channel: Class[_]) {
-    if (!unsubscribeHadDiff || !hasSubscriptions(subscriber)) {
-      if (debug) publish(Logging.Debug(simpleName(this), this.getClass, "subscriber " + subscriber + " has now 0 channel subscriptions, after unsubscribing from channel" + channel))
-      unregisterFromUnsubscriber(subscriber)
-    }
+    if (debug) publish(Logging.Debug(simpleName(this), this.getClass, "subscriber " + subscriber + " has now 0 channel subscriptions, after unsubscribing from channel" + channel))
+    unregisterFromUnsubscriber(subscriber)
   }
 
 }

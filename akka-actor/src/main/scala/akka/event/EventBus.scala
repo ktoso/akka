@@ -177,6 +177,7 @@ trait SubchannelClassification { this: EventBus ⇒
 
   /**
    * INTERNAL API
+   * Expensive call! Avoid calling directly from event bus subscribe / unsubscribe.
    */
   private[akka] def hasSubscriptions(subscriber: Subscriber): Boolean =
     cache.values exists { _ contains subscriber }

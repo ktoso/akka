@@ -390,6 +390,8 @@ class EventStreamSpec extends AkkaSpec(EventStreamSpec.config) {
         fishForDebugMessage(a1, s"unsubscribing ${a2.ref} from channel class akka.event.EventStreamSpec$$A")
         a1.expectNoMsg(1 second)
 
+        a1.expectNoMsg(1 second)
+
         es.unsubscribe(a2.ref, classOf[T]) should equal(true)
         fishForDebugMessage(a1, s"subscriber ${a2.ref} has now 0 channel subscriptions")
         fishForDebugMessage(a1, s"unsubscribing ${a2.ref} from channel interface akka.event.EventStreamSpec$$T")

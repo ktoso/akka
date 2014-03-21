@@ -23,8 +23,12 @@ class EventStreamUnsubscriber(eventStream: EventStream, debug: Boolean = false) 
       if (debug) eventStream.publish(Logging.Debug(simpleName(getClass), getClass, s"watching $actor in order to unsubscribe from EventStream when it terminates"))
       context watch actor
 
+    case Unregister(actor) if eventStream.hasSubscriptions(actor) ⇒
+    // keep watching, it still has subsciptions
+      // todo rethink if we need to guarantee ordering on receiving end here, just like in actor classification
+
     case Unregister(actor) ⇒
-      if (debug) eventStream.publish(Logging.Debug(simpleName(getClass), getClass, s"unwatching $actor"))
+      if (debug) eventStream.publish(Logging.Debug(simpleName(getClass), getClass, s"unwatching $actor, since has no subscriptions"))
       context unwatch actor
 
     case Terminated(actor) ⇒
