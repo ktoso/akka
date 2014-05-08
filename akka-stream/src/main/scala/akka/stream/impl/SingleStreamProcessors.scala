@@ -10,6 +10,7 @@ import akka.stream.MaterializerSettings
 import akka.stream.scaladsl.RecoveryTransformer
 import akka.stream.scaladsl.Transformer
 import scala.util.control.NonFatal
+import org.reactivestreams.api.Consumer
 
 /**
  * INTERNAL API
@@ -123,6 +124,22 @@ private[akka] class IdentityProcessorImpl(_settings: MaterializerSettings) exten
   override protected def transfer(): TransferState = {
     primaryOutputs.enqueueOutputElement(primaryInputs.dequeueInputElement())
     needsPrimaryInputAndDemand
+  }
+
+}
+
+/**
+ * INTERNAL API
+ */
+private[akka] class WireTapImpl(_settings: MaterializerSettings, callback: Any ⇒ Unit) extends ActorProcessorImpl(_settings) {
+
+  override def initialTransferState = primaryInputs.NeedsInputOrComplete
+  override protected def transfer(): TransferState = {
+    val element = primaryInputs.dequeueInputElement()
+    callback(element)
+    primaryOutputs.enqueueOutputElement(element)
+
+    primaryInputs.NeedsInputOrComplete
   }
 
 }

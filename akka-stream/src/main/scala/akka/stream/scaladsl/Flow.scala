@@ -213,6 +213,8 @@ trait Flow[+T] {
    */
   def concat[U >: T](next: Producer[U]): Flow[U]
 
+  def wireTap(callback: T ⇒ Unit): Flow[T]
+
   /**
    * Returns a [[scala.concurrent.Future]] that will be fulfilled with the first
    * thing that is signaled to this stream, which can be either an element (after

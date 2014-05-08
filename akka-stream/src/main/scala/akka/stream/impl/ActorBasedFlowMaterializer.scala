@@ -26,6 +26,7 @@ private[akka] object Ast {
   case class Merge(other: Producer[Any]) extends AstNode
   case class Zip(other: Producer[Any]) extends AstNode
   case class Concat(next: Producer[Any]) extends AstNode
+  case class WireTap(callback: Any ⇒ Unit) extends AstNode
 
   trait ProducerNode[I] {
     def createProducer(settings: MaterializerSettings, context: ActorRefFactory): Producer[I]
@@ -116,6 +117,7 @@ private[akka] class ActorBasedFlowMaterializer(settings: MaterializerSettings, _
     producerNode.createProducer(settings, context).produceTo(consumer.asInstanceOf[Consumer[I]])
   }
 
-  def processorForNode(op: AstNode): Processor[Any, Any] = new ActorProcessor(context.actorOf(ActorProcessor.props(settings, op)))
+  def processorForNode(op: AstNode): Processor[Any, Any] =
+    new ActorProcessor(context.actorOf(ActorProcessor.props(settings, op)))
 
 }

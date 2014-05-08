@@ -15,6 +15,7 @@ import scala.util.Success
 import scala.util.Failure
 import akka.stream.scaladsl.Transformer
 import akka.stream.scaladsl.RecoveryTransformer
+import org.reactivestreams.spi.Subscriber
 
 /**
  * INTERNAL API
@@ -60,6 +61,10 @@ private[akka] case class FlowImpl[I, O](producerNode: Ast.ProducerNode[I], ops: 
 
   override def fold[U](zero: U)(f: (U, O) ⇒ U): Flow[U] =
     transform(new FoldTransformer[U](zero, f))
+
+  def wireTap(callback: O ⇒ Unit): Flow[O] = {
+    andThen(WireTap(callback.asInstanceOf[Any ⇒ Unit]))
+  }
 
   // Without this class compiler complains about 
   // "Parameter type in structural refinement may not refer to an abstract type defined outside that refinement"
