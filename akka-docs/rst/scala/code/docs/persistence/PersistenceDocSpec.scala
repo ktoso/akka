@@ -7,7 +7,7 @@ package docs.persistence
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-import akka.actor.{ Actor, ActorSystem }
+import akka.actor.{Props, Actor, ActorSystem}
 import akka.persistence._
 
 trait PersistenceDocSpec {
@@ -336,6 +336,43 @@ trait PersistenceDocSpec {
       }
     }
     //#reliable-event-delivery
+  }
+
+  new AnyRef {
+    import akka.actor.ActorRef
+
+    val processor = system.actorOf(Props[MyEventsourcedProcessor]())
+
+    //#persist-async
+    class MyEventsourcedProcessor extends EventsourcedProcessor {
+      val channel = context.actorOf(Channel.props("channel"))
+
+      def receiveRecover: Receive = {
+        case _ => // handle events here
+      }
+
+      def receiveCommand: Receive = {
+        case c: String => {
+          sender() ! c
+          persistAsync(s"evt-$c-1") { e => sender() ! e }
+          persistAsync(s"evt-$c-2") { e => sender() ! e }
+        }
+      }
+    }
+
+    // usage
+    processor ! "a"
+    processor ! "b"
+
+    // possible order of received messages:
+    // a
+    // b
+    // evt-a-1
+    // evt-a-2
+    // evt-b-1
+    // evt-b-2
+
+    //#persist-async
   }
   new AnyRef {
     import akka.actor.Props
