@@ -1,6 +1,6 @@
 package sample.persistence
 
-//#eventsourced-example
+//#persistent-actor-example
 import akka.actor._
 import akka.persistence._
 
@@ -13,7 +13,7 @@ case class ExampleState(events: List[String] = Nil) {
   override def toString: String = events.reverse.toString
 }
 
-class ExampleProcessor extends EventsourcedProcessor {
+class ExampleProcessor extends PersistentActor {
   var state = ExampleState()
 
   def updateState(event: Evt): Unit =
@@ -39,7 +39,7 @@ class ExampleProcessor extends EventsourcedProcessor {
   }
 
 }
-//#eventsourced-example
+//#persistent-actor-example
 
 object EventsourcedExample extends App {
 

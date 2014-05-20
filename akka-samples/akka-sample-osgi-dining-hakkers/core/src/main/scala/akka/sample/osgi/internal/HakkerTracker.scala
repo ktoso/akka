@@ -1,7 +1,6 @@
 package akka.sample.osgi.internal
 
-import akka.persistence.EventsourcedProcessor
-import akka.actor.ActorRef
+import akka.persistence.PersistentActor
 import akka.sample.osgi.api.HakkerStateChange
 import akka.sample.osgi.api.SubscribeToHakkerStateChanges
 import akka.sample.osgi.api.EatingCount
@@ -27,7 +26,7 @@ object HakkerTracker {
   }
 }
 
-class HakkerTracker extends EventsourcedProcessor {
+class HakkerTracker extends PersistentActor {
   import HakkerTracker._
 
   var state = State.empty

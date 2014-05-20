@@ -4,13 +4,13 @@
 
 package sample.persistence;
 
-//#eventsourced-example
+//#persistent-actor-example
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.japi.pf.ReceiveBuilder;
-import akka.persistence.AbstractEventsourcedProcessor;
+import akka.persistence.AbstractPersistentActor;
 import akka.persistence.SnapshotOffer;
 import scala.PartialFunction;
 import scala.runtime.BoxedUnit;
@@ -73,7 +73,7 @@ class ExampleState implements Serializable {
     }
 }
 
-class ExampleProcessor extends AbstractEventsourcedProcessor {
+class ExampleProcessor extends AbstractPersistentActor {
     private ExampleState state = new ExampleState();
 
     public int getNumEvents() {
@@ -104,7 +104,7 @@ class ExampleProcessor extends AbstractEventsourcedProcessor {
             match(String.class, s -> s.equals("print"), s -> System.out.println(state)).build();
     }
 }
-//#eventsourced-example
+//#persistent-actor-example
 
 public class EventsourcedExample {
     public static void main(String... args) throws Exception {

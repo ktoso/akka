@@ -371,11 +371,11 @@ public class LambdaPersistenceDocTest {
 
   static Object o8 = new Object() {
     //#reliable-event-delivery
-    class MyEventsourcedProcessor extends AbstractEventsourcedProcessor {
+    class MyPersistentActor extends AbstractEventsPersistentActor {
       private ActorRef destination;
       private ActorRef channel;
 
-      public MyEventsourcedProcessor(ActorRef destination) {
+      public MyPersistentActor(ActorRef destination) {
         this.destination = destination;
         this.channel = context().actorOf(Channel.props(), "channel");
       }

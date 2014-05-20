@@ -1,12 +1,15 @@
 package sample.persistence;
 
-//#eventsourced-example
+//#persistent-actor-example
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
+import akka.actor.Props;
+import akka.japi.Procedure;
+import akka.persistence.SnapshotOffer;
+import akka.persistence.UntypedPersistentActor;
+
 import java.io.Serializable;
 import java.util.ArrayList;
-
-import akka.actor.*;
-import akka.japi.Procedure;
-import akka.persistence.*;
 
 import static java.util.Arrays.asList;
 
@@ -63,7 +66,7 @@ class ExampleState implements Serializable {
     }
 }
 
-class ExampleProcessor extends UntypedEventsourcedProcessor {
+class ExampleProcessor extends UntypedPersistentActor {
     private ExampleState state = new ExampleState();
 
     public int getNumEvents() {
@@ -100,7 +103,7 @@ class ExampleProcessor extends UntypedEventsourcedProcessor {
         }
     }
 }
-//#eventsourced-example
+//#persistent-actor-example
 
 public class EventsourcedExample {
     public static void main(String... args) throws Exception {
