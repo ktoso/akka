@@ -312,7 +312,7 @@ trait TestKitBase {
   /**
    * Same as `expectMsg(remaining, obj)`, but correctly treating the timeFactor.
    */
-  def expectMsg[T](obj: T): T = expectMsg_internal(remaining, obj)
+  def expectMsg[T](obj: T): T = expectMsg_internal(remaining, obj, None)
 
   /**
    * Receive one message from the test actor and assert that it equals the
@@ -321,12 +321,22 @@ trait TestKitBase {
    *
    * @return the received object
    */
-  def expectMsg[T](max: FiniteDuration, obj: T): T = expectMsg_internal(max.dilated, obj)
+  def expectMsg[T](max: FiniteDuration, obj: T): T = expectMsg_internal(max.dilated, obj, None)
 
-  private def expectMsg_internal[T](max: Duration, obj: T): T = {
+  /**
+   * Receive one message from the test actor and assert that it equals the
+   * given object. Wait time is bounded by the given duration, with an
+   * AssertionFailure being thrown in case of timeout.
+   *
+   * @return the received object
+   */
+  def expectMsg[T](max: FiniteDuration, hint: String, obj: T): T = expectMsg_internal(max.dilated, obj, Some(hint))
+
+  private def expectMsg_internal[T](max: Duration, obj: T, hint: Option[String]): T = {
     val o = receiveOne(max)
-    assert(o ne null, "timeout (" + max + ") during expectMsg while waiting for " + obj)
-    assert(obj == o, "expected " + obj + ", found " + o)
+    lazy val hintOrEmptyString = hint.map(": " + _).getOrElse("")
+    assert(o ne null, s"timeout ($max) during expectMsg while waiting for $obj" + hintOrEmptyString)
+    assert(obj == o, s"expected $obj, found $o" + hintOrEmptyString)
     o.asInstanceOf[T]
   }
 
