@@ -82,6 +82,12 @@ case class PersistentChannelSettings(
     copy(pendingConfirmationsMin = pendingConfirmationsMin)
 
   /**
+   * Java API.
+   */
+  def withIdleTimeout(idleTimeout: FiniteDuration): PersistentChannelSettings =
+    copy(idleTimeout = idleTimeout)
+
+  /**
    * Converts this configuration object to [[ChannelSettings]].
    */
   def toChannelSettings: ChannelSettings =
