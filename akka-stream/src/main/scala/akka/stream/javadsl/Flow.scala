@@ -9,7 +9,7 @@ import scala.collection.immutable
 import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
-import org.reactivestreams.api.Producer
+import org.reactivestreams.{ Publisher, Subscriber }
 import akka.japi.Function
 import akka.japi.Function2
 import akka.japi.Pair
@@ -18,7 +18,6 @@ import akka.japi.Procedure
 import akka.japi.Util.immutableSeq
 import akka.stream.{ FlattenStrategy, OverflowStrategy, FlowMaterializer, Transformer }
 import akka.stream.scaladsl.{ Flow ⇒ SFlow }
-import org.reactivestreams.api.Consumer
 import scala.concurrent.duration.FiniteDuration
 
 /**
@@ -32,7 +31,7 @@ object Flow {
    * that mediate the flow of elements downstream and the propagation of
    * back-pressure upstream.
    */
-  def create[T](producer: Producer[T]): Flow[T] = new FlowAdapter(SFlow.apply(producer))
+  def create[T](producer: Publisher[T]): Flow[T] = new FlowAdapter(SFlow.apply(producer))
 
   /**
    * Start a new flow from the given Iterator. The produced stream of elements
@@ -46,7 +45,7 @@ object Flow {
 
   /**
    * Start a new flow from the given Iterable. This is like starting from an
-   * Iterator, but every Consumer directly attached to the Producer of this
+   * Iterator, but every Subscriber directly attached to the Publisher of this
    * stream will see an individual flow of elements (always starting from the
    * beginning) regardless of when they subscribed.
    */
@@ -80,14 +79,14 @@ object Flow {
 /**
  * Java API: The Flow DSL allows the formulation of stream transformations based on some
  * input. The starting point can be a collection, an iterator, a block of code
- * which is evaluated repeatedly or a [[org.reactivestreams.api.Producer]].
+ * which is evaluated repeatedly or a [[org.reactivestreams.api.Publisher]].
  *
  * See <a href="https://github.com/reactive-streams/reactive-streams/">Reactive Streams</a> for details.
  *
  * Each DSL element produces a new Flow that can be further transformed, building
  * up a description of the complete transformation pipeline. In order to execute
  * this pipeline the Flow must be materialized by calling the [[#toFuture]], [[#consume]],
- * [[#onComplete]], or [[#toProducer]] methods on it.
+ * [[#onComplete]], or [[#toPublisher]] methods on it.
  *
  * It should be noted that the streams modeled by this library are “hot”,
  * meaning that they asynchronously flow through a series of processors without
@@ -231,7 +230,7 @@ abstract class Flow[T] {
    * and a stream representing the remaining elements. If ''n'' is zero or negative, then this will return a pair
    * of an empty collection and a stream containing the whole upstream unchanged.
    */
-  def prefixAndTail(n: Int): Flow[Pair[java.util.List[T], Producer[T]]]
+  def prefixAndTail(n: Int): Flow[Pair[java.util.List[T], Publisher[T]]]
 
   /**
    * This operation demultiplexes the incoming stream into separate output
@@ -244,7 +243,7 @@ abstract class Flow[T] {
    * care to unblock (or cancel) all of the produced streams even if you want
    * to consume only one of them.
    */
-  def groupBy[K](f: Function[T, K]): Flow[Pair[K, Producer[T]]]
+  def groupBy[K](f: Function[T, K]): Flow[Pair[K, Publisher[T]]]
 
   /**
    * This operation applies the given predicate to all incoming elements and
@@ -259,28 +258,28 @@ abstract class Flow[T] {
    * true, false, false // elements go into third substream
    * }}}
    */
-  def splitWhen(p: Predicate[T]): Flow[Producer[T]]
+  def splitWhen(p: Predicate[T]): Flow[Publisher[T]]
 
   /**
    * Merge this stream with the one emitted by the given producer, taking
    * elements as they arrive from either side (picking randomly when both
    * have elements ready).
    */
-  def merge[U >: T](other: Producer[U]): Flow[U]
+  def merge[U >: T](other: Publisher[U]): Flow[U]
 
   /**
    * Zip this stream together with the one emitted by the given producer.
    * This transformation finishes when either input stream reaches its end,
    * cancelling the subscription to the other one.
    */
-  def zip[U](other: Producer[U]): Flow[Pair[T, U]]
+  def zip[U](other: Publisher[U]): Flow[Pair[T, U]]
 
   /**
    * Concatenate the given other stream to this stream so that the first element
    * emitted by the given producer is emitted after the last element of this
    * stream.
    */
-  def concat[U >: T](next: Producer[U]): Flow[U]
+  def concat[U >: T](next: Publisher[U]): Flow[U]
 
   /**
    * Fan-out the stream to another consumer. Each element is produced to
@@ -288,7 +287,7 @@ abstract class Flow[T] {
    * not shutdown until the subscriptions for `other` and at least
    * one downstream consumer have been established.
    */
-  def tee(other: Consumer[_ >: T]): Flow[T]
+  def tee(other: Subscriber[_ >: T]): Flow[T]
 
   /**
    * Append the operations of a [[Duct]] to this flow.
@@ -297,7 +296,7 @@ abstract class Flow[T] {
 
   /**
    * Transforms a stream of streams into a contiguous stream of elements using the provided flattening strategy.
-   * This operation can be used on a stream of element type [[Producer]].
+   * This operation can be used on a stream of element type [[Publisher]].
    */
   def flatten[U](strategy: FlattenStrategy[T, U]): Flow[U]
 
@@ -371,7 +370,7 @@ abstract class Flow[T] {
 
   /**
    * Materialize this flow and return the downstream-most
-   * [[org.reactivestreams.api.Producer]] interface. The stream will not have
+   * [[org.reactivestreams.api.Publisher]] interface. The stream will not have
    * any consumers attached at this point, which means that after prefetching
    * elements to fill the internal buffers it will assert back-pressure until
    * a consumer connects and creates demand for elements to be emitted.
@@ -379,7 +378,7 @@ abstract class Flow[T] {
    * The given FlowMaterializer decides how the flow’s logical structure is
    * broken down into individual processing steps.
    */
-  def toProducer(materializer: FlowMaterializer): Producer[T]
+  def toPublisher(materializer: FlowMaterializer): Publisher[T]
 
   /**
    * Attaches a consumer to this stream.
@@ -389,7 +388,7 @@ abstract class Flow[T] {
    * The given FlowMaterializer decides how the flow’s logical structure is
    * broken down into individual processing steps.
    */
-  def produceTo(materializer: FlowMaterializer, consumer: Consumer[_ >: T]): Unit
+  def produceTo(materializer: FlowMaterializer, consumer: Subscriber[_ >: T]): Unit
 
 }
 
@@ -443,25 +442,25 @@ private[akka] class FlowAdapter[T](delegate: SFlow[T]) extends Flow[T] {
   override def transform[U](transformer: Transformer[T, U]): Flow[U] =
     new FlowAdapter(delegate.transform(transformer))
 
-  override def prefixAndTail(n: Int): Flow[Pair[java.util.List[T], Producer[T]]] =
+  override def prefixAndTail(n: Int): Flow[Pair[java.util.List[T], Publisher[T]]] =
     new FlowAdapter(delegate.prefixAndTail(n).map { case (taken, tail) ⇒ Pair(taken.asJava, tail) })
 
-  override def groupBy[K](f: Function[T, K]): Flow[Pair[K, Producer[T]]] =
+  override def groupBy[K](f: Function[T, K]): Flow[Pair[K, Publisher[T]]] =
     new FlowAdapter(delegate.groupBy(f.apply).map { case (k, p) ⇒ Pair(k, p) }) // FIXME optimize to one step
 
-  override def splitWhen(p: Predicate[T]): Flow[Producer[T]] =
+  override def splitWhen(p: Predicate[T]): Flow[Publisher[T]] =
     new FlowAdapter(delegate.splitWhen(p.test))
 
-  override def merge[U >: T](other: Producer[U]): Flow[U] =
+  override def merge[U >: T](other: Publisher[U]): Flow[U] =
     new FlowAdapter(delegate.merge(other))
 
-  override def zip[U](other: Producer[U]): Flow[Pair[T, U]] =
+  override def zip[U](other: Publisher[U]): Flow[Pair[T, U]] =
     new FlowAdapter(delegate.zip(other).map { case (k, p) ⇒ Pair(k, p) }) // FIXME optimize to one step
 
-  override def concat[U >: T](next: Producer[U]): Flow[U] =
+  override def concat[U >: T](next: Publisher[U]): Flow[U] =
     new FlowAdapter(delegate.concat(next))
 
-  override def tee(other: Consumer[_ >: T]): Flow[T] =
+  override def tee(other: Subscriber[_ >: T]): Flow[T] =
     new FlowAdapter(delegate.tee(other))
 
   override def flatten[U](strategy: FlattenStrategy[T, U]): Flow[U] =
@@ -494,10 +493,10 @@ private[akka] class FlowAdapter[T](delegate: SFlow[T]) extends Flow[T] {
       case Failure(e) ⇒ callback.onComplete(e)
     }
 
-  override def toProducer(materializer: FlowMaterializer): Producer[T] =
-    delegate.toProducer(materializer)
+  override def toPublisher(materializer: FlowMaterializer): Publisher[T] =
+    delegate.toPublisher(materializer)
 
-  override def produceTo(materializer: FlowMaterializer, consumer: Consumer[_ >: T]): Unit =
+  override def produceTo(materializer: FlowMaterializer, consumer: Subscriber[_ >: T]): Unit =
     delegate.produceTo(materializer, consumer)
 
 }

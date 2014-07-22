@@ -7,8 +7,7 @@ import scala.collection.immutable
 import scala.collection.JavaConverters._
 import scala.util.Failure
 import scala.util.Success
-import org.reactivestreams.api.Consumer
-import org.reactivestreams.api.Producer
+import org.reactivestreams.{ Publisher, Subscriber }
 import akka.japi.Function
 import akka.japi.Function2
 import akka.japi.Pair
@@ -170,7 +169,7 @@ abstract class Duct[In, Out] {
    * and a stream representing the remaining elements. If ''n'' is zero or negative, then this will return a pair
    * of an empty collection and a stream containing the whole upstream unchanged.
    */
-  def prefixAndTail(n: Int): Duct[In, Pair[java.util.List[Out], Producer[Out]]]
+  def prefixAndTail(n: Int): Duct[In, Pair[java.util.List[Out], Publisher[Out]]]
 
   /**
    * This operation demultiplexes the incoming stream into separate output
@@ -183,7 +182,7 @@ abstract class Duct[In, Out] {
    * care to unblock (or cancel) all of the produced streams even if you want
    * to consume only one of them.
    */
-  def groupBy[K](f: Function[Out, K]): Duct[In, Pair[K, Producer[Out]]]
+  def groupBy[K](f: Function[Out, K]): Duct[In, Pair[K, Publisher[Out]]]
 
   /**
    * This operation applies the given predicate to all incoming elements and
@@ -198,28 +197,28 @@ abstract class Duct[In, Out] {
    * true, false, false // elements go into third substream
    * }}}
    */
-  def splitWhen(p: Predicate[Out]): Duct[In, Producer[Out]]
+  def splitWhen(p: Predicate[Out]): Duct[In, Publisher[Out]]
 
   /**
    * Merge this stream with the one emitted by the given producer, taking
    * elements as they arrive from either side (picking randomly when both
    * have elements ready).
    */
-  def merge[U >: Out](other: Producer[U]): Duct[In, U]
+  def merge[U >: Out](other: Publisher[U]): Duct[In, U]
 
   /**
    * Zip this stream together with the one emitted by the given producer.
    * This transformation finishes when either input stream reaches its end,
    * cancelling the subscription to the other one.
    */
-  def zip[U](other: Producer[U]): Duct[In, Pair[Out, U]]
+  def zip[U](other: Publisher[U]): Duct[In, Pair[Out, U]]
 
   /**
    * Concatenate the given other stream to this stream so that the first element
    * emitted by the given producer is emitted after the last element of this
    * stream.
    */
-  def concat[U >: Out](next: Producer[U]): Duct[In, U]
+  def concat[U >: Out](next: Publisher[U]): Duct[In, U]
 
   /**
    * Fan-out the stream to another consumer. Each element is produced to
@@ -227,7 +226,7 @@ abstract class Duct[In, Out] {
    * not shutdown until the subscriptions for `other` and at least
    * one downstream consumer have been established.
    */
-  def tee(other: Consumer[_ >: Out]): Duct[In, Out]
+  def tee(other: Subscriber[_ >: Out]): Duct[In, Out]
 
   /**
    * Transforms a stream of streams into a contiguous stream of elements using the provided flattening strategy.
@@ -288,7 +287,7 @@ abstract class Duct[In, Out] {
    * The given FlowMaterializer decides how the flow’s logical structure is
    * broken down into individual processing steps.
    */
-  def produceTo(materializer: FlowMaterializer, consumer: Consumer[Out]): Consumer[In]
+  def produceTo(materializer: FlowMaterializer, consumer: Subscriber[Out]): Subscriber[In]
 
   /**
    * Attaches a consumer to this stream which will just discard all received
@@ -300,7 +299,7 @@ abstract class Duct[In, Out] {
    * The given FlowMaterializer decides how the flow’s logical structure is
    * broken down into individual processing steps.
    */
-  def consume(materializer: FlowMaterializer): Consumer[In]
+  def consume(materializer: FlowMaterializer): Subscriber[In]
 
   /**
    * When this flow is completed, either through an error or normal
@@ -310,7 +309,7 @@ abstract class Duct[In, Out] {
    *
    * *This operation materializes the flow and initiates its execution.*
    */
-  def onComplete(materializer: FlowMaterializer)(callback: OnCompleteCallback): Consumer[In]
+  def onComplete(materializer: FlowMaterializer)(callback: OnCompleteCallback): Subscriber[In]
 
   /**
    * Materialize this `Duct` into a `Consumer` representing the input side of the `Duct`
@@ -324,7 +323,7 @@ abstract class Duct[In, Out] {
    * The given FlowMaterializer decides how the flow’s logical structure is
    * broken down into individual processing steps.
    */
-  def build(materializer: FlowMaterializer): Pair[Consumer[In], Producer[Out]]
+  def build(materializer: FlowMaterializer): Pair[Subscriber[In], Publisher[Out]]
 
   /**
    * INTERNAL API
@@ -376,25 +375,25 @@ private[akka] class DuctAdapter[In, T](delegate: SDuct[In, T]) extends Duct[In, 
    * Takes up to n elements from the stream and returns a pair containing a strict sequence of the taken element
    * and a stream representing the remaining elements.
    */
-  override def prefixAndTail(n: Int): Duct[In, Pair[java.util.List[T], Producer[T]]] =
+  override def prefixAndTail(n: Int): Duct[In, Pair[java.util.List[T], Publisher[T]]] =
     new DuctAdapter(delegate.prefixAndTail(n).map { case (taken, tail) ⇒ Pair(taken.asJava, tail) })
 
-  override def groupBy[K](f: Function[T, K]): Duct[In, Pair[K, Producer[T]]] =
+  override def groupBy[K](f: Function[T, K]): Duct[In, Pair[K, Publisher[T]]] =
     new DuctAdapter(delegate.groupBy(f.apply).map { case (k, p) ⇒ Pair(k, p) }) // FIXME optimize to one step
 
-  override def splitWhen(p: Predicate[T]): Duct[In, Producer[T]] =
+  override def splitWhen(p: Predicate[T]): Duct[In, Publisher[T]] =
     new DuctAdapter(delegate.splitWhen(p.test))
 
-  override def merge[U >: T](other: Producer[U]): Duct[In, U] =
+  override def merge[U >: T](other: Publisher[U]): Duct[In, U] =
     new DuctAdapter(delegate.merge(other))
 
-  override def zip[U](other: Producer[U]): Duct[In, Pair[T, U]] =
+  override def zip[U](other: Publisher[U]): Duct[In, Pair[T, U]] =
     new DuctAdapter(delegate.zip(other).map { case (k, p) ⇒ Pair(k, p) }) // FIXME optimize to one step
 
-  override def concat[U >: T](next: Producer[U]): Duct[In, U] =
+  override def concat[U >: T](next: Publisher[U]): Duct[In, U] =
     new DuctAdapter(delegate.concat(next))
 
-  override def tee(other: Consumer[_ >: T]): Duct[In, T] =
+  override def tee(other: Subscriber[_ >: T]): Duct[In, T] =
     new DuctAdapter(delegate.tee(other))
 
   override def buffer(size: Int, overflowStrategy: OverflowStrategy): Duct[In, T] =
@@ -415,19 +414,19 @@ private[akka] class DuctAdapter[In, T](delegate: SDuct[In, T]) extends Duct[In, 
   override def append[U](duct: Duct[_ >: T, U]): Duct[In, U] =
     new DuctAdapter(delegate.appendJava(duct))
 
-  override def produceTo(materializer: FlowMaterializer, consumer: Consumer[T]): Consumer[In] =
+  override def produceTo(materializer: FlowMaterializer, consumer: Subscriber[T]): Subscriber[In] =
     delegate.produceTo(materializer, consumer)
 
-  override def consume(materializer: FlowMaterializer): Consumer[In] =
+  override def consume(materializer: FlowMaterializer): Subscriber[In] =
     delegate.consume(materializer)
 
-  override def onComplete(materializer: FlowMaterializer)(callback: OnCompleteCallback): Consumer[In] =
+  override def onComplete(materializer: FlowMaterializer)(callback: OnCompleteCallback): Subscriber[In] =
     delegate.onComplete(materializer) {
       case Success(_) ⇒ callback.onComplete(null)
       case Failure(e) ⇒ callback.onComplete(e)
     }
 
-  override def build(materializer: FlowMaterializer): Pair[Consumer[In], Producer[T]] = {
+  override def build(materializer: FlowMaterializer): Pair[Subscriber[In], Publisher[T]] = {
     val (in, out) = delegate.build(materializer)
     Pair(in, out)
   }

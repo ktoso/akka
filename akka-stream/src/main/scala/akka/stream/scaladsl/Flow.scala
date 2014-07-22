@@ -7,13 +7,12 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.util.Try
-import org.reactivestreams.api.Consumer
-import org.reactivestreams.api.Producer
+import org.reactivestreams.{ Publisher, Subscriber }
 import akka.stream.{ FlattenStrategy, OverflowStrategy, FlowMaterializer, Transformer }
-import akka.stream.impl.Ast.{ ExistingProducer, IterableProducerNode, IteratorProducerNode, ThunkProducerNode }
-import akka.stream.impl.Ast.FutureProducerNode
+import akka.stream.impl.Ast.{ ExistingPublisher, IterablePublisherNode, IteratorPublisherNode, ThunkPublisherNode }
+import akka.stream.impl.Ast.FuturePublisherNode
 import akka.stream.impl.FlowImpl
-import akka.stream.impl.Ast.TickProducerNode
+import akka.stream.impl.Ast.TickPublisherNode
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration.FiniteDuration
 
@@ -27,7 +26,7 @@ object Flow {
    * that mediate the flow of elements downstream and the propagation of
    * back-pressure upstream.
    */
-  def apply[T](producer: Producer[T]): Flow[T] = FlowImpl(ExistingProducer(producer), Nil)
+  def apply[T](producer: Publisher[T]): Flow[T] = FlowImpl(ExistingPublisher(producer), Nil)
 
   /**
    * Start a new flow from the given Iterator. The produced stream of elements
@@ -36,15 +35,15 @@ object Flow {
    * in accordance with the demand coming from the downstream transformation
    * steps.
    */
-  def apply[T](iterator: Iterator[T]): Flow[T] = FlowImpl(IteratorProducerNode(iterator), Nil)
+  def apply[T](iterator: Iterator[T]): Flow[T] = FlowImpl(IteratorPublisherNode(iterator), Nil)
 
   /**
    * Start a new flow from the given Iterable. This is like starting from an
-   * Iterator, but every Consumer directly attached to the Producer of this
+   * Iterator, but every Subscriber directly attached to the Publisher of this
    * stream will see an individual flow of elements (always starting from the
    * beginning) regardless of when they subscribed.
    */
-  def apply[T](iterable: immutable.Iterable[T]): Flow[T] = FlowImpl(IterableProducerNode(iterable), Nil)
+  def apply[T](iterable: immutable.Iterable[T]): Flow[T] = FlowImpl(IterablePublisherNode(iterable), Nil)
 
   /**
    * Define the sequence of elements to be produced by the given closure.
@@ -52,7 +51,7 @@ object Flow {
    * a [[akka.stream.Stop]] exception being thrown; it ends exceptionally
    * when any other exception is thrown.
    */
-  def apply[T](f: () ⇒ T): Flow[T] = FlowImpl(ThunkProducerNode(f), Nil)
+  def apply[T](f: () ⇒ T): Flow[T] = FlowImpl(ThunkPublisherNode(f), Nil)
 
   /**
    * Start a new flow from the given `Future`. The stream will consist of
@@ -60,7 +59,7 @@ object Flow {
    * may happen before or after materializing the `Flow`.
    * The stream terminates with an error if the `Future` is completed with a failure.
    */
-  def apply[T](future: Future[T]): Flow[T] = FlowImpl(FutureProducerNode(future), Nil)
+  def apply[T](future: Future[T]): Flow[T] = FlowImpl(FuturePublisherNode(future), Nil)
 
   /**
    * Elements are produced from the tick closure periodically with the specified interval.
@@ -69,14 +68,14 @@ object Flow {
    * element is produced it will not receive that tick element later. It will
    * receive new tick elements as soon as it has requested more elements.
    */
-  def apply[T](interval: FiniteDuration, tick: () ⇒ T): Flow[T] = FlowImpl(TickProducerNode(interval, tick), Nil)
+  def apply[T](interval: FiniteDuration, tick: () ⇒ T): Flow[T] = FlowImpl(TickPublisherNode(interval, tick), Nil)
 
 }
 
 /**
  * Scala API: The Flow DSL allows the formulation of stream transformations based on some
  * input. The starting point can be a collection, an iterator, a block of code
- * which is evaluated repeatedly or a [[org.reactivestreams.api.Producer]].
+ * which is evaluated repeatedly or a [[org.reactivestreams.api.Publisher]].
  *
  * See <a href="https://github.com/reactive-streams/reactive-streams/">Reactive Streams</a> for details.
  *
@@ -227,7 +226,7 @@ trait Flow[+T] {
    * and a stream representing the remaining elements. If ''n'' is zero or negative, then this will return a pair
    * of an empty collection and a stream containing the whole upstream unchanged.
    */
-  def prefixAndTail(n: Int): Flow[(immutable.Seq[T], Producer[T @uncheckedVariance])]
+  def prefixAndTail(n: Int): Flow[(immutable.Seq[T], Publisher[T @uncheckedVariance])]
 
   /**
    * This operation demultiplexes the incoming stream into separate output
@@ -240,7 +239,7 @@ trait Flow[+T] {
    * care to unblock (or cancel) all of the produced streams even if you want
    * to consume only one of them.
    */
-  def groupBy[K](f: T ⇒ K): Flow[(K, Producer[T @uncheckedVariance])]
+  def groupBy[K](f: T ⇒ K): Flow[(K, Publisher[T @uncheckedVariance])]
 
   /**
    * This operation applies the given predicate to all incoming elements and
@@ -255,28 +254,28 @@ trait Flow[+T] {
    * true, false, false // elements go into third substream
    * }}}
    */
-  def splitWhen(p: T ⇒ Boolean): Flow[Producer[T @uncheckedVariance]]
+  def splitWhen(p: T ⇒ Boolean): Flow[Publisher[T @uncheckedVariance]]
 
   /**
    * Merge this stream with the one emitted by the given producer, taking
    * elements as they arrive from either side (picking randomly when both
    * have elements ready).
    */
-  def merge[U >: T](other: Producer[_ <: U]): Flow[U]
+  def merge[U >: T](other: Publisher[_ <: U]): Flow[U]
 
   /**
    * Zip this stream together with the one emitted by the given producer.
    * This transformation finishes when either input stream reaches its end,
    * cancelling the subscription to the other one.
    */
-  def zip[U](other: Producer[U]): Flow[(T, U)]
+  def zip[U](other: Publisher[U]): Flow[(T, U)]
 
   /**
    * Concatenate the given other stream to this stream so that the first element
    * emitted by the given producer is emitted after the last element of this
    * stream.
    */
-  def concat[U >: T](next: Producer[U]): Flow[U]
+  def concat[U >: T](next: Publisher[U]): Flow[U]
 
   /**
    * Fan-out the stream to another consumer. Each element is produced to
@@ -284,11 +283,11 @@ trait Flow[+T] {
    * not shutdown until the subscriptions for `other` and at least
    * one downstream consumer have been established.
    */
-  def tee(other: Consumer[_ >: T]): Flow[T]
+  def tee(other: Subscriber[_ >: T]): Flow[T]
 
   /**
    * Transforms a stream of streams into a contiguous stream of elements using the provided flattening strategy.
-   * This operation can be used on a stream of element type [[Producer]].
+   * This operation can be used on a stream of element type [[Publisher]].
    */
   def flatten[U](strategy: FlattenStrategy[T, U]): Flow[U]
 
@@ -373,7 +372,7 @@ trait Flow[+T] {
 
   /**
    * Materialize this flow and return the downstream-most
-   * [[org.reactivestreams.api.Producer]] interface. The stream will not have
+   * [[org.reactivestreams.api.Publisher]] interface. The stream will not have
    * any consumers attached at this point, which means that after prefetching
    * elements to fill the internal buffers it will assert back-pressure until
    * a consumer connects and creates demand for elements to be emitted.
@@ -381,7 +380,7 @@ trait Flow[+T] {
    * The given FlowMaterializer decides how the flow’s logical structure is
    * broken down into individual processing steps.
    */
-  def toProducer(materializer: FlowMaterializer): Producer[T @uncheckedVariance]
+  def toPublisher(materializer: FlowMaterializer): Publisher[T @uncheckedVariance]
 
   /**
    * Attaches a consumer to this stream.
@@ -391,7 +390,7 @@ trait Flow[+T] {
    * The given FlowMaterializer decides how the flow’s logical structure is
    * broken down into individual processing steps.
    */
-  def produceTo(materializer: FlowMaterializer, consumer: Consumer[_ >: T]): Unit
+  def produceTo(materializer: FlowMaterializer, consumer: Subscriber[_ >: T]): Unit
 
 }
 

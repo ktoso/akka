@@ -12,7 +12,7 @@ import akka.event.LoggingAdapter
 import akka.util.ByteString
 import akka.stream.scaladsl.Flow
 import akka.stream.{ FlowMaterializer, Transformer }
-import akka.stream.impl.SynchronousProducerFromIterable
+import akka.stream.impl.SynchronousPublisherFromIterable
 import akka.http.model._
 import akka.http.util._
 import RenderSupport._
@@ -101,7 +101,7 @@ private[http] class HttpRequestRendererFactory(userAgentHeader: Option[headers.`
         entity match {
           case HttpEntity.Strict(contentType, data) ⇒
             renderContentLength(data.length)
-            SynchronousProducerFromIterable(r.get :: data :: Nil) :: Nil
+            SynchronousPublisherFromIterable(r.get :: data :: Nil) :: Nil
 
           case HttpEntity.Default(contentType, contentLength, data) ⇒
             renderContentLength(contentLength)
@@ -119,7 +119,7 @@ private[http] class HttpRequestRendererFactory(userAgentHeader: Option[headers.`
       renderEntityContentType(r, entity)
       if (entity.isKnownEmpty) {
         renderContentLength(0)
-        SynchronousProducerFromIterable(r.get :: Nil) :: Nil
+        SynchronousPublisherFromIterable(r.get :: Nil) :: Nil
       } else completeRequestRendering()
     }
   }

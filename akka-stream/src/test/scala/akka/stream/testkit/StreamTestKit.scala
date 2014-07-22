@@ -9,7 +9,7 @@ import org.reactivestreams.tck._
 import akka.actor.ActorSystem
 import scala.concurrent.duration.FiniteDuration
 import scala.annotation.tailrec
-import akka.stream.impl.EmptyProducer
+import akka.stream.impl.EmptyPublisher
 import org.reactivestreams.api.Producer
 import akka.stream.impl.ErrorProducer
 import org.reactivestreams.api.Consumer
@@ -106,7 +106,7 @@ object StreamTestKit {
   /**
    * Completes subscribers immediately, before handing out subscription.
    */
-  def emptyProducer[T]: Producer[T] = EmptyProducer.asInstanceOf[Producer[T]]
+  def emptyProducer[T]: Producer[T] = EmptyPublisher.asInstanceOf[Producer[T]]
 
   /**
    * Subscribes the subscriber and completes after the first requestMore.

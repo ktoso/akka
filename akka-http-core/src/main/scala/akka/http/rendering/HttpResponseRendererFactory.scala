@@ -10,7 +10,7 @@ import scala.collection.immutable
 import akka.event.LoggingAdapter
 import akka.util.ByteString
 import akka.stream.scaladsl.Flow
-import akka.stream.impl.SynchronousProducerFromIterable
+import akka.stream.impl.SynchronousPublisherFromIterable
 import akka.stream.{ FlowMaterializer, Transformer }
 import akka.http.model._
 import akka.http.util._
@@ -131,7 +131,7 @@ private[http] class HttpResponseRendererFactory(serverHeader: Option[headers.Ser
             renderEntityContentType(r, entity)
             r ~~ `Content-Length` ~~ data.length ~~ CrLf ~~ CrLf
             val entityBytes = if (noEntity) Nil else data :: Nil
-            SynchronousProducerFromIterable(r.get :: entityBytes) :: Nil
+            SynchronousPublisherFromIterable(r.get :: entityBytes) :: Nil
 
           case HttpEntity.Default(contentType, contentLength, data) ⇒
             renderHeaders(headers.toList)

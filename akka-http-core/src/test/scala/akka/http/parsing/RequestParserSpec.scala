@@ -11,7 +11,7 @@ import org.scalatest.{ BeforeAndAfterAll, FreeSpec, Matchers }
 import org.scalatest.matchers.Matcher
 import org.reactivestreams.api.Producer
 import akka.stream.scaladsl.Flow
-import akka.stream.impl.SynchronousProducerFromIterable
+import akka.stream.impl.SynchronousPublisherFromIterable
 import akka.stream.{ FlattenStrategy, MaterializerSettings, FlowMaterializer }
 import akka.util.ByteString
 import akka.actor.ActorSystem
@@ -392,5 +392,5 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
     def prep(response: String) = response.stripMarginWithNewline("\r\n")
   }
 
-  def producer[T](elems: T*): Producer[T] = SynchronousProducerFromIterable(elems.toList)
+  def producer[T](elems: T*): Producer[T] = SynchronousPublisherFromIterable(elems.toList)
 }

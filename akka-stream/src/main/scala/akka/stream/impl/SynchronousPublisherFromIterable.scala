@@ -3,22 +3,19 @@
  */
 package akka.stream.impl
 
-import scala.collection.immutable
-import org.reactivestreams.api.Consumer
-import org.reactivestreams.spi.Subscription
+import org.reactivestreams.{ Publisher, Subscriber, Subscription }
+
 import scala.annotation.tailrec
-import org.reactivestreams.spi.Subscriber
-import org.reactivestreams.spi.Publisher
-import org.reactivestreams.api.Producer
+import scala.collection.immutable
 import scala.util.control.NonFatal
 
 /**
  * INTERNAL API
  */
-private[akka] object SynchronousProducerFromIterable {
-  def apply[T](iterable: immutable.Iterable[T]): Producer[T] =
-    if (iterable.isEmpty) EmptyProducer.asInstanceOf[Producer[T]]
-    else new SynchronousProducerFromIterable(iterable)
+private[akka] object SynchronousPublisherFromIterable {
+  def apply[T](iterable: immutable.Iterable[T]): Publisher[T] =
+    if (iterable.isEmpty) EmptyPublisher.asInstanceOf[Publisher[T]]
+    else new SynchronousPublisherFromIterable(iterable)
 
   private class IteratorSubscription[T](subscriber: Subscriber[T], iterator: Iterator[T]) extends Subscription {
     var done = false
@@ -28,7 +25,7 @@ private[akka] object SynchronousProducerFromIterable {
     override def cancel(): Unit =
       done = true
 
-    override def requestMore(elements: Int): Unit = {
+    override def request(elements: Int): Unit = {
       @tailrec def pushNext(): Unit = {
         if (!done)
           if (iterator.isEmpty) {
@@ -72,22 +69,16 @@ private[akka] object SynchronousProducerFromIterable {
  * For example, usage from an actor is fine. Concurrent calls to the subscription is not allowed.
  * Reentrant calls to `requestMore` directly from `onNext` are supported by this producer.
  */
-private[akka] class SynchronousProducerFromIterable[T](private val iterable: immutable.Iterable[T])
-  extends Producer[T] with Publisher[T] {
+private[akka] class SynchronousPublisherFromIterable[T](private val iterable: immutable.Iterable[T]) extends Publisher[T] {
 
-  import SynchronousProducerFromIterable.IteratorSubscription
-
-  override def getPublisher: Publisher[T] = this
+  import akka.stream.impl.SynchronousPublisherFromIterable.IteratorSubscription
 
   override def subscribe(subscriber: Subscriber[T]): Unit =
     subscriber.onSubscribe(new IteratorSubscription(subscriber, iterable.iterator))
 
-  override def produceTo(consumer: Consumer[T]): Unit =
-    getPublisher.subscribe(consumer.getSubscriber)
-
   override def equals(o: Any): Boolean = o match {
-    case other: SynchronousProducerFromIterable[T] ⇒ iterable == other.iterable
-    case _                                         ⇒ false
+    case other: SynchronousPublisherFromIterable[T] ⇒ iterable == other.iterable
+    case _ ⇒ false
   }
 
   override def hashCode: Int = iterable.hashCode

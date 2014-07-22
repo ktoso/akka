@@ -16,7 +16,7 @@ import akka.testkit.TestProbe
 import akka.io.IO
 import akka.stream.{ FlowMaterializer, MaterializerSettings }
 import akka.stream.testkit.{ ProducerProbe, ConsumerProbe, StreamTestKit }
-import akka.stream.impl.SynchronousProducerFromIterable
+import akka.stream.impl.SynchronousPublisherFromIterable
 import akka.stream.scaladsl.Flow
 import akka.http.server.ServerSettings
 import akka.http.client.ClientConnectionSettings
@@ -82,7 +82,7 @@ class ClientServerSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
       val chunks = List(Chunk("abc"), Chunk("defg"), Chunk("hijkl"), LastChunk)
       val chunkedContentType: ContentType = MediaTypes.`application/base64`
-      val chunkedEntity = HttpEntity.Chunked(chunkedContentType, SynchronousProducerFromIterable(chunks))
+      val chunkedEntity = HttpEntity.Chunked(chunkedContentType, SynchronousPublisherFromIterable(chunks))
 
       val clientOutSub = clientOut.expectSubscription()
       clientOutSub.sendNext(HttpRequest(POST, "/chunked", List(Accept(MediaRanges.`*/*`)), chunkedEntity) -> 12345678)

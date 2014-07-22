@@ -11,7 +11,7 @@ import akka.stream.scaladsl.Flow
 import akka.actor.ActorSystem
 import akka.stream.testkit.AkkaSpec
 
-class ActorProducerTest(_system: ActorSystem, env: TestEnvironment, publisherShutdownTimeout: Long)
+class ActorPublisherTest(_system: ActorSystem, env: TestEnvironment, publisherShutdownTimeout: Long)
   extends PublisherVerification[Int](env, publisherShutdownTimeout)
   with WithActorSystem with TestNGSuiteLike {
 
@@ -23,7 +23,7 @@ class ActorProducerTest(_system: ActorSystem, env: TestEnvironment, publisherShu
   }
 
   def this() {
-    this(ActorSystem(classOf[ActorProducerTest].getSimpleName, AkkaSpec.testConf))
+    this(ActorSystem(classOf[ActorPublisherTest].getSimpleName, AkkaSpec.testConf))
   }
 
   private val materializer = FlowMaterializer(MaterializerSettings(dispatcher = "akka.test.stream-dispatcher"))

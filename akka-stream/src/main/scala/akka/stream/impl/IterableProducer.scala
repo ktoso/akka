@@ -3,18 +3,14 @@
  */
 package akka.stream.impl
 
+import akka.actor.{ Actor, ActorRef, Props, SupervisorStrategy, Terminated }
+import akka.stream.MaterializerSettings
+import org.reactivestreams.{ Subscriber, Subscription }
+
 import scala.annotation.tailrec
 import scala.collection.immutable
-import scala.util.control.NonFatal
-import org.reactivestreams.spi.Subscriber
-import org.reactivestreams.spi.Subscription
-import akka.actor.Actor
-import akka.actor.ActorRef
-import akka.actor.Props
-import akka.actor.SupervisorStrategy
-import akka.actor.Terminated
-import akka.stream.MaterializerSettings
 import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
 
 /**
  * INTERNAL API
@@ -30,9 +26,9 @@ private[akka] object IterableProducer {
 
   class BasicActorSubscription(ref: ActorRef)
     extends Subscription {
-    import BasicActorSubscription._
+    import akka.stream.impl.IterableProducer.BasicActorSubscription._
     def cancel(): Unit = ref ! Cancel
-    def requestMore(elements: Int): Unit =
+    def request(elements: Int): Unit =
       if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
       else ref ! RequestMore(elements)
     override def toString = "BasicActorSubscription"
@@ -47,9 +43,8 @@ private[akka] object IterableProducer {
  * beginning of the iterable and it can consume the elements in its own pace.
  */
 private[akka] class IterableProducer(iterable: immutable.Iterable[Any], settings: MaterializerSettings) extends Actor with SoftShutdown {
-  import IterableProducer.BasicActorSubscription
-  import IterableProducer.BasicActorSubscription.Cancel
-  import ActorBasedFlowMaterializer._
+  import akka.stream.impl.ActorBasedFlowMaterializer._
+  import akka.stream.impl.IterableProducer.BasicActorSubscription
 
   require(iterable.nonEmpty, "Use EmptyProducer for empty iterable")
 
@@ -137,9 +132,9 @@ private[akka] object IterableProducerWorker {
  */
 private[akka] class IterableProducerWorker(iterator: Iterator[Any], subscriber: Subscriber[Any], maxPush: Int)
   extends Actor with SoftShutdown {
-  import IterableProducerWorker._
-  import IterableProducer.BasicActorSubscription._
-  import ActorBasedFlowMaterializer._
+  import akka.stream.impl.ActorBasedFlowMaterializer._
+  import akka.stream.impl.IterableProducer.BasicActorSubscription._
+  import akka.stream.impl.IterableProducerWorker._
 
   require(iterator.hasNext, "Iterator must not be empty")
 

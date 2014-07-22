@@ -12,7 +12,7 @@ import akka.http.model.HttpEntity._
 import org.reactivestreams.api.Producer
 import akka.actor.ActorSystem
 import akka.stream.{ MaterializerSettings, FlowMaterializer }
-import akka.stream.impl.SynchronousProducerFromIterable
+import akka.stream.impl.SynchronousPublisherFromIterable
 import com.typesafe.config.{ ConfigFactory, Config }
 import scala.concurrent.{ Promise, Await }
 import scala.concurrent.duration._
@@ -86,7 +86,7 @@ class HttpEntitySpec extends FreeSpec with MustMatchers with BeforeAndAfterAll {
     }
   }
 
-  def producer[T](elems: T*) = SynchronousProducerFromIterable(elems.toList)
+  def producer[T](elems: T*) = SynchronousPublisherFromIterable(elems.toList)
 
   def collectBytesTo(bytes: ByteString*): Matcher[HttpEntity] =
     equal(bytes.toVector).matcher[Seq[ByteString]].compose { entity ⇒

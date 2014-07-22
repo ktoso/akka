@@ -17,7 +17,7 @@ import akka.http.model.headers._
 import akka.http.util._
 import akka.stream.scaladsl.Flow
 import akka.stream.{ MaterializerSettings, FlowMaterializer }
-import akka.stream.impl.SynchronousProducerFromIterable
+import akka.stream.impl.SynchronousPublisherFromIterable
 import HttpEntity._
 import HttpMethods._
 
@@ -195,5 +195,5 @@ class RequestRendererSpec extends FreeSpec with Matchers with BeforeAndAfterAll 
       }
   }
 
-  def producer[T](elems: T*) = SynchronousProducerFromIterable(elems.toList)
+  def producer[T](elems: T*) = SynchronousPublisherFromIterable(elems.toList)
 }

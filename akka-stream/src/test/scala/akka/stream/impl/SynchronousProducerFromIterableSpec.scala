@@ -17,7 +17,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
 
   "A SynchronousProducerFromIterable" must {
     "produce elements" in {
-      val p = SynchronousProducerFromIterable(List(1, 2, 3))
+      val p = SynchronousPublisherFromIterable(List(1, 2, 3))
       val c = StreamTestKit.consumerProbe[Int]
       p.produceTo(c)
       val sub = c.expectSubscription()
@@ -31,7 +31,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
     }
 
     "complete empty" in {
-      val p = SynchronousProducerFromIterable(List.empty[Int])
+      val p = SynchronousPublisherFromIterable(List.empty[Int])
       val c = StreamTestKit.consumerProbe[Int]
       p.produceTo(c)
       c.expectComplete()
@@ -43,7 +43,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
     }
 
     "produce elements with multiple subscribers" in {
-      val p = SynchronousProducerFromIterable(List(1, 2, 3))
+      val p = SynchronousPublisherFromIterable(List(1, 2, 3))
       val c1 = StreamTestKit.consumerProbe[Int]
       val c2 = StreamTestKit.consumerProbe[Int]
       p.produceTo(c1)
@@ -67,7 +67,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
     }
 
     "produce elements to later subscriber" in {
-      val p = SynchronousProducerFromIterable(List(1, 2, 3))
+      val p = SynchronousPublisherFromIterable(List(1, 2, 3))
       val c1 = StreamTestKit.consumerProbe[Int]
       val c2 = StreamTestKit.consumerProbe[Int]
       p.produceTo(c1)
@@ -93,7 +93,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
     }
 
     "not produce after cancel" in {
-      val p = SynchronousProducerFromIterable(List(1, 2, 3))
+      val p = SynchronousPublisherFromIterable(List(1, 2, 3))
       val c = StreamTestKit.consumerProbe[Int]
       p.produceTo(c)
       val sub = c.expectSubscription()
@@ -105,7 +105,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
     }
 
     "not produce after cancel from onNext" in {
-      val p = SynchronousProducerFromIterable(List(1, 2, 3, 4, 5))
+      val p = SynchronousPublisherFromIterable(List(1, 2, 3, 4, 5))
       val probe = TestProbe()
       p.produceTo(new Consumer[Int] with Subscriber[Int] {
         var sub: Subscription = _
@@ -140,7 +140,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
           }
         }
       }
-      val p = SynchronousProducerFromIterable(iterable)
+      val p = SynchronousPublisherFromIterable(iterable)
       val c = StreamTestKit.consumerProbe[Int]
       p.produceTo(c)
       val sub = c.expectSubscription()
@@ -155,7 +155,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
 
     "handle reentrant requests" in {
       val N = 50000
-      val p = SynchronousProducerFromIterable(1 to N)
+      val p = SynchronousPublisherFromIterable(1 to N)
       val probe = TestProbe()
       p.produceTo(new Consumer[Int] with Subscriber[Int] {
         var sub: Subscription = _
@@ -177,22 +177,22 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
     }
 
     "have value equality of producer" in {
-      val p1 = SynchronousProducerFromIterable(List(1, 2, 3))
-      val p2 = SynchronousProducerFromIterable(List(1, 2, 3))
+      val p1 = SynchronousPublisherFromIterable(List(1, 2, 3))
+      val p2 = SynchronousPublisherFromIterable(List(1, 2, 3))
       p1 should be(p2)
       p2 should be(p1)
-      val p3 = SynchronousProducerFromIterable(List(1, 2, 3, 4))
+      val p3 = SynchronousPublisherFromIterable(List(1, 2, 3, 4))
       p1 should not be (p3)
       p3 should not be (p1)
-      val p4 = SynchronousProducerFromIterable(Vector.empty[String])
-      val p5 = SynchronousProducerFromIterable(Set.empty[String])
+      val p4 = SynchronousPublisherFromIterable(Vector.empty[String])
+      val p5 = SynchronousPublisherFromIterable(Set.empty[String])
       p1 should not be (p4)
       p4 should be(p5)
       p5 should be(p4)
     }
 
     "have nice toString" in {
-      SynchronousProducerFromIterable(List(1, 2, 3)).toString should be("SynchronousProducerFromIterable(1, 2, 3)")
+      SynchronousPublisherFromIterable(List(1, 2, 3)).toString should be("SynchronousProducerFromIterable(1, 2, 3)")
     }
   }
 }

@@ -17,7 +17,7 @@ import akka.http.util._
 import akka.util.ByteString
 import akka.stream.scaladsl.Flow
 import akka.stream.{ MaterializerSettings, FlowMaterializer }
-import akka.stream.impl.SynchronousProducerFromIterable
+import akka.stream.impl.SynchronousPublisherFromIterable
 import HttpEntity._
 
 class ResponseRendererSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
@@ -344,5 +344,5 @@ class ResponseRendererSpec extends FreeSpec with Matchers with BeforeAndAfterAll
     override def dateTime(now: Long) = DateTime(2011, 8, 25, 9, 10, 29) // provide a stable date for testing
   }
 
-  def producer[T](elems: T*) = SynchronousProducerFromIterable(elems.toList)
+  def producer[T](elems: T*) = SynchronousPublisherFromIterable(elems.toList)
 }

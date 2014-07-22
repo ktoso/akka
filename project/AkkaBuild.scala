@@ -1301,7 +1301,7 @@ object Dependencies {
     // mirrored in OSGi sample
     val levelDBNative = "org.fusesource.leveldbjni"   % "leveldbjni-all"               % "1.7"         // New BSD
 
-    val reactiveStreams = "org.reactivestreams"       % "reactive-streams-spi"         % "0.3"         // CC0
+    val reactiveStreams = "org.reactivestreams"       % "reactive-streams"             % "0.4.0.M1"         // CC0
 
     // Camel Sample
     val camelJetty  = "org.apache.camel"              % "camel-jetty"                  % camelCore.revision // ApacheV2

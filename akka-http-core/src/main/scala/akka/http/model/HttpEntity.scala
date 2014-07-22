@@ -12,7 +12,7 @@ import akka.util.ByteString
 
 import akka.stream.{ TimerTransformer, FlowMaterializer }
 import akka.stream.scaladsl.Flow
-import akka.stream.impl.{ EmptyProducer, SynchronousProducerFromIterable }
+import akka.stream.impl.{ EmptyPublisher, SynchronousPublisherFromIterable }
 import java.lang.Iterable
 import japi.JavaMapping.Implicits._
 import scala.concurrent.{ ExecutionContext, Future }
@@ -116,7 +116,7 @@ object HttpEntity {
   final case class Strict(contentType: ContentType, data: ByteString) extends japi.HttpEntityStrict with Regular {
     def isKnownEmpty: Boolean = data.isEmpty
 
-    def dataBytes(materializer: FlowMaterializer): Producer[ByteString] = SynchronousProducerFromIterable(data :: Nil)
+    def dataBytes(materializer: FlowMaterializer): Producer[ByteString] = SynchronousPublisherFromIterable(data :: Nil)
 
     override def toStrict(timeout: FiniteDuration, materializer: FlowMaterializer)(implicit ec: ExecutionContext): Future[Strict] =
       Future.successful(this)
@@ -141,7 +141,7 @@ object HttpEntity {
    * Note that this type of HttpEntity cannot be used for HttpRequests!
    */
   final case class CloseDelimited(contentType: ContentType, data: Producer[ByteString]) extends japi.HttpEntityCloseDelimited with HttpEntity {
-    def isKnownEmpty = data eq EmptyProducer
+    def isKnownEmpty = data eq EmptyPublisher
     override def isCloseDelimited: Boolean = true
 
     def dataBytes(materializer: FlowMaterializer): Producer[ByteString] = data
@@ -151,7 +151,7 @@ object HttpEntity {
    * The model for the entity of a chunked HTTP message (with `Transfer-Encoding: chunked`).
    */
   final case class Chunked(contentType: ContentType, chunks: Producer[ChunkStreamPart]) extends japi.HttpEntityChunked with Regular {
-    def isKnownEmpty = chunks eq EmptyProducer
+    def isKnownEmpty = chunks eq EmptyPublisher
     override def isChunked: Boolean = true
 
     def dataBytes(materializer: FlowMaterializer): Producer[ByteString] =

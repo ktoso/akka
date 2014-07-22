@@ -7,7 +7,7 @@ import akka.stream.testkit.{ StreamTestKit, AkkaSpec }
 import akka.stream.scaladsl.Flow
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import akka.stream.impl.EmptyProducer
+import akka.stream.impl.EmptyPublisher
 import org.reactivestreams.api.Producer
 import scala.util.control.NoStackTrace
 
@@ -25,11 +25,11 @@ class FlowPrefixAndTailSpec extends AkkaSpec {
     val testException = new Exception("test") with NoStackTrace
 
     "work on empty input" in {
-      Await.result(Flow(Nil).prefixAndTail(10).toFuture(m), 3.seconds) should be((Nil, EmptyProducer))
+      Await.result(Flow(Nil).prefixAndTail(10).toFuture(m), 3.seconds) should be((Nil, EmptyPublisher))
     }
 
     "work on short input" in {
-      Await.result(Flow(List(1, 2, 3)).prefixAndTail(10).toFuture(m), 3.seconds) should be((List(1, 2, 3), EmptyProducer))
+      Await.result(Flow(List(1, 2, 3)).prefixAndTail(10).toFuture(m), 3.seconds) should be((List(1, 2, 3), EmptyPublisher))
     }
 
     "work on longer inputs" in {

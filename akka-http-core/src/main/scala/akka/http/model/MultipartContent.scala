@@ -6,7 +6,7 @@ package akka.http.model
 
 import java.io.File
 import org.reactivestreams.api.Producer
-import akka.stream.impl.SynchronousProducerFromIterable
+import akka.stream.impl.SynchronousPublisherFromIterable
 import scala.collection.immutable
 import headers._
 
@@ -21,9 +21,9 @@ trait MultipartParts {
 final case class MultipartContent(parts: Producer[BodyPart]) extends MultipartParts
 
 object MultipartContent {
-  val Empty = MultipartContent(SynchronousProducerFromIterable[BodyPart](Nil))
+  val Empty = MultipartContent(SynchronousPublisherFromIterable[BodyPart](Nil))
 
-  def apply(parts: BodyPart*): MultipartContent = apply(SynchronousProducerFromIterable[BodyPart](parts.toList))
+  def apply(parts: BodyPart*): MultipartContent = apply(SynchronousPublisherFromIterable[BodyPart](parts.toList))
 
   def apply(files: Map[String, FormFile]): MultipartContent =
     apply(files.map(e ⇒ BodyPart(e._2, e._1))(collection.breakOut): _*)
@@ -36,9 +36,9 @@ object MultipartContent {
 final case class MultipartByteRanges(parts: Producer[BodyPart]) extends MultipartParts
 
 object MultipartByteRanges {
-  val Empty = MultipartByteRanges(SynchronousProducerFromIterable[BodyPart](Nil))
+  val Empty = MultipartByteRanges(SynchronousPublisherFromIterable[BodyPart](Nil))
 
-  def apply(parts: BodyPart*): MultipartByteRanges = apply(SynchronousProducerFromIterable[BodyPart](parts.toList))
+  def apply(parts: BodyPart*): MultipartByteRanges = apply(SynchronousPublisherFromIterable[BodyPart](parts.toList))
 }
 
 /**
