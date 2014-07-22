@@ -107,7 +107,7 @@ trait ScriptedTest extends Matchers {
 
     def debugLog(msg: String): Unit = _debugLog :+= msg
 
-    def requestMore(demand: Int): Unit = {
+    def request(demand: Int): Unit = {
       debugLog(s"test environment requests $demand")
       downstreamSubscription.request(demand)
       outstandingDemand += demand
@@ -158,7 +158,7 @@ trait ScriptedTest extends Matchers {
             upstreamSubscription.sendNext(input)
             doRun(nextIdle)
           } else if (mayRequestMore && (!mayProvideInput || !tieBreak)) {
-            requestMore(getNextDemand())
+            request(getNextDemand())
             doRun(nextIdle)
           } else {
             if (currentScript.noInsPending && !completed) {
@@ -174,7 +174,7 @@ trait ScriptedTest extends Matchers {
 
       try {
         debugLog(s"running $script")
-        requestMore(getNextDemand())
+        request(getNextDemand())
         doRun(0)
       } catch {
         case e: Throwable ⇒

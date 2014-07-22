@@ -18,7 +18,7 @@ import akka.routing.RoundRobinRoutingLogic
 import akka.testkit.ImplicitSender
 import scala.util.control.NoStackTrace
 
-object ActorConsumerSpec {
+object ActorSubscriberSpec {
 
   def manualConsumerProps(probe: ActorRef): Props =
     Props(new ManualSubscriber(probe)).withDispatcher("akka.test.stream-dispatcher")
@@ -96,8 +96,8 @@ object ActorConsumerSpec {
 }
 
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])
-class ActorConsumerSpec extends AkkaSpec with ImplicitSender {
-  import ActorConsumerSpec._
+class ActorSubscriberSpec extends AkkaSpec with ImplicitSender {
+  import ActorSubscriberSpec._
   import ActorSubscriber._
 
   val materializer = FlowMaterializer(MaterializerSettings(dispatcher = "akka.test.stream-dispatcher"))

@@ -113,7 +113,7 @@ class PersistentPublisherSpec extends AkkaSpec(PersistenceSpec.config("leveldb",
       val streamProbe1 = TestProbe()
       val streamProbe2 = TestProbe()
 
-      val producer = PersistentFlow.fromProcessor(processorId(1), publisherSettings).toProducer(materializer)
+      val producer = PersistentFlow.fromProcessor(processorId(1), publisherSettings).toPublisher(materializer)
 
       Flow(producer).foreach {
         case Persistent(payload, sequenceNr) ⇒ streamProbe1.ref ! s"${payload}-${sequenceNr}"
@@ -146,8 +146,8 @@ class PersistentPublisherSpec extends AkkaSpec(PersistenceSpec.config("leveldb",
       val fromSequenceNr1 = 7L
       val fromSequenceNr2 = 3L
 
-      val producer1 = PersistentFlow.fromProcessor(processorId(1), publisherSettings.copy(fromSequenceNr = fromSequenceNr1)).toProducer(materializer)
-      val producer2 = PersistentFlow.fromProcessor(processorId(2), publisherSettings.copy(fromSequenceNr = fromSequenceNr2)).toProducer(materializer)
+      val producer1 = PersistentFlow.fromProcessor(processorId(1), publisherSettings.copy(fromSequenceNr = fromSequenceNr1)).toPublisher(materializer)
+      val producer2 = PersistentFlow.fromProcessor(processorId(2), publisherSettings.copy(fromSequenceNr = fromSequenceNr2)).toPublisher(materializer)
 
       Flow(producer1).merge(producer2).foreach {
         case Persistent(payload: String, sequenceNr) if (payload.startsWith("a")) ⇒ streamProbe1.ref ! s"${payload}-${sequenceNr}"

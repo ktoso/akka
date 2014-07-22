@@ -5,7 +5,7 @@ package akka.stream
 
 import scala.concurrent.duration._
 import akka.stream.testkit._
-import org.reactivestreams.api.Producer
+import org.reactivestreams.Publisher
 import akka.stream.scaladsl.Flow
 import scala.util.control.NoStackTrace
 
@@ -19,12 +19,12 @@ class FlowGroupBySpec extends AkkaSpec {
     maxFanOutBufferSize = 2,
     dispatcher = "akka.test.stream-dispatcher"))
 
-  case class StreamPuppet(p: Producer[Int]) {
-    val probe = StreamTestKit.consumerProbe[Int]
-    p.produceTo(probe)
+  case class StreamPuppet(p: Publisher[Int]) {
+    val probe = StreamTestKit.SubscriberProbe[Int]()
+    p.subscribe(probe)
     val subscription = probe.expectSubscription()
 
-    def requestMore(demand: Int): Unit = subscription.requestMore(demand)
+    def request(demand: Int): Unit = subscription.request(demand)
     def expectNext(elem: Int): Unit = probe.expectNext(elem)
     def expectNoMsg(max: FiniteDuration): Unit = probe.expectNoMsg(max)
     def expectComplete(): Unit = probe.expectComplete()
@@ -33,19 +33,19 @@ class FlowGroupBySpec extends AkkaSpec {
   }
 
   class SubstreamsSupport(groupCount: Int = 2, elementCount: Int = 6) {
-    val source = Flow((1 to elementCount).iterator).toProducer(materializer)
-    val groupStream = Flow(source).groupBy(_ % groupCount).toProducer(materializer)
-    val masterConsumer = StreamTestKit.consumerProbe[(Int, Producer[Int])]
+    val source = Flow((1 to elementCount).iterator).toPublisher(materializer)
+    val groupStream = Flow(source).groupBy(_ % groupCount).toPublisher(materializer)
+    val masterConsumer = StreamTestKit.SubscriberProbe[(Int, Publisher[Int])]()
 
-    groupStream.produceTo(masterConsumer)
+    groupStream.subscribe(masterConsumer)
     val masterSubscription = masterConsumer.expectSubscription()
 
-    def getSubproducer(expectedKey: Int): Producer[Int] = {
-      masterSubscription.requestMore(1)
+    def getSubproducer(expectedKey: Int): Publisher[Int] = {
+      masterSubscription.request(1)
       expectSubproducer(expectedKey: Int)
     }
 
-    def expectSubproducer(expectedKey: Int): Producer[Int] = {
+    def expectSubproducer(expectedKey: Int): Publisher[Int] = {
       val (key, substream) = masterConsumer.expectNext()
       key should be(expectedKey)
       substream
@@ -61,27 +61,27 @@ class FlowGroupBySpec extends AkkaSpec {
       masterConsumer.expectNoMsg(100.millis)
 
       s1.expectNoMsg(100.millis)
-      s1.requestMore(1)
+      s1.request(1)
       s1.expectNext(1)
       s1.expectNoMsg(100.millis)
 
       val s2 = StreamPuppet(getSubproducer(0))
 
       s2.expectNoMsg(100.millis)
-      s2.requestMore(2)
+      s2.request(2)
       s2.expectNext(2)
       s2.expectNext(4)
 
       s2.expectNoMsg(100.millis)
 
-      s1.requestMore(1)
+      s1.request(1)
       s1.expectNext(3)
 
-      s2.requestMore(1)
+      s2.request(1)
       s2.expectNext(6)
       s2.expectComplete()
 
-      s1.requestMore(1)
+      s1.request(1)
       s1.expectNext(5)
       s1.expectComplete()
 
@@ -93,12 +93,12 @@ class FlowGroupBySpec extends AkkaSpec {
       StreamPuppet(getSubproducer(1)).cancel()
 
       val substream = StreamPuppet(getSubproducer(0))
-      substream.requestMore(2)
+      substream.request(2)
       substream.expectNext(2)
       substream.expectNext(4)
       substream.expectNoMsg(100.millis)
 
-      substream.requestMore(2)
+      substream.request(2)
       substream.expectNext(6)
       substream.expectComplete()
 
@@ -107,10 +107,10 @@ class FlowGroupBySpec extends AkkaSpec {
     }
 
     "accept cancellation of master stream when not consumed anything" in {
-      val producerProbe = StreamTestKit.producerProbe[Int]
-      val producer = Flow(producerProbe).groupBy(_ % 2).toProducer(materializer)
-      val consumer = StreamTestKit.consumerProbe[(Int, Producer[Int])]
-      producer.produceTo(consumer)
+      val producerProbe = StreamTestKit.PublisherProbe[Int]()
+      val producer = Flow(producerProbe).groupBy(_ % 2).toPublisher(materializer)
+      val consumer = StreamTestKit.SubscriberProbe[(Int, Publisher[Int])]()
+      producer.subscribe(consumer)
 
       val upstreamSubscription = producerProbe.expectSubscription()
       val downstreamSubscription = consumer.expectSubscription()
@@ -123,14 +123,14 @@ class FlowGroupBySpec extends AkkaSpec {
       // FIXME: Needs handling of loose substreams that no one refers to anymore.
       //      val substream = StreamPuppet(getSubproducer(1))
       //
-      //      substream.requestMore(1)
+      //      substream.request(1)
       //      substream.expectNext(1)
       //
       //      masterSubscription.cancel()
       //      masterConsumer.expectNoMsg(100.millis)
       //
       //      // Open substreams still work, others are discarded
-      //      substream.requestMore(4)
+      //      substream.request(4)
       //      substream.expectNext(4)
       //      substream.expectNext(7)
       //      substream.expectNext(10)
@@ -145,31 +145,31 @@ class FlowGroupBySpec extends AkkaSpec {
       val substreamConsumer1 = StreamPuppet(substreamProducer)
       val substreamConsumer2 = StreamPuppet(substreamProducer)
 
-      substreamConsumer1.requestMore(1)
+      substreamConsumer1.request(1)
       substreamConsumer1.expectNext(1)
-      substreamConsumer2.requestMore(1)
+      substreamConsumer2.request(1)
       substreamConsumer2.expectNext(1)
 
-      substreamConsumer1.requestMore(1)
+      substreamConsumer1.request(1)
       substreamConsumer1.expectNext(3)
-      substreamConsumer2.requestMore(1)
+      substreamConsumer2.request(1)
       substreamConsumer2.expectNext(3)
     }
 
     "work with fanout on master stream" in {
-      val source = Flow((1 to 4).iterator).toProducer(materializer)
-      val groupStream = Flow(source).groupBy(_ % 2).toProducer(materializer)
-      val masterConsumer1 = StreamTestKit.consumerProbe[(Int, Producer[Int])]
-      val masterConsumer2 = StreamTestKit.consumerProbe[(Int, Producer[Int])]
+      val source = Flow((1 to 4).iterator).toPublisher(materializer)
+      val groupStream = Flow(source).groupBy(_ % 2).toPublisher(materializer)
+      val masterConsumer1 = StreamTestKit.SubscriberProbe[(Int, Publisher[Int])]()
+      val masterConsumer2 = StreamTestKit.SubscriberProbe[(Int, Publisher[Int])]()
 
-      groupStream.produceTo(masterConsumer1)
-      groupStream.produceTo(masterConsumer2)
+      groupStream.subscribe(masterConsumer1)
+      groupStream.subscribe(masterConsumer2)
 
       val masterSubscription1 = masterConsumer1.expectSubscription()
       val masterSubscription2 = masterConsumer2.expectSubscription()
 
-      masterSubscription1.requestMore(2)
-      masterSubscription2.requestMore(1)
+      masterSubscription1.request(2)
+      masterSubscription2.request(1)
 
       val (key11, substream11) = masterConsumer1.expectNext()
       key11 should be(1)
@@ -179,11 +179,11 @@ class FlowGroupBySpec extends AkkaSpec {
       val puppet11 = StreamPuppet(substream11)
       val puppet21 = StreamPuppet(substream21)
 
-      puppet11.requestMore(2)
+      puppet11.request(2)
       puppet11.expectNext(1)
       puppet11.expectNext(3)
 
-      puppet21.requestMore(1)
+      puppet21.request(1)
       puppet21.expectNext(1)
       puppet21.cancel()
 
@@ -193,30 +193,30 @@ class FlowGroupBySpec extends AkkaSpec {
       key12 should be(0)
 
       val puppet12 = StreamPuppet(substream12)
-      puppet12.requestMore(1)
+      puppet12.request(1)
       puppet12.expectNext(2)
       puppet12.cancel()
       masterSubscription1.cancel()
     }
 
     "work with empty input stream" in {
-      val producer = Flow(List.empty[Int]).groupBy(_ % 2).toProducer(materializer)
-      val consumer = StreamTestKit.consumerProbe[(Int, Producer[Int])]
-      producer.produceTo(consumer)
+      val producer = Flow(List.empty[Int]).groupBy(_ % 2).toPublisher(materializer)
+      val consumer = StreamTestKit.SubscriberProbe[(Int, Publisher[Int])]()
+      producer.subscribe(consumer)
 
       consumer.expectCompletedOrSubscriptionFollowedByComplete()
     }
 
     "abort on onError from upstream" in {
-      val producerProbe = StreamTestKit.producerProbe[Int]
-      val producer = Flow(producerProbe).groupBy(_ % 2).toProducer(materializer)
-      val consumer = StreamTestKit.consumerProbe[(Int, Producer[Int])]
-      producer.produceTo(consumer)
+      val producerProbe = StreamTestKit.PublisherProbe[Int]()
+      val producer = Flow(producerProbe).groupBy(_ % 2).toPublisher(materializer)
+      val consumer = StreamTestKit.SubscriberProbe[(Int, Publisher[Int])]()
+      producer.subscribe(consumer)
 
       val upstreamSubscription = producerProbe.expectSubscription()
 
       val downstreamSubscription = consumer.expectSubscription()
-      downstreamSubscription.requestMore(100)
+      downstreamSubscription.request(100)
 
       val e = TE("test")
       upstreamSubscription.sendError(e)
@@ -225,22 +225,22 @@ class FlowGroupBySpec extends AkkaSpec {
     }
 
     "abort on onError from upstream when substreams are running" in {
-      val producerProbe = StreamTestKit.producerProbe[Int]
-      val producer = Flow(producerProbe).groupBy(_ % 2).toProducer(materializer)
-      val consumer = StreamTestKit.consumerProbe[(Int, Producer[Int])]
-      producer.produceTo(consumer)
+      val producerProbe = StreamTestKit.PublisherProbe[Int]()
+      val producer = Flow(producerProbe).groupBy(_ % 2).toPublisher(materializer)
+      val consumer = StreamTestKit.SubscriberProbe[(Int, Publisher[Int])]()
+      producer.subscribe(consumer)
 
       val upstreamSubscription = producerProbe.expectSubscription()
 
       val downstreamSubscription = consumer.expectSubscription()
-      downstreamSubscription.requestMore(100)
+      downstreamSubscription.request(100)
 
       upstreamSubscription.sendNext(1)
 
       val (_, substream) = consumer.expectNext()
       val substreamPuppet = StreamPuppet(substream)
 
-      substreamPuppet.requestMore(1)
+      substreamPuppet.request(1)
       substreamPuppet.expectNext(1)
 
       val e = TE("test")

@@ -7,10 +7,8 @@ import scala.collection.immutable
 import scala.concurrent.duration._
 import akka.stream.testkit.AkkaSpec
 import akka.stream.testkit.StreamTestKit
-import org.reactivestreams.api.Consumer
-import org.reactivestreams.spi.Subscriber
 import akka.testkit.TestProbe
-import org.reactivestreams.spi.Subscription
+import org.reactivestreams.{ Subscriber, Subscription }
 
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])
 class SynchronousProducerFromIterableSpec extends AkkaSpec {
@@ -18,13 +16,13 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
   "A SynchronousProducerFromIterable" must {
     "produce elements" in {
       val p = SynchronousPublisherFromIterable(List(1, 2, 3))
-      val c = StreamTestKit.consumerProbe[Int]
-      p.produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[Int]()
+      p.subscribe(c)
       val sub = c.expectSubscription()
-      sub.requestMore(1)
+      sub.request(1)
       c.expectNext(1)
       c.expectNoMsg(100.millis)
-      sub.requestMore(2)
+      sub.request(2)
       c.expectNext(2)
       c.expectNext(3)
       c.expectComplete()
@@ -32,33 +30,33 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
 
     "complete empty" in {
       val p = SynchronousPublisherFromIterable(List.empty[Int])
-      val c = StreamTestKit.consumerProbe[Int]
-      p.produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[Int]()
+      p.subscribe(c)
       c.expectComplete()
       c.expectNoMsg(100.millis)
 
-      val c2 = StreamTestKit.consumerProbe[Int]
-      p.produceTo(c2)
+      val c2 = StreamTestKit.SubscriberProbe[Int]()
+      p.subscribe(c2)
       c2.expectComplete()
     }
 
     "produce elements with multiple subscribers" in {
       val p = SynchronousPublisherFromIterable(List(1, 2, 3))
-      val c1 = StreamTestKit.consumerProbe[Int]
-      val c2 = StreamTestKit.consumerProbe[Int]
-      p.produceTo(c1)
-      p.produceTo(c2)
+      val c1 = StreamTestKit.SubscriberProbe[Int]()
+      val c2 = StreamTestKit.SubscriberProbe[Int]()
+      p.subscribe(c1)
+      p.subscribe(c2)
       val sub1 = c1.expectSubscription()
       val sub2 = c2.expectSubscription()
-      sub1.requestMore(1)
-      sub2.requestMore(2)
+      sub1.request(1)
+      sub2.request(2)
       c1.expectNext(1)
       c2.expectNext(1)
       c2.expectNext(2)
       c1.expectNoMsg(100.millis)
       c2.expectNoMsg(100.millis)
-      sub1.requestMore(2)
-      sub2.requestMore(2)
+      sub1.request(2)
+      sub2.request(2)
       c1.expectNext(2)
       c1.expectNext(3)
       c2.expectNext(3)
@@ -68,25 +66,25 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
 
     "produce elements to later subscriber" in {
       val p = SynchronousPublisherFromIterable(List(1, 2, 3))
-      val c1 = StreamTestKit.consumerProbe[Int]
-      val c2 = StreamTestKit.consumerProbe[Int]
-      p.produceTo(c1)
+      val c1 = StreamTestKit.SubscriberProbe[Int]()
+      val c2 = StreamTestKit.SubscriberProbe[Int]()
+      p.subscribe(c1)
 
       val sub1 = c1.expectSubscription()
-      sub1.requestMore(1)
+      sub1.request(1)
       c1.expectNext(1)
       c1.expectNoMsg(100.millis)
-      p.produceTo(c2)
+      p.subscribe(c2)
       val sub2 = c2.expectSubscription()
-      sub2.requestMore(2)
+      sub2.request(2)
       // starting from first element, new iterator per subscriber
       c2.expectNext(1)
       c2.expectNext(2)
       c2.expectNoMsg(100.millis)
-      sub2.requestMore(1)
+      sub2.request(1)
       c2.expectNext(3)
       c2.expectComplete()
-      sub1.requestMore(2)
+      sub1.request(2)
       c1.expectNext(2)
       c1.expectNext(3)
       c1.expectComplete()
@@ -94,22 +92,21 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
 
     "not produce after cancel" in {
       val p = SynchronousPublisherFromIterable(List(1, 2, 3))
-      val c = StreamTestKit.consumerProbe[Int]
-      p.produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[Int]()
+      p.subscribe(c)
       val sub = c.expectSubscription()
-      sub.requestMore(1)
+      sub.request(1)
       c.expectNext(1)
       sub.cancel()
-      sub.requestMore(2)
+      sub.request(2)
       c.expectNoMsg(100.millis)
     }
 
     "not produce after cancel from onNext" in {
       val p = SynchronousPublisherFromIterable(List(1, 2, 3, 4, 5))
       val probe = TestProbe()
-      p.produceTo(new Consumer[Int] with Subscriber[Int] {
+      p.subscribe(new Subscriber[Int] {
         var sub: Subscription = _
-        override val getSubscriber: Subscriber[Int] = this
         override def onError(cause: Throwable): Unit = probe.ref ! cause
         override def onComplete(): Unit = probe.ref ! "complete"
         override def onNext(element: Int): Unit = {
@@ -118,7 +115,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
         }
         override def onSubscribe(subscription: Subscription): Unit = {
           sub = subscription
-          sub.requestMore(10)
+          sub.request(10)
         }
       })
 
@@ -141,15 +138,15 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
         }
       }
       val p = SynchronousPublisherFromIterable(iterable)
-      val c = StreamTestKit.consumerProbe[Int]
-      p.produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[Int]()
+      p.subscribe(c)
       val sub = c.expectSubscription()
-      sub.requestMore(1)
+      sub.request(1)
       c.expectNext(1)
       c.expectNoMsg(100.millis)
-      sub.requestMore(2)
+      sub.request(2)
       c.expectError.getMessage should be("not two")
-      sub.requestMore(2)
+      sub.request(2)
       c.expectNoMsg(100.millis)
     }
 
@@ -157,19 +154,18 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
       val N = 50000
       val p = SynchronousPublisherFromIterable(1 to N)
       val probe = TestProbe()
-      p.produceTo(new Consumer[Int] with Subscriber[Int] {
+      p.subscribe(new Subscriber[Int] {
         var sub: Subscription = _
-        override val getSubscriber: Subscriber[Int] = this
         override def onError(cause: Throwable): Unit = probe.ref ! cause
         override def onComplete(): Unit = probe.ref ! "complete"
         override def onNext(element: Int): Unit = {
           probe.ref ! element
-          sub.requestMore(1)
+          sub.request(1)
 
         }
         override def onSubscribe(subscription: Subscription): Unit = {
           sub = subscription
-          sub.requestMore(1)
+          sub.request(1)
         }
       })
       probe.receiveN(N) should be((1 to N).toVector)

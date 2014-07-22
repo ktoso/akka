@@ -21,8 +21,8 @@ class FlowExpandSpec extends AkkaSpec {
   "Expand" must {
 
     "pass-through elements unchanged when there is no rate difference" in {
-      val producer = StreamTestKit.producerProbe[Int]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Int]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
 
       // Simply repeat the last element as an extrapolation step
       Flow(producer).expand[Int, Int](seed = i ⇒ i, extrapolate = i ⇒ (i, i)).produceTo(materializer, consumer)
@@ -33,7 +33,7 @@ class FlowExpandSpec extends AkkaSpec {
       for (i ← 1 to 100) {
         // Order is important here: If the request comes first it will be extrapolated!
         autoProducer.sendNext(i)
-        sub.requestMore(1)
+        sub.request(1)
         consumer.expectNext(i)
       }
 
@@ -41,8 +41,8 @@ class FlowExpandSpec extends AkkaSpec {
     }
 
     "expand elements while upstream is silent" in {
-      val producer = StreamTestKit.producerProbe[Int]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Int]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
 
       // Simply repeat the last element as an extrapolation step
       Flow(producer).expand[Int, Int](seed = i ⇒ i, extrapolate = i ⇒ (i, i)).produceTo(materializer, consumer)
@@ -53,12 +53,12 @@ class FlowExpandSpec extends AkkaSpec {
       autoProducer.sendNext(42)
 
       for (i ← 1 to 100) {
-        sub.requestMore(1)
+        sub.request(1)
         consumer.expectNext(42)
       }
 
       autoProducer.sendNext(-42)
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNext(-42)
 
       sub.cancel()
@@ -75,8 +75,8 @@ class FlowExpandSpec extends AkkaSpec {
     }
 
     "backpressure producer when consumer is slower" in {
-      val producer = StreamTestKit.producerProbe[Int]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Int]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
 
       Flow(producer).expand[Int, Int](seed = i ⇒ i, extrapolate = i ⇒ (i, i)).produceTo(materializer, consumer)
 
@@ -84,9 +84,9 @@ class FlowExpandSpec extends AkkaSpec {
       val sub = consumer.expectSubscription()
 
       autoProducer.sendNext(1)
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNext(1)
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNext(1)
 
       var pending = autoProducer.pendingRequests
@@ -106,7 +106,7 @@ class FlowExpandSpec extends AkkaSpec {
 
       producer.expectNoMsg(1.second)
 
-      sub.requestMore(2)
+      sub.request(2)
       consumer.expectNext(2)
       consumer.expectNext(2)
 

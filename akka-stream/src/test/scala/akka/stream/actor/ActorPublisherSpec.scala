@@ -19,7 +19,7 @@ import akka.testkit.ImplicitSender
 import akka.testkit.TestEvent.Mute
 import akka.testkit.TestProbe
 
-object ActorProducerSpec {
+object ActorPublisherSpec {
 
   def testProducerProps(probe: ActorRef): Props =
     Props(new TestPublisher(probe)).withDispatcher("akka.test.stream-dispatcher")
@@ -89,8 +89,8 @@ object ActorProducerSpec {
 }
 
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])
-class ActorProducerSpec extends AkkaSpec with ImplicitSender {
-  import ActorProducerSpec._
+class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
+  import ActorPublisherSpec._
   import ActorPublisher._
 
   system.eventStream.publish(Mute(EventFilter[IllegalStateException]()))
@@ -101,12 +101,12 @@ class ActorProducerSpec extends AkkaSpec with ImplicitSender {
       val probe = TestProbe()
       val ref = system.actorOf(testProducerProps(probe.ref))
       val p = ActorPublisher[String](ref)
-      val c = StreamTestKit.consumerProbe[String]
-      p.produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[String]()
+      p.subscribe(c)
       val sub = c.expectSubscription
-      sub.requestMore(2)
+      sub.request(2)
       probe.expectMsg(TotalDemand(2))
-      sub.requestMore(3)
+      sub.request(3)
       probe.expectMsg(TotalDemand(5))
       sub.cancel()
     }
@@ -115,10 +115,10 @@ class ActorProducerSpec extends AkkaSpec with ImplicitSender {
       val probe = TestProbe()
       val ref = system.actorOf(testProducerProps(probe.ref))
       val p = ActorPublisher[String](ref)
-      val c = StreamTestKit.consumerProbe[String]
-      p.produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[String]()
+      p.subscribe(c)
       val sub = c.expectSubscription
-      sub.requestMore(2)
+      sub.request(2)
       ref ! Produce("elem-1")
       ref ! Produce("elem-2")
       ref ! Produce("elem-3")
@@ -131,8 +131,8 @@ class ActorProducerSpec extends AkkaSpec with ImplicitSender {
     "signal error" in {
       val probe = TestProbe()
       val ref = system.actorOf(testProducerProps(probe.ref))
-      val c = StreamTestKit.consumerProbe[String]
-      ActorPublisher[String](ref).produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[String]()
+      ActorPublisher[String](ref).subscribe(c)
       ref ! Err("wrong")
       c.expectSubscription
       c.expectError.getMessage should be("wrong")
@@ -142,8 +142,8 @@ class ActorProducerSpec extends AkkaSpec with ImplicitSender {
       val probe = TestProbe()
       val ref = system.actorOf(testProducerProps(probe.ref))
       ref ! Err("early err")
-      val c = StreamTestKit.consumerProbe[String]
-      ActorPublisher[String](ref).produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[String]()
+      ActorPublisher[String](ref).subscribe(c)
       c.expectError.getMessage should be("early err")
     }
 
@@ -151,10 +151,10 @@ class ActorProducerSpec extends AkkaSpec with ImplicitSender {
       val probe = TestProbe()
       val ref = system.actorOf(testProducerProps(probe.ref))
       val p = ActorPublisher[String](ref)
-      val c = StreamTestKit.consumerProbe[String]
-      p.produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[String]()
+      p.subscribe(c)
       val sub = c.expectSubscription
-      sub.requestMore(2)
+      sub.request(2)
       ref ! Produce("elem-1")
       sub.cancel()
       ref ! Produce("elem-2")
@@ -167,17 +167,17 @@ class ActorProducerSpec extends AkkaSpec with ImplicitSender {
       val probe = TestProbe()
       val ref = system.actorOf(testProducerProps(probe.ref))
       val p = ActorPublisher[String](ref)
-      val c = StreamTestKit.consumerProbe[String]
-      p.produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[String]()
+      p.subscribe(c)
       val sub = c.expectSubscription
-      sub.requestMore(3)
+      sub.request(3)
       probe.expectMsg(TotalDemand(3))
       ref ! Produce("elem-1")
       ref ! Boom
       ref ! Produce("elem-2")
       c.expectNext("elem-1")
       c.expectNext("elem-2")
-      sub.requestMore(5)
+      sub.request(5)
       probe.expectMsg(TotalDemand(6))
       sub.cancel()
     }
@@ -185,10 +185,10 @@ class ActorProducerSpec extends AkkaSpec with ImplicitSender {
     "signal onComplete" in {
       val probe = TestProbe()
       val ref = system.actorOf(testProducerProps(probe.ref))
-      val c = StreamTestKit.consumerProbe[String]
-      ActorPublisher[String](ref).produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[String]()
+      ActorPublisher[String](ref).subscribe(c)
       val sub = c.expectSubscription
-      sub.requestMore(3)
+      sub.request(3)
       ref ! Produce("elem-1")
       ref ! Complete
       c.expectNext("elem-1")
@@ -199,28 +199,28 @@ class ActorProducerSpec extends AkkaSpec with ImplicitSender {
       val probe = TestProbe()
       val ref = system.actorOf(testProducerProps(probe.ref))
       ref ! Complete
-      val c = StreamTestKit.consumerProbe[String]
-      ActorPublisher[String](ref).produceTo(c)
+      val c = StreamTestKit.SubscriberProbe[String]()
+      ActorPublisher[String](ref).subscribe(c)
       c.expectComplete
     }
 
     "only allow one subscriber" in {
       val probe = TestProbe()
       val ref = system.actorOf(testProducerProps(probe.ref))
-      val c = StreamTestKit.consumerProbe[String]
-      ActorPublisher[String](ref).produceTo(c)
-      val sub = c.expectSubscription
-      val c2 = StreamTestKit.consumerProbe[String]
-      ActorPublisher[String](ref).produceTo(c2)
+      val c = StreamTestKit.SubscriberProbe[String]()
+      ActorPublisher[String](ref).subscribe(c)
+      c.expectSubscription
+      val c2 = StreamTestKit.SubscriberProbe[String]()
+      ActorPublisher[String](ref).subscribe(c2)
       c2.expectError.getClass should be(classOf[IllegalStateException])
     }
 
     "signal onCompete when actor is stopped" in {
       val probe = TestProbe()
       val ref = system.actorOf(testProducerProps(probe.ref))
-      val c = StreamTestKit.consumerProbe[String]
-      ActorPublisher[String](ref).produceTo(c)
-      val sub = c.expectSubscription
+      val c = StreamTestKit.SubscriberProbe[String]()
+      ActorPublisher[String](ref).subscribe(c)
+      c.expectSubscription
       ref ! PoisonPill
       c.expectComplete
     }

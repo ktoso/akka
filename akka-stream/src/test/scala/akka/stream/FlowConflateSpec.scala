@@ -21,8 +21,8 @@ class FlowConflateSpec extends AkkaSpec {
   "Conflate" must {
 
     "pass-through elements unchanged when there is no rate difference" in {
-      val producer = StreamTestKit.producerProbe[Int]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Int]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
 
       Flow(producer).conflate[Int](seed = i ⇒ i, aggregate = (sum, i) ⇒ sum + i).produceTo(materializer, consumer)
 
@@ -30,7 +30,7 @@ class FlowConflateSpec extends AkkaSpec {
       val sub = consumer.expectSubscription()
 
       for (i ← 1 to 100) {
-        sub.requestMore(1)
+        sub.request(1)
         autoProducer.sendNext(i)
         consumer.expectNext(i)
       }
@@ -39,8 +39,8 @@ class FlowConflateSpec extends AkkaSpec {
     }
 
     "conflate elements while downstream is silent" in {
-      val producer = StreamTestKit.producerProbe[Int]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Int]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
 
       Flow(producer).conflate[Int](seed = i ⇒ i, aggregate = (sum, i) ⇒ sum + i).produceTo(materializer, consumer)
 
@@ -51,7 +51,7 @@ class FlowConflateSpec extends AkkaSpec {
         autoProducer.sendNext(i)
       }
       consumer.expectNoMsg(1.second)
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNext(5050)
       sub.cancel()
     }
@@ -67,29 +67,29 @@ class FlowConflateSpec extends AkkaSpec {
     }
 
     "backpressure consumer when upstream is slower" in {
-      val producer = StreamTestKit.producerProbe[Int]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Int]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
 
       Flow(producer).conflate[Int](seed = i ⇒ i, aggregate = (sum, i) ⇒ sum + i).produceTo(materializer, consumer)
 
       val autoProducer = new StreamTestKit.AutoPublisher(producer)
       val sub = consumer.expectSubscription()
 
-      sub.requestMore(1)
+      sub.request(1)
       autoProducer.sendNext(1)
       consumer.expectNext(1)
 
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNoMsg(1.second)
       autoProducer.sendNext(2)
       consumer.expectNext(2)
 
       autoProducer.sendNext(3)
       autoProducer.sendNext(4)
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNext(7)
 
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNoMsg(1.second)
       sub.cancel()
 

@@ -4,17 +4,16 @@
 package akka.stream.testkit
 
 import akka.actor.ActorSystem
-import akka.stream.impl.ErrorPublisher
+import akka.stream.impl.{ EmptyPublisher, ErrorPublisher }
 import akka.testkit.TestProbe
-import org.reactivestreams.{Publisher, Subscriber, Subscription}
+import org.reactivestreams.{ Publisher, Subscriber, Subscription }
 
 import scala.concurrent.duration.FiniteDuration
-
 
 object StreamTestKit {
 
   /**
-   * Subscribes the subscriber and completes after the first requestMore.
+   * Subscribes the subscriber and completes after the first request.
    */
   def lazyEmptyPublisher[T]: Publisher[T] = new Publisher[T] {
     override def subscribe(subscriber: Subscriber[T]): Unit =
@@ -26,8 +25,10 @@ object StreamTestKit {
    */
   def errorPublisher[T](cause: Throwable): Publisher[T] = ErrorPublisher(cause: Throwable).asInstanceOf[Publisher[T]]
 
+  def emptyPublisher[T](): Publisher[T] = EmptyPublisher.asInstanceOf[Publisher[T]]
+
   /**
-   * Subscribes the subscriber and signals error after the first requestMore.
+   * Subscribes the subscriber and signals error after the first request.
    */
   def lazyErrorPublisher[T](cause: Throwable): Publisher[T] = new Publisher[T] {
     override def subscribe(subscriber: Subscriber[T]): Unit =
@@ -77,14 +78,13 @@ object StreamTestKit {
 
     def expectCancellation(): Unit = publisherProbe.fishForMessage() {
       case CancelSubscription(sub) if sub eq this ⇒ true
-      case RequestMore(sub, _) if sub eq this    ⇒ false
+      case RequestMore(sub, _) if sub eq this     ⇒ false
     }
 
     def sendNext(element: I): Unit = subscriber.onNext(element)
     def sendComplete(): Unit = subscriber.onComplete()
     def sendError(cause: Exception): Unit = subscriber.onError(cause)
   }
-
 
   case class SubscriberProbe[I]()(implicit system: ActorSystem) extends Subscriber[I] {
     val probe = TestProbe()
@@ -133,6 +133,10 @@ object StreamTestKit {
     def onComplete(): Unit = probe.ref ! OnComplete
     def onError(cause: Throwable): Unit = probe.ref ! OnError(cause)
 
+    // Keeping equality
+    // FIXME: This and PublisherProbe should not be a case class so that we don't need this equality reversal
+    override def equals(that: Any): Boolean = this eq that.asInstanceOf[AnyRef]
+    override def hashCode(): Int = System.identityHashCode(this)
   }
 
   case class PublisherProbe[I]()(implicit system: ActorSystem) extends Publisher[I] {

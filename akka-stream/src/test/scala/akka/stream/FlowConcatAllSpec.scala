@@ -7,7 +7,7 @@ import akka.stream.testkit.{ StreamTestKit, AkkaSpec }
 import akka.stream.scaladsl.Flow
 import scala.concurrent.duration._
 import scala.concurrent.Await
-import org.reactivestreams.api.Producer
+import org.reactivestreams.Publisher
 import scala.util.control.NoStackTrace
 
 class FlowConcatAllSpec extends AkkaSpec {
@@ -24,13 +24,13 @@ class FlowConcatAllSpec extends AkkaSpec {
     val testException = new Exception("test") with NoStackTrace
 
     "work in the happy case" in {
-      val s1 = Flow((1 to 2).iterator).toProducer(m)
-      val s2 = Flow(List.empty[Int]).toProducer(m)
-      val s3 = Flow(List(3)).toProducer(m)
-      val s4 = Flow((4 to 6).iterator).toProducer(m)
-      val s5 = Flow((7 to 10).iterator).toProducer(m)
+      val s1 = Flow((1 to 2).iterator).toPublisher(m)
+      val s2 = Flow(List.empty[Int]).toPublisher(m)
+      val s3 = Flow(List(3)).toPublisher(m)
+      val s4 = Flow((4 to 6).iterator).toPublisher(m)
+      val s5 = Flow((7 to 10).iterator).toPublisher(m)
 
-      val main: Flow[Producer[Int]] = Flow(List(s1, s2, s3, s4, s5))
+      val main: Flow[Publisher[Int]] = Flow(List(s1, s2, s3, s4, s5))
 
       Await.result(main.flatten(FlattenStrategy.concat).grouped(10).toFuture(m), 3.seconds) should be(1 to 10)
     }
@@ -42,16 +42,16 @@ class FlowConcatAllSpec extends AkkaSpec {
     }
 
     "on onError on master stream cancel the current open substream and signal error" in {
-      val producer = StreamTestKit.producerProbe[Producer[Int]]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Publisher[Int]]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
       Flow(producer).flatten(FlattenStrategy.concat).produceTo(m, consumer)
 
       val upstream = producer.expectSubscription()
       val downstream = consumer.expectSubscription()
-      downstream.requestMore(1000)
+      downstream.request(1000)
 
-      val substreamProducer = StreamTestKit.producerProbe[Int]
-      upstream.expectRequestMore()
+      val substreamProducer = StreamTestKit.PublisherProbe[Int]()
+      upstream.expectRequest()
       upstream.sendNext(substreamProducer)
       val subUpstream = substreamProducer.expectSubscription()
 
@@ -61,16 +61,16 @@ class FlowConcatAllSpec extends AkkaSpec {
     }
 
     "on onError on open substream, cancel the master stream and signal error " in {
-      val producer = StreamTestKit.producerProbe[Producer[Int]]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Publisher[Int]]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
       Flow(producer).flatten(FlattenStrategy.concat).produceTo(m, consumer)
 
       val upstream = producer.expectSubscription()
       val downstream = consumer.expectSubscription()
-      downstream.requestMore(1000)
+      downstream.request(1000)
 
-      val substreamProducer = StreamTestKit.producerProbe[Int]
-      upstream.expectRequestMore()
+      val substreamProducer = StreamTestKit.PublisherProbe[Int]()
+      upstream.expectRequest()
       upstream.sendNext(substreamProducer)
       val subUpstream = substreamProducer.expectSubscription()
 
@@ -80,16 +80,16 @@ class FlowConcatAllSpec extends AkkaSpec {
     }
 
     "on cancellation cancel the current open substream and the master stream" in {
-      val producer = StreamTestKit.producerProbe[Producer[Int]]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Publisher[Int]]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
       Flow(producer).flatten(FlattenStrategy.concat).produceTo(m, consumer)
 
       val upstream = producer.expectSubscription()
       val downstream = consumer.expectSubscription()
-      downstream.requestMore(1000)
+      downstream.request(1000)
 
-      val substreamProducer = StreamTestKit.producerProbe[Int]
-      upstream.expectRequestMore()
+      val substreamProducer = StreamTestKit.PublisherProbe[Int]()
+      upstream.expectRequest()
       upstream.sendNext(substreamProducer)
       val subUpstream = substreamProducer.expectSubscription()
 

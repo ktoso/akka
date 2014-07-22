@@ -3,37 +3,34 @@
  */
 package akka.stream
 
-import akka.stream.testkit.StreamTestKit
-import akka.stream.testkit.AkkaSpec
 import akka.stream.scaladsl.Flow
-import org.reactivestreams.api.Producer
-import akka.stream.testkit.OnSubscribe
-import akka.stream.testkit.OnError
+import akka.stream.testkit.StreamTestKit
+import org.reactivestreams.Publisher
 
 class FlowZipSpec extends TwoStreamsSetup {
 
   type Outputs = (Int, Int)
-  override def operationUnderTest(in1: Flow[Int], in2: Producer[Int]) = in1.zip(in2)
+  override def operationUnderTest(in1: Flow[Int], in2: Publisher[Int]) = in1.zip(in2)
 
   "Zip" must {
 
     "work in the happy case" in {
       // Different input sizes (4 and 6)
-      val source1 = Flow((1 to 4).iterator).toProducer(materializer)
-      val source2 = Flow(List("A", "B", "C", "D", "E", "F").iterator).toProducer(materializer)
-      val p = Flow(source1).zip(source2).toProducer(materializer)
+      val source1 = Flow((1 to 4).iterator).toPublisher(materializer)
+      val source2 = Flow(List("A", "B", "C", "D", "E", "F").iterator).toPublisher(materializer)
+      val p = Flow(source1).zip(source2).toPublisher(materializer)
 
-      val probe = StreamTestKit.consumerProbe[(Int, String)]
-      p.produceTo(probe)
+      val probe = StreamTestKit.SubscriberProbe[(Int, String)]()
+      p.subscribe(probe)
       val subscription = probe.expectSubscription()
 
-      subscription.requestMore(2)
+      subscription.request(2)
       probe.expectNext((1, "A"))
       probe.expectNext((2, "B"))
 
-      subscription.requestMore(1)
+      subscription.request(1)
       probe.expectNext((3, "C"))
-      subscription.requestMore(1)
+      subscription.request(1)
       probe.expectNext((4, "D"))
 
       probe.expectComplete()

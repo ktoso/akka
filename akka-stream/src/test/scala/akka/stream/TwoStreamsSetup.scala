@@ -3,13 +3,11 @@
  */
 package akka.stream
 
-import scala.util.control.NoStackTrace
-import org.reactivestreams.api.{ Consumer, Producer }
-import org.reactivestreams.spi.{ Subscriber, Publisher, Subscription }
-import akka.stream.testkit.{ AkkaSpec, StreamTestKit }
 import akka.stream.scaladsl.Flow
-import akka.stream.testkit.OnSubscribe
-import akka.stream.testkit.OnError
+import akka.stream.testkit.{ AkkaSpec, StreamTestKit }
+import org.reactivestreams.Publisher
+
+import scala.util.control.NoStackTrace
 
 abstract class TwoStreamsSetup extends AkkaSpec {
 
@@ -26,29 +24,23 @@ abstract class TwoStreamsSetup extends AkkaSpec {
 
   type Outputs
 
-  def operationUnderTest(in1: Flow[Int], in2: Producer[Int]): Flow[Outputs]
+  def operationUnderTest(in1: Flow[Int], in2: Publisher[Int]): Flow[Outputs]
 
   def setup(p1: Publisher[Int], p2: Publisher[Int]) = {
-    val consumer = StreamTestKit.consumerProbe[Outputs]
-    operationUnderTest(Flow(producerFromPublisher(p1)), producerFromPublisher(p2)).toProducer(materializer).produceTo(consumer)
+    val consumer = StreamTestKit.SubscriberProbe[Outputs]()
+    operationUnderTest(Flow(p1), p2).toPublisher(materializer).subscribe(consumer)
     consumer
   }
 
-  def producerFromPublisher[T](publisher: Publisher[T]): Producer[T] = new Producer[T] {
-    private val pub = publisher
-    override def produceTo(consumer: Consumer[T]): Unit = pub.subscribe(consumer.getSubscriber)
-    override def getPublisher: Publisher[T] = pub
-  }
+  def failedPublisher[T]: Publisher[T] = StreamTestKit.errorPublisher[T](TestException)
 
-  def failedPublisher[T]: Publisher[T] = StreamTestKit.errorPublisher[T](TestException).getPublisher
+  def completedPublisher[T]: Publisher[T] = StreamTestKit.emptyPublisher[T]
 
-  def completedPublisher[T]: Publisher[T] = StreamTestKit.emptyProducer[T].getPublisher
+  def nonemptyPublisher[T](elems: Iterator[T]): Publisher[T] = Flow(elems).toPublisher(materializer)
 
-  def nonemptyPublisher[T](elems: Iterator[T]): Publisher[T] = Flow(elems).toProducer(materializer).getPublisher
+  def soonToFailPublisher[T]: Publisher[T] = StreamTestKit.lazyErrorPublisher[T](TestException)
 
-  def soonToFailPublisher[T]: Publisher[T] = StreamTestKit.lazyErrorPublisher[T](TestException).getPublisher
-
-  def soonToCompletePublisher[T]: Publisher[T] = StreamTestKit.lazyEmptyPublisher[T].getPublisher
+  def soonToCompletePublisher[T]: Publisher[T] = StreamTestKit.lazyEmptyPublisher[T]
 
   def commonTests() = {
     "work with two immediately completed producers" in {

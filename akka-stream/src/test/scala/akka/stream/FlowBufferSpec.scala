@@ -44,8 +44,8 @@ class FlowBufferSpec extends AkkaSpec {
     }
 
     "accept elements that fit in the buffer while downstream is silent" in {
-      val producer = StreamTestKit.producerProbe[Int]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Int]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
 
       Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.backpressure).produceTo(materializer, consumer)
 
@@ -57,15 +57,15 @@ class FlowBufferSpec extends AkkaSpec {
 
       // drain
       for (i ← 1 to 100) {
-        sub.requestMore(1)
+        sub.request(1)
         consumer.expectNext(i)
       }
       sub.cancel()
     }
 
     "drop head elements if buffer is full and configured so" in {
-      val producer = StreamTestKit.producerProbe[Int]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Int]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
 
       Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.dropHead).produceTo(materializer, consumer)
 
@@ -77,23 +77,23 @@ class FlowBufferSpec extends AkkaSpec {
 
       // drain
       for (i ← 101 to 200) {
-        sub.requestMore(1)
+        sub.request(1)
         consumer.expectNext(i)
       }
 
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNoMsg(1.seconds)
 
       autoProducer.sendNext(-1)
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNext(-1)
 
       sub.cancel()
     }
 
     "drop tail elements if buffer is full and configured so" in {
-      val producer = StreamTestKit.producerProbe[Int]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Int]()
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
 
       Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.dropTail).produceTo(materializer, consumer)
 
@@ -105,26 +105,26 @@ class FlowBufferSpec extends AkkaSpec {
 
       // drain
       for (i ← 1 to 99) {
-        sub.requestMore(1)
+        sub.request(1)
         consumer.expectNext(i)
       }
 
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNext(200)
 
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNoMsg(1.seconds)
 
       autoProducer.sendNext(-1)
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNext(-1)
 
       sub.cancel()
     }
 
     "drop all elements if buffer is full and configured so" in {
-      val producer = StreamTestKit.producerProbe[Int]
-      val consumer = StreamTestKit.consumerProbe[Int]
+      val producer = StreamTestKit.PublisherProbe[Int]
+      val consumer = StreamTestKit.SubscriberProbe[Int]()
 
       Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.dropBuffer).produceTo(materializer, consumer)
 
@@ -136,15 +136,15 @@ class FlowBufferSpec extends AkkaSpec {
 
       // drain
       for (i ← 101 to 150) {
-        sub.requestMore(1)
+        sub.request(1)
         consumer.expectNext(i)
       }
 
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNoMsg(1.seconds)
 
       autoProducer.sendNext(-1)
-      sub.requestMore(1)
+      sub.request(1)
       consumer.expectNext(-1)
 
       sub.cancel()
@@ -154,8 +154,8 @@ class FlowBufferSpec extends AkkaSpec {
 
       s"work with $strategy if buffer size of one" in {
 
-        val producer = StreamTestKit.producerProbe[Int]
-        val consumer = StreamTestKit.consumerProbe[Int]
+        val producer = StreamTestKit.PublisherProbe[Int]
+        val consumer = StreamTestKit.SubscriberProbe[Int]()
 
         Flow(producer).buffer(1, overflowStrategy = strategy).produceTo(materializer, consumer)
 
@@ -165,14 +165,14 @@ class FlowBufferSpec extends AkkaSpec {
         // Fill up buffer
         for (i ← 1 to 200) autoProducer.sendNext(i)
 
-        sub.requestMore(1)
+        sub.request(1)
         consumer.expectNext(200)
 
-        sub.requestMore(1)
+        sub.request(1)
         consumer.expectNoMsg(1.seconds)
 
         autoProducer.sendNext(-1)
-        sub.requestMore(1)
+        sub.request(1)
         consumer.expectNext(-1)
 
         sub.cancel()
