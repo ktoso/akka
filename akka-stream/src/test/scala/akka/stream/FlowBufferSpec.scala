@@ -49,7 +49,7 @@ class FlowBufferSpec extends AkkaSpec {
 
       Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.backpressure).produceTo(materializer, consumer)
 
-      val autoProducer = new StreamTestKit.AutoProducer(producer)
+      val autoProducer = new StreamTestKit.AutoPublisher(producer)
       val sub = consumer.expectSubscription()
 
       // Fill up buffer
@@ -69,7 +69,7 @@ class FlowBufferSpec extends AkkaSpec {
 
       Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.dropHead).produceTo(materializer, consumer)
 
-      val autoProducer = new StreamTestKit.AutoProducer(producer)
+      val autoProducer = new StreamTestKit.AutoPublisher(producer)
       val sub = consumer.expectSubscription()
 
       // Fill up buffer
@@ -97,7 +97,7 @@ class FlowBufferSpec extends AkkaSpec {
 
       Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.dropTail).produceTo(materializer, consumer)
 
-      val autoProducer = new StreamTestKit.AutoProducer(producer)
+      val autoProducer = new StreamTestKit.AutoPublisher(producer)
       val sub = consumer.expectSubscription()
 
       // Fill up buffer
@@ -128,7 +128,7 @@ class FlowBufferSpec extends AkkaSpec {
 
       Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.dropBuffer).produceTo(materializer, consumer)
 
-      val autoProducer = new StreamTestKit.AutoProducer(producer)
+      val autoProducer = new StreamTestKit.AutoPublisher(producer)
       val sub = consumer.expectSubscription()
 
       // Fill up buffer
@@ -159,7 +159,7 @@ class FlowBufferSpec extends AkkaSpec {
 
         Flow(producer).buffer(1, overflowStrategy = strategy).produceTo(materializer, consumer)
 
-        val autoProducer = new StreamTestKit.AutoProducer(producer)
+        val autoProducer = new StreamTestKit.AutoPublisher(producer)
         val sub = consumer.expectSubscription()
 
         // Fill up buffer

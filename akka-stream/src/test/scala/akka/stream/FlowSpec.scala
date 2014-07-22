@@ -105,7 +105,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
     "adapt speed to the currently slowest consumer" in {
       new ChainSetup(identity, settings.copy(initialInputBufferSize = 1, maxFanOutBufferSize = 1)) {
         val downstream2 = StreamTestKit.consumerProbe[Any]()
-        producer.produceTo(downstream2)
+        publisher.produceTo(downstream2)
         val downstream2Subscription = downstream2.expectSubscription()
 
         downstreamSubscription.requestMore(5)
@@ -131,7 +131,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
     "support slow consumer with fan-out 2" in {
       new ChainSetup(identity, settings.copy(initialInputBufferSize = 1, initialFanOutBufferSize = 2, maxFanOutBufferSize = 2)) {
         val downstream2 = StreamTestKit.consumerProbe[Any]()
-        producer.produceTo(downstream2)
+        publisher.produceTo(downstream2)
         val downstream2Subscription = downstream2.expectSubscription()
 
         downstreamSubscription.requestMore(5)
@@ -182,7 +182,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
 
         // link now while an upstream element is already requested
         val downstream2 = StreamTestKit.consumerProbe[Any]()
-        producer.produceTo(downstream2)
+        publisher.produceTo(downstream2)
         val downstream2Subscription = downstream2.expectSubscription()
 
         // situation here:
@@ -207,7 +207,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
     "blocking subscriber cancels subscription" in {
       new ChainSetup(identity, settings.copy(initialInputBufferSize = 1, maxFanOutBufferSize = 1)) {
         val downstream2 = StreamTestKit.consumerProbe[Any]()
-        producer.produceTo(downstream2)
+        publisher.produceTo(downstream2)
         val downstream2Subscription = downstream2.expectSubscription()
 
         downstreamSubscription.requestMore(5)
@@ -256,7 +256,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
         upstream.expectRequestMore(upstreamSubscription, 1)
 
         // link now while an upstream element is already requested
-        producer.produceTo(downstream2)
+        publisher.produceTo(downstream2)
         val downstream2Subscription = downstream2.expectSubscription()
 
         upstreamSubscription.sendNext("a3")
@@ -291,7 +291,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
         }
 
         val downstream2 = StreamTestKit.consumerProbe[String]()
-        producer.produceTo(downstream2)
+        publisher.produceTo(downstream2)
         downstream2.expectError() should be(TestException)
       }
     }
@@ -303,7 +303,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
         upstreamSubscription.expectCancellation()
 
         val downstream2 = StreamTestKit.consumerProbe[Any]()
-        producer.produceTo(downstream2)
+        publisher.produceTo(downstream2)
         // IllegalStateException shut down
         downstream2.expectError().isInstanceOf[IllegalStateException] should be(true)
       }

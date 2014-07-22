@@ -3,7 +3,7 @@
  */
 package akka.stream.extra
 
-import akka.stream.testkit.{ AkkaConsumerProbe, StreamTestKit, ScriptedTest, AkkaSpec }
+import akka.stream.testkit.{ SubscriberProbe, StreamTestKit, ScriptedTest, AkkaSpec }
 import akka.stream.{ FlowMaterializer, MaterializerSettings }
 import akka.testkit.TestProbe
 import akka.stream.scaladsl.{ Flow, Duct }

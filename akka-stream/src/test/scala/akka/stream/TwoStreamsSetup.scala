@@ -40,15 +40,15 @@ abstract class TwoStreamsSetup extends AkkaSpec {
     override def getPublisher: Publisher[T] = pub
   }
 
-  def failedPublisher[T]: Publisher[T] = StreamTestKit.errorProducer[T](TestException).getPublisher
+  def failedPublisher[T]: Publisher[T] = StreamTestKit.errorPublisher[T](TestException).getPublisher
 
   def completedPublisher[T]: Publisher[T] = StreamTestKit.emptyProducer[T].getPublisher
 
   def nonemptyPublisher[T](elems: Iterator[T]): Publisher[T] = Flow(elems).toProducer(materializer).getPublisher
 
-  def soonToFailPublisher[T]: Publisher[T] = StreamTestKit.lazyErrorProducer[T](TestException).getPublisher
+  def soonToFailPublisher[T]: Publisher[T] = StreamTestKit.lazyErrorPublisher[T](TestException).getPublisher
 
-  def soonToCompletePublisher[T]: Publisher[T] = StreamTestKit.lazyEmptyProducer[T].getPublisher
+  def soonToCompletePublisher[T]: Publisher[T] = StreamTestKit.lazyEmptyPublisher[T].getPublisher
 
   def commonTests() = {
     "work with two immediately completed producers" in {

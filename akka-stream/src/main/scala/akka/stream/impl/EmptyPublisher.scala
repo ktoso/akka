@@ -17,7 +17,7 @@ private[akka] case object EmptyPublisher extends Publisher[Nothing] {
 /**
  * INTERNAL API
  */
-private[akka] case class ErrorProducer(t: Throwable) extends Publisher[Nothing] {
+private[akka] case class ErrorPublisher(t: Throwable) extends Publisher[Nothing] {
   def getPublisher: Publisher[Nothing] = this
 
   def subscribe(subscriber: Subscriber[Nothing]): Unit = subscriber.onError(t)

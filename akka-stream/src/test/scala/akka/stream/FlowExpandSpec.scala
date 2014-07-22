@@ -27,7 +27,7 @@ class FlowExpandSpec extends AkkaSpec {
       // Simply repeat the last element as an extrapolation step
       Flow(producer).expand[Int, Int](seed = i ⇒ i, extrapolate = i ⇒ (i, i)).produceTo(materializer, consumer)
 
-      val autoProducer = new StreamTestKit.AutoProducer(producer)
+      val autoProducer = new StreamTestKit.AutoPublisher(producer)
       val sub = consumer.expectSubscription()
 
       for (i ← 1 to 100) {
@@ -47,7 +47,7 @@ class FlowExpandSpec extends AkkaSpec {
       // Simply repeat the last element as an extrapolation step
       Flow(producer).expand[Int, Int](seed = i ⇒ i, extrapolate = i ⇒ (i, i)).produceTo(materializer, consumer)
 
-      val autoProducer = new StreamTestKit.AutoProducer(producer)
+      val autoProducer = new StreamTestKit.AutoPublisher(producer)
       val sub = consumer.expectSubscription()
 
       autoProducer.sendNext(42)
@@ -80,7 +80,7 @@ class FlowExpandSpec extends AkkaSpec {
 
       Flow(producer).expand[Int, Int](seed = i ⇒ i, extrapolate = i ⇒ (i, i)).produceTo(materializer, consumer)
 
-      val autoProducer = new StreamTestKit.AutoProducer(producer)
+      val autoProducer = new StreamTestKit.AutoPublisher(producer)
       val sub = consumer.expectSubscription()
 
       autoProducer.sendNext(1)
@@ -97,8 +97,8 @@ class FlowExpandSpec extends AkkaSpec {
       }
 
       // The above sends are absorbed in the input buffer, and will result in two one-sized batch requests
-      pending += autoProducer.subscription.expectRequestMore()
-      pending += autoProducer.subscription.expectRequestMore()
+      pending += autoProducer.subscription.expectRequest()
+      pending += autoProducer.subscription.expectRequest()
       while (pending > 0) {
         autoProducer.subscription.sendNext(2)
         pending -= 1
@@ -111,7 +111,7 @@ class FlowExpandSpec extends AkkaSpec {
       consumer.expectNext(2)
 
       // Now production is resumed
-      autoProducer.subscription.expectRequestMore()
+      autoProducer.subscription.expectRequest()
 
     }
   }

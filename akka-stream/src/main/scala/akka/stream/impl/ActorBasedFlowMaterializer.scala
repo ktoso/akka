@@ -105,7 +105,7 @@ private[akka] object Ast {
           ActorPublisher[I](materializer.context.actorOf(IterableProducer.props(List(element), materializer.settings),
             name = s"$flowName-0-future"), Some(future))
         case Some(Failure(t)) ⇒
-          ErrorProducer(t).asInstanceOf[Publisher[I]]
+          ErrorPublisher(t).asInstanceOf[Publisher[I]]
         case None ⇒
           ActorPublisher[I](materializer.context.actorOf(FuturePublisher.props(future, materializer.settings),
             name = s"$flowName-0-future"), Some(future))
