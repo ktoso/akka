@@ -4,7 +4,7 @@
 
 package akka.http.rendering
 
-import org.reactivestreams.api.Producer
+import org.reactivestreams.Publisher
 import scala.annotation.tailrec
 import scala.collection.immutable
 import akka.event.LoggingAdapter
@@ -54,12 +54,12 @@ private[http] class HttpResponseRendererFactory(serverHeader: Option[headers.Ser
 
   def newRenderer: HttpResponseRenderer = new HttpResponseRenderer
 
-  final class HttpResponseRenderer extends Transformer[ResponseRenderingContext, Producer[ByteString]] {
+  final class HttpResponseRenderer extends Transformer[ResponseRenderingContext, Publisher[ByteString]] {
     private[this] var close = false // signals whether the connection is to be closed after the current response
 
     override def isComplete = close
 
-    def onNext(ctx: ResponseRenderingContext): immutable.Seq[Producer[ByteString]] = {
+    def onNext(ctx: ResponseRenderingContext): immutable.Seq[Publisher[ByteString]] = {
       val r = new ByteStringRendering(responseHeaderSizeHint)
 
       import ctx.response._
@@ -121,10 +121,10 @@ private[http] class HttpResponseRendererFactory(serverHeader: Option[headers.Ser
             }
         }
 
-      def byteStrings(entityBytes: ⇒ Producer[ByteString]): immutable.Seq[Producer[ByteString]] =
+      def byteStrings(entityBytes: ⇒ Publisher[ByteString]): immutable.Seq[Publisher[ByteString]] =
         renderByteStrings(r, entityBytes, materializer, skipEntity = noEntity)
 
-      def completeResponseRendering(entity: HttpEntity): immutable.Seq[Producer[ByteString]] =
+      def completeResponseRendering(entity: HttpEntity): immutable.Seq[Publisher[ByteString]] =
         entity match {
           case HttpEntity.Strict(contentType, data) ⇒
             renderHeaders(headers.toList)
@@ -137,7 +137,7 @@ private[http] class HttpResponseRendererFactory(serverHeader: Option[headers.Ser
             renderHeaders(headers.toList)
             renderEntityContentType(r, entity)
             r ~~ `Content-Length` ~~ contentLength ~~ CrLf ~~ CrLf
-            byteStrings(Flow(data).transform(new CheckContentLengthTransformer(contentLength)).toProducer(materializer))
+            byteStrings(Flow(data).transform(new CheckContentLengthTransformer(contentLength)).toPublisher(materializer))
 
           case HttpEntity.CloseDelimited(contentType, data) ⇒
             renderHeaders(headers.toList, alwaysClose = true)
@@ -147,14 +147,14 @@ private[http] class HttpResponseRendererFactory(serverHeader: Option[headers.Ser
 
           case HttpEntity.Chunked(contentType, chunks) ⇒
             if (ctx.requestProtocol == `HTTP/1.0`)
-              completeResponseRendering(HttpEntity.CloseDelimited(contentType, Flow(chunks).map(_.data).toProducer(materializer)))
+              completeResponseRendering(HttpEntity.CloseDelimited(contentType, Flow(chunks).map(_.data).toPublisher(materializer)))
             else {
               renderHeaders(headers.toList)
               renderEntityContentType(r, entity)
               if (!entity.isKnownEmpty || ctx.requestMethod == HttpMethods.HEAD)
                 r ~~ `Transfer-Encoding` ~~ Chunked ~~ CrLf
               r ~~ CrLf
-              byteStrings(Flow(chunks).transform(new ChunkTransformer).toProducer(materializer))
+              byteStrings(Flow(chunks).transform(new ChunkTransformer).toPublisher(materializer))
             }
         }
 

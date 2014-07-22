@@ -59,9 +59,9 @@ private[http] class HttpClientPipeline(effectiveSettings: ClientConnectionSettin
             HttpResponse(statusCode, headers, createEntity(entityParts), protocol)
         }
         .zip(contextBypassProducer)
-        .toProducer(materializer)
+        .toPublisher(materializer)
 
-    val processor = HttpClientProcessor(requestConsumer.getSubscriber, responseProducer.getPublisher)
+    val processor = HttpClientProcessor(requestConsumer, responseProducer)
     Http.OutgoingConnection(tcpConn.remoteAddress, tcpConn.localAddress, processor)
   }
 

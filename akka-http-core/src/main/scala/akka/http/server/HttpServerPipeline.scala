@@ -4,7 +4,7 @@
 
 package akka.http.server
 
-import org.reactivestreams.api.Producer
+import org.reactivestreams.Publisher
 import akka.event.LoggingAdapter
 import akka.stream.io.StreamTcp
 import akka.stream.{ FlattenStrategy, Transformer, FlowMaterializer }
@@ -35,7 +35,7 @@ private[http] class HttpServerPipeline(settings: ServerSettings,
 
   def apply(tcpConn: StreamTcp.IncomingTcpConnection): Http.IncomingConnection = {
     val (applicationBypassConsumer, applicationBypassProducer) =
-      Duct[(RequestOutput, Producer[RequestOutput])]
+      Duct[(RequestOutput, Publisher[RequestOutput])]
         .collect[MessageStart with RequestOutput] { case (x: MessageStart, _) ⇒ x }
         .build(materializer)
 
@@ -50,7 +50,7 @@ private[http] class HttpServerPipeline(settings: ServerSettings,
             val effectiveUri = HttpRequest.effectiveUri(uri, headers, securedConnection = false, settings.defaultHostHeader)
             HttpRequest(method, effectiveUri, headers, createEntity(entityParts), protocol)
         }
-        .toProducer(materializer)
+        .toPublisher(materializer)
 
     val responseConsumer =
       Duct[HttpResponse]

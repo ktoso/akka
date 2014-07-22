@@ -7,7 +7,7 @@ package akka.http.model.japi;
 import akka.http.model.*;
 import akka.http.util.ObjectRegistry;
 import akka.japi.Option;
-import org.reactivestreams.api.Producer;
+import org.reactivestreams.Publisher;
 import scala.None;
 import scala.None$;
 import scala.NotImplementedError;
@@ -25,13 +25,13 @@ public abstract class Util {
     public static <U, T extends U> Option<U> convertOption(scala.Option<T> o) {
         return (Option<U>)(Option) akka.japi.Option.fromScalaOption(o);
     }
-    @SuppressWarnings("unchecked") // no support for covariance of Producer in Java
-    public static <U, T extends U> Producer<U> convertProducer(Producer<T> p) {
-        return (Producer<U>)(Producer) p;
+    @SuppressWarnings("unchecked") // no support for covariance of Publisher in Java
+    public static <U, T extends U> Publisher<U> convertPublisher(Publisher<T> p) {
+        return (Publisher<U>)(Publisher) p;
     }
     @SuppressWarnings("unchecked")
-    public static <T, U extends T> Producer<U> upcastProducer(Producer<T> p) {
-        return (Producer<U>)(Producer) p;
+    public static <T, U extends T> Publisher<U> upcastPublisher(Publisher<T> p) {
+        return (Publisher<U>)(Publisher) p;
     }
     @SuppressWarnings("unchecked")
     public static scala.collection.immutable.Map<String, String> convertMapToScala(Map<String, String> map) {

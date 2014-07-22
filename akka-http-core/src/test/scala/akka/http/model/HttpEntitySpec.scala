@@ -9,7 +9,7 @@ import akka.util.ByteString
 import org.scalatest.matchers.Matcher
 import akka.stream.scaladsl.Flow
 import akka.http.model.HttpEntity._
-import org.reactivestreams.api.Producer
+import org.reactivestreams.Publisher
 import akka.actor.ActorSystem
 import akka.stream.{ MaterializerSettings, FlowMaterializer }
 import akka.stream.impl.SynchronousPublisherFromIterable
@@ -78,7 +78,7 @@ class HttpEntitySpec extends FreeSpec with MustMatchers with BeforeAndAfterAll {
       }
       "Infinite data stream" in {
         val neverCompleted = Promise[ByteString]()
-        val stream: Producer[ByteString] = Flow(neverCompleted.future).toProducer(materializer)
+        val stream: Publisher[ByteString] = Flow(neverCompleted.future).toPublisher(materializer)
         intercept[TimeoutException] {
           Await.result(Default(tpe, 42, stream).toStrict(100.millis, materializer), 150.millis)
         }.getMessage must be("HttpEntity.toStrict timed out after 100 milliseconds while still waiting for outstanding data")

@@ -5,20 +5,20 @@
 package akka.http.model
 
 import java.io.File
-import org.reactivestreams.api.Producer
+import org.reactivestreams.Publisher
 import akka.stream.impl.SynchronousPublisherFromIterable
 import scala.collection.immutable
 import headers._
 
 trait MultipartParts {
-  def parts: Producer[BodyPart]
+  def parts: Publisher[BodyPart]
 }
 
 /**
  * Basic model for multipart content as defined in RFC 2046.
  * If you are looking for a model for `multipart/form-data` you should be using [[MultipartFormData]].
  */
-final case class MultipartContent(parts: Producer[BodyPart]) extends MultipartParts
+final case class MultipartContent(parts: Publisher[BodyPart]) extends MultipartParts
 
 object MultipartContent {
   val Empty = MultipartContent(SynchronousPublisherFromIterable[BodyPart](Nil))
@@ -33,7 +33,7 @@ object MultipartContent {
  * Model for multipart/byteranges content as defined in RFC 2046.
  * If you are looking for a model for `multipart/form-data` you should be using [[MultipartFormData]].
  */
-final case class MultipartByteRanges(parts: Producer[BodyPart]) extends MultipartParts
+final case class MultipartByteRanges(parts: Publisher[BodyPart]) extends MultipartParts
 
 object MultipartByteRanges {
   val Empty = MultipartByteRanges(SynchronousPublisherFromIterable[BodyPart](Nil))
