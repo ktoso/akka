@@ -77,32 +77,32 @@ private[akka] object Ast {
     private[akka] def createPublisher(materializer: ActorBasedFlowMaterializer, flowName: String): Publisher[I]
   }
 
-  final case class ExistingPublisher[I](producer: Publisher[I]) extends PublisherNode[I] {
-    def createPublisher(materializer: ActorBasedFlowMaterializer, flowName: String) = producer
+  final case class ExistingPublisher[I](publisher: Publisher[I]) extends PublisherNode[I] {
+    def createPublisher(materializer: ActorBasedFlowMaterializer, flowName: String) = publisher
   }
 
   final case class IteratorPublisherNode[I](iterator: Iterator[I]) extends PublisherNode[I] {
     final def createPublisher(materializer: ActorBasedFlowMaterializer, flowName: String): Publisher[I] =
       if (iterator.isEmpty) EmptyPublisher.asInstanceOf[Publisher[I]]
-      else ActorPublisher[I](materializer.context.actorOf(IteratorProducer.props(iterator, materializer.settings),
+      else ActorPublisher[I](materializer.context.actorOf(IteratorPublisher.props(iterator, materializer.settings),
         name = s"$flowName-0-iterator"))
   }
   final case class IterablePublisherNode[I](iterable: immutable.Iterable[I]) extends PublisherNode[I] {
     def createPublisher(materializer: ActorBasedFlowMaterializer, flowName: String): Publisher[I] =
       if (iterable.isEmpty) EmptyPublisher.asInstanceOf[Publisher[I]]
-      else ActorPublisher[I](materializer.context.actorOf(IterableProducer.props(iterable, materializer.settings),
+      else ActorPublisher[I](materializer.context.actorOf(IterablePublisher.props(iterable, materializer.settings),
         name = s"$flowName-0-iterable"), Some(iterable))
   }
   final case class ThunkPublisherNode[I](f: () ⇒ I) extends PublisherNode[I] {
     def createPublisher(materializer: ActorBasedFlowMaterializer, flowName: String): Publisher[I] =
-      ActorPublisher[I](materializer.context.actorOf(ActorProducer.props(materializer.settings, f),
+      ActorPublisher[I](materializer.context.actorOf(SimpleCallbackPublisher.props(materializer.settings, f),
         name = s"$flowName-0-thunk"))
   }
   final case class FuturePublisherNode[I](future: Future[I]) extends PublisherNode[I] {
     def createPublisher(materializer: ActorBasedFlowMaterializer, flowName: String): Publisher[I] =
       future.value match {
         case Some(Success(element)) ⇒
-          ActorPublisher[I](materializer.context.actorOf(IterableProducer.props(List(element), materializer.settings),
+          ActorPublisher[I](materializer.context.actorOf(IterablePublisher.props(List(element), materializer.settings),
             name = s"$flowName-0-future"), Some(future))
         case Some(Failure(t)) ⇒
           ErrorPublisher(t).asInstanceOf[Publisher[I]]
@@ -190,14 +190,14 @@ private[akka] class ActorBasedFlowMaterializer(
   }
 
   // Ops come in reverse order
-  override def toPublisher[I, O](producerNode: PublisherNode[I], ops: List[AstNode]): Publisher[O] = {
+  override def toPublisher[I, O](publisherNode: PublisherNode[I], ops: List[AstNode]): Publisher[O] = {
     val flowName = createFlowName()
-    if (ops.isEmpty) producerNode.createPublisher(this, flowName).asInstanceOf[Publisher[O]]
+    if (ops.isEmpty) publisherNode.createPublisher(this, flowName).asInstanceOf[Publisher[O]]
     else {
       val opsSize = ops.size
       val opProcessor = processorForNode(ops.head, flowName, opsSize)
-      val topConsumer = processorChain(opProcessor, ops.tail, flowName, opsSize - 1)
-      producerNode.createPublisher(this, flowName).subscribe(topConsumer.asInstanceOf[Subscriber[I]])
+      val topSubscriber = processorChain(opProcessor, ops.tail, flowName, opsSize - 1)
+      publisherNode.createPublisher(this, flowName).subscribe(topSubscriber.asInstanceOf[Subscriber[I]])
       opProcessor.asInstanceOf[Publisher[O]]
     }
   }
@@ -211,8 +211,8 @@ private[akka] class ActorBasedFlowMaterializer(
     ActorProcessor(context.actorOf(ActorProcessor.props(settings, op),
       name = s"$flowName-$n-${op.name}"))
 
-  override def ductProduceTo[In, Out](consumer: Subscriber[Out], ops: List[Ast.AstNode]): Subscriber[In] =
-    processorChain(consumer, ops, createFlowName(), ops.size).asInstanceOf[Subscriber[In]]
+  override def ductProduceTo[In, Out](subscriber: Subscriber[Out], ops: List[Ast.AstNode]): Subscriber[In] =
+    processorChain(subscriber, ops, createFlowName(), ops.size).asInstanceOf[Subscriber[In]]
 
   override def ductBuild[In, Out](ops: List[Ast.AstNode]): (Subscriber[In], Publisher[Out]) = {
     val flowName = createFlowName()
@@ -222,8 +222,8 @@ private[akka] class ActorBasedFlowMaterializer(
     } else {
       val opsSize = ops.size
       val outProcessor = processorForNode(ops.head, flowName, opsSize).asInstanceOf[Processor[In, Out]]
-      val topConsumer = processorChain(outProcessor, ops.tail, flowName, opsSize - 1).asInstanceOf[Processor[In, Out]]
-      (topConsumer, outProcessor)
+      val topSubscriber = processorChain(outProcessor, ops.tail, flowName, opsSize - 1).asInstanceOf[Processor[In, Out]]
+      (topSubscriber, outProcessor)
     }
   }
 

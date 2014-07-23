@@ -48,19 +48,19 @@ class FlowPrefixAndTailSpec extends AkkaSpec {
     "work if size of take is equals to stream size" in {
       val (takes, tail) = Await.result(Flow((1 to 10).iterator).prefixAndTail(10).toFuture(m), 3.seconds)
       takes should be(1 to 10)
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      Flow(tail).produceTo(m, consumer)
-      consumer.expectCompletedOrSubscriptionFollowedByComplete()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      Flow(tail).produceTo(m, subscriber)
+      subscriber.expectCompletedOrSubscriptionFollowedByComplete()
     }
 
     "handle onError when no substream open" in {
-      val producer = StreamTestKit.PublisherProbe[Int]()
-      val consumer = StreamTestKit.SubscriberProbe[(Seq[Int], Publisher[Int])]()
+      val publisher = StreamTestKit.PublisherProbe[Int]()
+      val subscriber = StreamTestKit.SubscriberProbe[(Seq[Int], Publisher[Int])]()
 
-      Flow(producer).prefixAndTail(3).produceTo(m, consumer)
+      Flow(publisher).prefixAndTail(3).produceTo(m, subscriber)
 
-      val upstream = producer.expectSubscription()
-      val downstream = consumer.expectSubscription()
+      val upstream = publisher.expectSubscription()
+      val downstream = subscriber.expectSubscription()
 
       downstream.request(1)
 
@@ -68,44 +68,44 @@ class FlowPrefixAndTailSpec extends AkkaSpec {
       upstream.sendNext(1)
       upstream.sendError(testException)
 
-      consumer.expectError(testException)
+      subscriber.expectError(testException)
     }
 
     "handle onError when substream is open" in {
-      val producer = StreamTestKit.PublisherProbe[Int]()
-      val consumer = StreamTestKit.SubscriberProbe[(Seq[Int], Publisher[Int])]()
+      val publisher = StreamTestKit.PublisherProbe[Int]()
+      val subscriber = StreamTestKit.SubscriberProbe[(Seq[Int], Publisher[Int])]()
 
-      Flow(producer).prefixAndTail(1).produceTo(m, consumer)
+      Flow(publisher).prefixAndTail(1).produceTo(m, subscriber)
 
-      val upstream = producer.expectSubscription()
-      val downstream = consumer.expectSubscription()
+      val upstream = publisher.expectSubscription()
+      val downstream = subscriber.expectSubscription()
 
       downstream.request(1000)
 
       upstream.expectRequest()
       upstream.sendNext(1)
 
-      val (head, tail) = consumer.expectNext()
+      val (head, tail) = subscriber.expectNext()
       head should be(List(1))
-      consumer.expectComplete()
+      subscriber.expectComplete()
 
-      val substreamConsumer = StreamTestKit.SubscriberProbe[Int]()
-      Flow(tail).produceTo(m, substreamConsumer)
-      substreamConsumer.expectSubscription()
+      val substreamSubscriber = StreamTestKit.SubscriberProbe[Int]()
+      Flow(tail).produceTo(m, substreamSubscriber)
+      substreamSubscriber.expectSubscription()
 
       upstream.sendError(testException)
-      substreamConsumer.expectError(testException)
+      substreamSubscriber.expectError(testException)
 
     }
 
     "handle master stream cancellation" in {
-      val producer = StreamTestKit.PublisherProbe[Int]()
-      val consumer = StreamTestKit.SubscriberProbe[(Seq[Int], Publisher[Int])]()
+      val publisher = StreamTestKit.PublisherProbe[Int]()
+      val subscriber = StreamTestKit.SubscriberProbe[(Seq[Int], Publisher[Int])]()
 
-      Flow(producer).prefixAndTail(3).produceTo(m, consumer)
+      Flow(publisher).prefixAndTail(3).produceTo(m, subscriber)
 
-      val upstream = producer.expectSubscription()
-      val downstream = consumer.expectSubscription()
+      val upstream = publisher.expectSubscription()
+      val downstream = subscriber.expectSubscription()
 
       downstream.request(1)
 
@@ -117,26 +117,26 @@ class FlowPrefixAndTailSpec extends AkkaSpec {
     }
 
     "handle substream cancellation" in {
-      val producer = StreamTestKit.PublisherProbe[Int]()
-      val consumer = StreamTestKit.SubscriberProbe[(Seq[Int], Publisher[Int])]()
+      val publisher = StreamTestKit.PublisherProbe[Int]()
+      val subscriber = StreamTestKit.SubscriberProbe[(Seq[Int], Publisher[Int])]()
 
-      Flow(producer).prefixAndTail(1).produceTo(m, consumer)
+      Flow(publisher).prefixAndTail(1).produceTo(m, subscriber)
 
-      val upstream = producer.expectSubscription()
-      val downstream = consumer.expectSubscription()
+      val upstream = publisher.expectSubscription()
+      val downstream = subscriber.expectSubscription()
 
       downstream.request(1000)
 
       upstream.expectRequest()
       upstream.sendNext(1)
 
-      val (head, tail) = consumer.expectNext()
+      val (head, tail) = subscriber.expectNext()
       head should be(List(1))
-      consumer.expectComplete()
+      subscriber.expectComplete()
 
-      val substreamConsumer = StreamTestKit.SubscriberProbe[Int]()
-      Flow(tail).produceTo(m, substreamConsumer)
-      substreamConsumer.expectSubscription().cancel()
+      val substreamSubscriber = StreamTestKit.SubscriberProbe[Int]()
+      Flow(tail).produceTo(m, substreamSubscriber)
+      substreamSubscriber.expectSubscription().cancel()
 
       upstream.expectCancellation()
 

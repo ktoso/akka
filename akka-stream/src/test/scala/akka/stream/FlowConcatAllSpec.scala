@@ -42,56 +42,56 @@ class FlowConcatAllSpec extends AkkaSpec {
     }
 
     "on onError on master stream cancel the current open substream and signal error" in {
-      val producer = StreamTestKit.PublisherProbe[Publisher[Int]]()
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      Flow(producer).flatten(FlattenStrategy.concat).produceTo(m, consumer)
+      val publisher = StreamTestKit.PublisherProbe[Publisher[Int]]()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      Flow(publisher).flatten(FlattenStrategy.concat).produceTo(m, subscriber)
 
-      val upstream = producer.expectSubscription()
-      val downstream = consumer.expectSubscription()
+      val upstream = publisher.expectSubscription()
+      val downstream = subscriber.expectSubscription()
       downstream.request(1000)
 
-      val substreamProducer = StreamTestKit.PublisherProbe[Int]()
+      val substreamPublisher = StreamTestKit.PublisherProbe[Int]()
       upstream.expectRequest()
-      upstream.sendNext(substreamProducer)
-      val subUpstream = substreamProducer.expectSubscription()
+      upstream.sendNext(substreamPublisher)
+      val subUpstream = substreamPublisher.expectSubscription()
 
       upstream.sendError(testException)
-      consumer.expectError(testException)
+      subscriber.expectError(testException)
       subUpstream.expectCancellation()
     }
 
     "on onError on open substream, cancel the master stream and signal error " in {
-      val producer = StreamTestKit.PublisherProbe[Publisher[Int]]()
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      Flow(producer).flatten(FlattenStrategy.concat).produceTo(m, consumer)
+      val publisher = StreamTestKit.PublisherProbe[Publisher[Int]]()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      Flow(publisher).flatten(FlattenStrategy.concat).produceTo(m, subscriber)
 
-      val upstream = producer.expectSubscription()
-      val downstream = consumer.expectSubscription()
+      val upstream = publisher.expectSubscription()
+      val downstream = subscriber.expectSubscription()
       downstream.request(1000)
 
-      val substreamProducer = StreamTestKit.PublisherProbe[Int]()
+      val substreamPublisher = StreamTestKit.PublisherProbe[Int]()
       upstream.expectRequest()
-      upstream.sendNext(substreamProducer)
-      val subUpstream = substreamProducer.expectSubscription()
+      upstream.sendNext(substreamPublisher)
+      val subUpstream = substreamPublisher.expectSubscription()
 
       subUpstream.sendError(testException)
-      consumer.expectError(testException)
+      subscriber.expectError(testException)
       upstream.expectCancellation()
     }
 
     "on cancellation cancel the current open substream and the master stream" in {
-      val producer = StreamTestKit.PublisherProbe[Publisher[Int]]()
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      Flow(producer).flatten(FlattenStrategy.concat).produceTo(m, consumer)
+      val publisher = StreamTestKit.PublisherProbe[Publisher[Int]]()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      Flow(publisher).flatten(FlattenStrategy.concat).produceTo(m, subscriber)
 
-      val upstream = producer.expectSubscription()
-      val downstream = consumer.expectSubscription()
+      val upstream = publisher.expectSubscription()
+      val downstream = subscriber.expectSubscription()
       downstream.request(1000)
 
-      val substreamProducer = StreamTestKit.PublisherProbe[Int]()
+      val substreamPublisher = StreamTestKit.PublisherProbe[Int]()
       upstream.expectRequest()
-      upstream.sendNext(substreamProducer)
-      val subUpstream = substreamProducer.expectSubscription()
+      upstream.sendNext(substreamPublisher)
+      val subUpstream = substreamPublisher.expectSubscription()
 
       downstream.cancel()
 

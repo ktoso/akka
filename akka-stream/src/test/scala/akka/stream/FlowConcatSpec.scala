@@ -35,74 +35,74 @@ class FlowConcatSpec extends TwoStreamsSetup {
 
     commonTests()
 
-    "work with one immediately completed and one nonempty producer" in {
-      val consumer1 = setup(completedPublisher, nonemptyPublisher((1 to 4).iterator))
-      val subscription1 = consumer1.expectSubscription()
+    "work with one immediately completed and one nonempty publisher" in {
+      val subscriber1 = setup(completedPublisher, nonemptyPublisher((1 to 4).iterator))
+      val subscription1 = subscriber1.expectSubscription()
       subscription1.request(5)
-      consumer1.expectNext(1)
-      consumer1.expectNext(2)
-      consumer1.expectNext(3)
-      consumer1.expectNext(4)
-      consumer1.expectComplete()
+      subscriber1.expectNext(1)
+      subscriber1.expectNext(2)
+      subscriber1.expectNext(3)
+      subscriber1.expectNext(4)
+      subscriber1.expectComplete()
 
-      val consumer2 = setup(nonemptyPublisher((1 to 4).iterator), completedPublisher)
-      val subscription2 = consumer2.expectSubscription()
+      val subscriber2 = setup(nonemptyPublisher((1 to 4).iterator), completedPublisher)
+      val subscription2 = subscriber2.expectSubscription()
       subscription2.request(5)
-      consumer2.expectNext(1)
-      consumer2.expectNext(2)
-      consumer2.expectNext(3)
-      consumer2.expectNext(4)
-      consumer2.expectComplete()
+      subscriber2.expectNext(1)
+      subscriber2.expectNext(2)
+      subscriber2.expectNext(3)
+      subscriber2.expectNext(4)
+      subscriber2.expectComplete()
     }
 
-    "work with one delayed completed and one nonempty producer" in {
-      val consumer1 = setup(soonToCompletePublisher, nonemptyPublisher((1 to 4).iterator))
-      val subscription1 = consumer1.expectSubscription()
+    "work with one delayed completed and one nonempty publisher" in {
+      val subscriber1 = setup(soonToCompletePublisher, nonemptyPublisher((1 to 4).iterator))
+      val subscription1 = subscriber1.expectSubscription()
       subscription1.request(5)
-      consumer1.expectNext(1)
-      consumer1.expectNext(2)
-      consumer1.expectNext(3)
-      consumer1.expectNext(4)
-      consumer1.expectComplete()
+      subscriber1.expectNext(1)
+      subscriber1.expectNext(2)
+      subscriber1.expectNext(3)
+      subscriber1.expectNext(4)
+      subscriber1.expectComplete()
 
-      val consumer2 = setup(nonemptyPublisher((1 to 4).iterator), soonToCompletePublisher)
-      val subscription2 = consumer2.expectSubscription()
+      val subscriber2 = setup(nonemptyPublisher((1 to 4).iterator), soonToCompletePublisher)
+      val subscription2 = subscriber2.expectSubscription()
       subscription2.request(5)
-      consumer2.expectNext(1)
-      consumer2.expectNext(2)
-      consumer2.expectNext(3)
-      consumer2.expectNext(4)
-      consumer2.expectComplete()
+      subscriber2.expectNext(1)
+      subscriber2.expectNext(2)
+      subscriber2.expectNext(3)
+      subscriber2.expectNext(4)
+      subscriber2.expectComplete()
     }
 
-    "work with one immediately failed and one nonempty producer" in {
-      val consumer1 = setup(failedPublisher, nonemptyPublisher((1 to 4).iterator))
-      consumer1.expectErrorOrSubscriptionFollowedByError(TestException)
+    "work with one immediately failed and one nonempty publisher" in {
+      val subscriber1 = setup(failedPublisher, nonemptyPublisher((1 to 4).iterator))
+      subscriber1.expectErrorOrSubscriptionFollowedByError(TestException)
 
-      val consumer2 = setup(nonemptyPublisher((1 to 4).iterator), failedPublisher)
-      consumer2.expectErrorOrSubscriptionFollowedByError(TestException)
+      val subscriber2 = setup(nonemptyPublisher((1 to 4).iterator), failedPublisher)
+      subscriber2.expectErrorOrSubscriptionFollowedByError(TestException)
     }
 
-    "work with one delayed failed and one nonempty producer" in {
-      val consumer1 = setup(soonToFailPublisher, nonemptyPublisher((1 to 4).iterator))
-      consumer1.expectErrorOrSubscriptionFollowedByError(TestException)
+    "work with one delayed failed and one nonempty publisher" in {
+      val subscriber1 = setup(soonToFailPublisher, nonemptyPublisher((1 to 4).iterator))
+      subscriber1.expectErrorOrSubscriptionFollowedByError(TestException)
 
-      val consumer2 = setup(nonemptyPublisher((1 to 4).iterator), soonToFailPublisher)
-      consumer2.expectErrorOrSubscriptionFollowedByError(TestException)
+      val subscriber2 = setup(nonemptyPublisher((1 to 4).iterator), soonToFailPublisher)
+      subscriber2.expectErrorOrSubscriptionFollowedByError(TestException)
     }
 
     "correctly handle async errors in secondary upstream" in {
       val promise = Promise[Int]()
       val flow = Flow(List(1, 2, 3)).concat(Flow(promise.future).toPublisher(materializer))
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      flow.produceTo(materializer, consumer)
-      val subscription = consumer.expectSubscription()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      flow.produceTo(materializer, subscriber)
+      val subscription = subscriber.expectSubscription()
       subscription.request(4)
-      consumer.expectNext(1)
-      consumer.expectNext(2)
-      consumer.expectNext(3)
+      subscriber.expectNext(1)
+      subscriber.expectNext(2)
+      subscriber.expectNext(3)
       promise.failure(TestException)
-      consumer.expectError(TestException)
+      subscriber.expectError(TestException)
     }
   }
 }

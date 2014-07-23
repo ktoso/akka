@@ -120,7 +120,7 @@ object ActorSubscriber {
 
 /**
  * Extend/mixin this trait in your [[akka.actor.Actor]] to make it a
- * stream consumer with full control of stream back pressure. It will receive
+ * stream subscriber with full control of stream back pressure. It will receive
  * [[ActorSubscriber.OnNext]], [[ActorSubscriber.OnComplete]] and [[ActorSubscriber.OnError]]
  * messages from the stream. It can also receive other, non-stream messages, in
  * the same way as any actor.
@@ -129,7 +129,7 @@ object ActorSubscriber {
  * [[ActorSubscriber#apply]].
  *
  * Subclass must define the [[RequestStrategy]] to control stream back pressure.
- * After each incoming message the `ActorConsumer` will automatically invoke
+ * After each incoming message the `ActorSubscriber` will automatically invoke
  * the [[RequestStrategy#requestDemand]] and propagate the returned demand to the stream.
  * The provided [[ActorSubscriber.WatermarkRequestStrategy]] is a good strategy if the actor
  * performs work itself.

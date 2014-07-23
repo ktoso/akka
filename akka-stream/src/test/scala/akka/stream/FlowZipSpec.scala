@@ -38,36 +38,36 @@ class FlowZipSpec extends TwoStreamsSetup {
 
     commonTests()
 
-    "work with one immediately completed and one nonempty producer" in {
-      val consumer1 = setup(completedPublisher, nonemptyPublisher((1 to 4).iterator))
-      consumer1.expectCompletedOrSubscriptionFollowedByComplete()
+    "work with one immediately completed and one nonempty publisher" in {
+      val subscriber1 = setup(completedPublisher, nonemptyPublisher((1 to 4).iterator))
+      subscriber1.expectCompletedOrSubscriptionFollowedByComplete()
 
-      val consumer2 = setup(nonemptyPublisher((1 to 4).iterator), completedPublisher)
-      consumer2.expectCompletedOrSubscriptionFollowedByComplete()
+      val subscriber2 = setup(nonemptyPublisher((1 to 4).iterator), completedPublisher)
+      subscriber2.expectCompletedOrSubscriptionFollowedByComplete()
     }
 
-    "work with one delayed completed and one nonempty producer" in {
-      val consumer1 = setup(soonToCompletePublisher, nonemptyPublisher((1 to 4).iterator))
-      consumer1.expectCompletedOrSubscriptionFollowedByComplete()
+    "work with one delayed completed and one nonempty publisher" in {
+      val subscriber1 = setup(soonToCompletePublisher, nonemptyPublisher((1 to 4).iterator))
+      subscriber1.expectCompletedOrSubscriptionFollowedByComplete()
 
-      val consumer2 = setup(nonemptyPublisher((1 to 4).iterator), soonToCompletePublisher)
-      consumer2.expectCompletedOrSubscriptionFollowedByComplete()
+      val subscriber2 = setup(nonemptyPublisher((1 to 4).iterator), soonToCompletePublisher)
+      subscriber2.expectCompletedOrSubscriptionFollowedByComplete()
     }
 
-    "work with one immediately failed and one nonempty producer" in {
-      val consumer1 = setup(failedPublisher, nonemptyPublisher((1 to 4).iterator))
-      consumer1.expectErrorOrSubscriptionFollowedByError(TestException)
+    "work with one immediately failed and one nonempty publisher" in {
+      val subscriber1 = setup(failedPublisher, nonemptyPublisher((1 to 4).iterator))
+      subscriber1.expectErrorOrSubscriptionFollowedByError(TestException)
 
-      val consumer2 = setup(nonemptyPublisher((1 to 4).iterator), failedPublisher)
-      consumer2.expectErrorOrSubscriptionFollowedByError(TestException)
+      val subscriber2 = setup(nonemptyPublisher((1 to 4).iterator), failedPublisher)
+      subscriber2.expectErrorOrSubscriptionFollowedByError(TestException)
     }
 
-    "work with one delayed failed and one nonempty producer" in {
-      val consumer1 = setup(soonToFailPublisher, nonemptyPublisher((1 to 4).iterator))
-      consumer1.expectErrorOrSubscriptionFollowedByError(TestException)
+    "work with one delayed failed and one nonempty publisher" in {
+      val subscriber1 = setup(soonToFailPublisher, nonemptyPublisher((1 to 4).iterator))
+      subscriber1.expectErrorOrSubscriptionFollowedByError(TestException)
 
-      val consumer2 = setup(nonemptyPublisher((1 to 4).iterator), soonToFailPublisher)
-      val subscription2 = consumer2.expectErrorOrSubscriptionFollowedByError(TestException)
+      val subscriber2 = setup(nonemptyPublisher((1 to 4).iterator), soonToFailPublisher)
+      val subscription2 = subscriber2.expectErrorOrSubscriptionFollowedByError(TestException)
     }
 
   }

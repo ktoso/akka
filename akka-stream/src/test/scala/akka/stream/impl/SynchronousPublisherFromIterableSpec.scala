@@ -11,9 +11,9 @@ import akka.testkit.TestProbe
 import org.reactivestreams.{ Subscriber, Subscription }
 
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])
-class SynchronousProducerFromIterableSpec extends AkkaSpec {
+class SynchronousPublisherFromIterableSpec extends AkkaSpec {
 
-  "A SynchronousProducerFromIterable" must {
+  "A SynchronousPublisherFromIterable" must {
     "produce elements" in {
       val p = SynchronousPublisherFromIterable(List(1, 2, 3))
       val c = StreamTestKit.SubscriberProbe[Int]()
@@ -172,7 +172,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
       probe.expectMsg("complete")
     }
 
-    "have value equality of producer" in {
+    "have value equality of publisher" in {
       val p1 = SynchronousPublisherFromIterable(List(1, 2, 3))
       val p2 = SynchronousPublisherFromIterable(List(1, 2, 3))
       p1 should be(p2)
@@ -188,7 +188,7 @@ class SynchronousProducerFromIterableSpec extends AkkaSpec {
     }
 
     "have nice toString" in {
-      SynchronousPublisherFromIterable(List(1, 2, 3)).toString should be("SynchronousProducerFromIterable(1, 2, 3)")
+      SynchronousPublisherFromIterable(List(1, 2, 3)).toString should be("SynchronousPublisherFromIterable(1, 2, 3)")
     }
   }
 }

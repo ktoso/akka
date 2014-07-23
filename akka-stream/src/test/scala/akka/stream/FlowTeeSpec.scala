@@ -20,7 +20,7 @@ class FlowTeeSpec extends AkkaSpec {
 
   "A Tee" must {
 
-    "tee to other consumer" in {
+    "tee to other subscriber" in {
       val c1 = StreamTestKit.SubscriberProbe[Int]()
       val c2 = StreamTestKit.SubscriberProbe[Int]()
       val p = Flow(List(1, 2, 3)).

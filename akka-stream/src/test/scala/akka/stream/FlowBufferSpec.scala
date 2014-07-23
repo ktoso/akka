@@ -44,108 +44,108 @@ class FlowBufferSpec extends AkkaSpec {
     }
 
     "accept elements that fit in the buffer while downstream is silent" in {
-      val producer = StreamTestKit.PublisherProbe[Int]()
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
+      val publisher = StreamTestKit.PublisherProbe[Int]()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
 
-      Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.backpressure).produceTo(materializer, consumer)
+      Flow(publisher).buffer(100, overflowStrategy = OverflowStrategy.backpressure).produceTo(materializer, subscriber)
 
-      val autoProducer = new StreamTestKit.AutoPublisher(producer)
-      val sub = consumer.expectSubscription()
+      val autoPublisher = new StreamTestKit.AutoPublisher(publisher)
+      val sub = subscriber.expectSubscription()
 
       // Fill up buffer
-      for (i ← 1 to 100) autoProducer.sendNext(i)
+      for (i ← 1 to 100) autoPublisher.sendNext(i)
 
       // drain
       for (i ← 1 to 100) {
         sub.request(1)
-        consumer.expectNext(i)
+        subscriber.expectNext(i)
       }
       sub.cancel()
     }
 
     "drop head elements if buffer is full and configured so" in {
-      val producer = StreamTestKit.PublisherProbe[Int]()
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
+      val publisher = StreamTestKit.PublisherProbe[Int]()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
 
-      Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.dropHead).produceTo(materializer, consumer)
+      Flow(publisher).buffer(100, overflowStrategy = OverflowStrategy.dropHead).produceTo(materializer, subscriber)
 
-      val autoProducer = new StreamTestKit.AutoPublisher(producer)
-      val sub = consumer.expectSubscription()
+      val autoPublisher = new StreamTestKit.AutoPublisher(publisher)
+      val sub = subscriber.expectSubscription()
 
       // Fill up buffer
-      for (i ← 1 to 200) autoProducer.sendNext(i)
+      for (i ← 1 to 200) autoPublisher.sendNext(i)
 
       // drain
       for (i ← 101 to 200) {
         sub.request(1)
-        consumer.expectNext(i)
+        subscriber.expectNext(i)
       }
 
       sub.request(1)
-      consumer.expectNoMsg(1.seconds)
+      subscriber.expectNoMsg(1.seconds)
 
-      autoProducer.sendNext(-1)
+      autoPublisher.sendNext(-1)
       sub.request(1)
-      consumer.expectNext(-1)
+      subscriber.expectNext(-1)
 
       sub.cancel()
     }
 
     "drop tail elements if buffer is full and configured so" in {
-      val producer = StreamTestKit.PublisherProbe[Int]()
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
+      val publisher = StreamTestKit.PublisherProbe[Int]()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
 
-      Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.dropTail).produceTo(materializer, consumer)
+      Flow(publisher).buffer(100, overflowStrategy = OverflowStrategy.dropTail).produceTo(materializer, subscriber)
 
-      val autoProducer = new StreamTestKit.AutoPublisher(producer)
-      val sub = consumer.expectSubscription()
+      val autoPublisher = new StreamTestKit.AutoPublisher(publisher)
+      val sub = subscriber.expectSubscription()
 
       // Fill up buffer
-      for (i ← 1 to 200) autoProducer.sendNext(i)
+      for (i ← 1 to 200) autoPublisher.sendNext(i)
 
       // drain
       for (i ← 1 to 99) {
         sub.request(1)
-        consumer.expectNext(i)
+        subscriber.expectNext(i)
       }
 
       sub.request(1)
-      consumer.expectNext(200)
+      subscriber.expectNext(200)
 
       sub.request(1)
-      consumer.expectNoMsg(1.seconds)
+      subscriber.expectNoMsg(1.seconds)
 
-      autoProducer.sendNext(-1)
+      autoPublisher.sendNext(-1)
       sub.request(1)
-      consumer.expectNext(-1)
+      subscriber.expectNext(-1)
 
       sub.cancel()
     }
 
     "drop all elements if buffer is full and configured so" in {
-      val producer = StreamTestKit.PublisherProbe[Int]
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
+      val publisher = StreamTestKit.PublisherProbe[Int]
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
 
-      Flow(producer).buffer(100, overflowStrategy = OverflowStrategy.dropBuffer).produceTo(materializer, consumer)
+      Flow(publisher).buffer(100, overflowStrategy = OverflowStrategy.dropBuffer).produceTo(materializer, subscriber)
 
-      val autoProducer = new StreamTestKit.AutoPublisher(producer)
-      val sub = consumer.expectSubscription()
+      val autoPublisher = new StreamTestKit.AutoPublisher(publisher)
+      val sub = subscriber.expectSubscription()
 
       // Fill up buffer
-      for (i ← 1 to 150) autoProducer.sendNext(i)
+      for (i ← 1 to 150) autoPublisher.sendNext(i)
 
       // drain
       for (i ← 101 to 150) {
         sub.request(1)
-        consumer.expectNext(i)
+        subscriber.expectNext(i)
       }
 
       sub.request(1)
-      consumer.expectNoMsg(1.seconds)
+      subscriber.expectNoMsg(1.seconds)
 
-      autoProducer.sendNext(-1)
+      autoPublisher.sendNext(-1)
       sub.request(1)
-      consumer.expectNext(-1)
+      subscriber.expectNext(-1)
 
       sub.cancel()
     }
@@ -154,26 +154,26 @@ class FlowBufferSpec extends AkkaSpec {
 
       s"work with $strategy if buffer size of one" in {
 
-        val producer = StreamTestKit.PublisherProbe[Int]
-        val consumer = StreamTestKit.SubscriberProbe[Int]()
+        val publisher = StreamTestKit.PublisherProbe[Int]
+        val subscriber = StreamTestKit.SubscriberProbe[Int]()
 
-        Flow(producer).buffer(1, overflowStrategy = strategy).produceTo(materializer, consumer)
+        Flow(publisher).buffer(1, overflowStrategy = strategy).produceTo(materializer, subscriber)
 
-        val autoProducer = new StreamTestKit.AutoPublisher(producer)
-        val sub = consumer.expectSubscription()
+        val autoPublisher = new StreamTestKit.AutoPublisher(publisher)
+        val sub = subscriber.expectSubscription()
 
         // Fill up buffer
-        for (i ← 1 to 200) autoProducer.sendNext(i)
+        for (i ← 1 to 200) autoPublisher.sendNext(i)
 
         sub.request(1)
-        consumer.expectNext(200)
+        subscriber.expectNext(200)
 
         sub.request(1)
-        consumer.expectNoMsg(1.seconds)
+        subscriber.expectNoMsg(1.seconds)
 
-        autoProducer.sendNext(-1)
+        autoPublisher.sendNext(-1)
         sub.request(1)
-        consumer.expectNext(-1)
+        subscriber.expectNext(-1)
 
         sub.cancel()
       }

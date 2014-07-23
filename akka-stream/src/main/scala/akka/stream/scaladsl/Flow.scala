@@ -21,12 +21,12 @@ import scala.concurrent.duration.FiniteDuration
  */
 object Flow {
   /**
-   * Construct a transformation of the given producer. The transformation steps
+   * Construct a transformation of the given publisher. The transformation steps
    * are executed by a series of [[org.reactivestreams.api.Processor]] instances
    * that mediate the flow of elements downstream and the propagation of
    * back-pressure upstream.
    */
-  def apply[T](producer: Publisher[T]): Flow[T] = FlowImpl(ExistingPublisher(producer), Nil)
+  def apply[T](publisher: Publisher[T]): Flow[T] = FlowImpl(ExistingPublisher(publisher), Nil)
 
   /**
    * Start a new flow from the given Iterator. The produced stream of elements
@@ -63,8 +63,8 @@ object Flow {
 
   /**
    * Elements are produced from the tick closure periodically with the specified interval.
-   * The tick element will be delivered to downstream consumers that has requested any elements.
-   * If a consumer has not requested any elements at the point in time when the tick
+   * The tick element will be delivered to downstream subscribers that has requested any elements.
+   * If a subscriber has not requested any elements at the point in time when the tick
    * element is produced it will not receive that tick element later. It will
    * receive new tick elements as soon as it has requested more elements.
    */
@@ -82,7 +82,7 @@ object Flow {
  * Each DSL element produces a new Flow that can be further transformed, building
  * up a description of the complete transformation pipeline. In order to execute
  * this pipeline the Flow must be materialized by calling the [[#toFuture]], [[#consume]],
- * [[#onComplete]], or [[#toProducer]] methods on it.
+ * [[#onComplete]], or [[#toPublisher]] methods on it.
  *
  * It should be noted that the streams modeled by this library are “hot”,
  * meaning that they asynchronously flow through a series of processors without
@@ -157,17 +157,17 @@ trait Flow[+T] {
   def dropWithin(d: FiniteDuration): Flow[T]
 
   /**
-   * Terminate processing (and cancel the upstream producer) after the given
+   * Terminate processing (and cancel the upstream publisher) after the given
    * number of elements. Due to input buffering some elements may have been
-   * requested from upstream producers that will then not be processed downstream
+   * requested from upstream publishers that will then not be processed downstream
    * of this step.
    */
   def take(n: Int): Flow[T]
 
   /**
-   * Terminate processing (and cancel the upstream producer) after the given
+   * Terminate processing (and cancel the upstream publisher) after the given
    * duration. Due to input buffering some elements may have been
-   * requested from upstream producers that will then not be processed downstream
+   * requested from upstream publishers that will then not be processed downstream
    * of this step.
    *
    * Note that this can be combined with [[#take]] to limit the number of elements
@@ -201,9 +201,9 @@ trait Flow[+T] {
    * function is invoked, expecting a (possibly empty) sequence of output elements
    * to be produced.
    * After handing off the elements produced from one input element to the downstream
-   * consumers, the [[akka.stream.Transformer#isComplete]] predicate determines whether to end
+   * subscribers, the [[akka.stream.Transformer#isComplete]] predicate determines whether to end
    * stream processing at this point; in that case the upstream subscription is
-   * canceled. Before signaling normal completion to the downstream consumers,
+   * canceled. Before signaling normal completion to the downstream subscribers,
    * the [[akka.stream.Transformer#onComplete]] function is invoked to produce a (possibly empty)
    * sequence of elements in response to the end-of-stream event.
    *
@@ -232,8 +232,8 @@ trait Flow[+T] {
    * This operation demultiplexes the incoming stream into separate output
    * streams, one for each element key. The key is computed for each element
    * using the given function. When a new key is encountered for the first time
-   * it is emitted to the downstream consumer together with a fresh
-   * producer that will eventually produce all the elements of the substream
+   * it is emitted to the downstream subscriber together with a fresh
+   * publisher that will eventually produce all the elements of the substream
    * for that key. Not consuming the elements from the created streams will
    * stop this processor from processing more elements, therefore you must take
    * care to unblock (or cancel) all of the produced streams even if you want
@@ -257,14 +257,14 @@ trait Flow[+T] {
   def splitWhen(p: T ⇒ Boolean): Flow[Publisher[T @uncheckedVariance]]
 
   /**
-   * Merge this stream with the one emitted by the given producer, taking
+   * Merge this stream with the one emitted by the given publisher, taking
    * elements as they arrive from either side (picking randomly when both
    * have elements ready).
    */
   def merge[U >: T](other: Publisher[_ <: U]): Flow[U]
 
   /**
-   * Zip this stream together with the one emitted by the given producer.
+   * Zip this stream together with the one emitted by the given publisher.
    * This transformation finishes when either input stream reaches its end,
    * cancelling the subscription to the other one.
    */
@@ -272,16 +272,16 @@ trait Flow[+T] {
 
   /**
    * Concatenate the given other stream to this stream so that the first element
-   * emitted by the given producer is emitted after the last element of this
+   * emitted by the given publisher is emitted after the last element of this
    * stream.
    */
   def concat[U >: T](next: Publisher[U]): Flow[U]
 
   /**
-   * Fan-out the stream to another consumer. Each element is produced to
-   * the `other` consumer as well as to downstream consumers. It will
+   * Fan-out the stream to another subscriber. Each element is produced to
+   * the `other` subscriber as well as to downstream subscribers. It will
    * not shutdown until the subscriptions for `other` and at least
-   * one downstream consumer have been established.
+   * one downstream subscriber have been established.
    */
   def tee(other: Subscriber[_ >: T]): Flow[T]
 
@@ -292,9 +292,9 @@ trait Flow[+T] {
   def flatten[U](strategy: FlattenStrategy[T, U]): Flow[U]
 
   /**
-   * Allows a faster upstream to progress independently of a slower consumer by conflating elements into a summary
-   * until the consumer is ready to accept them. For example a conflate step might average incoming numbers if the
-   * upstream producer is faster.
+   * Allows a faster upstream to progress independently of a slower subscriber by conflating elements into a summary
+   * until the subscriber is ready to accept them. For example a conflate step might average incoming numbers if the
+   * upstream publisher is faster.
    *
    * This element only rolls up elements if the upstream is faster, but if the downstream is faster it will not
    * duplicate elements.
@@ -305,13 +305,13 @@ trait Flow[+T] {
   def conflate[S](seed: T ⇒ S, aggregate: (S, T) ⇒ S): Flow[S]
 
   /**
-   * Allows a faster downstream to progress independently of a slower producer by extrapolating elements from an older
+   * Allows a faster downstream to progress independently of a slower publisher by extrapolating elements from an older
    * element until new element comes from the upstream. For example an expand step might repeat the last element for
-   * the consumer until it receives an update from upstream.
+   * the subscriber until it receives an update from upstream.
    *
    * This element will never "drop" upstream elements as all elements go through at least one extrapolation step.
    * This means that if the upstream is actually faster than the upstream it will be backpressured by the downstream
-   * consumer.
+   * subscriber.
    *
    * @param seed Provides the first state for extrapolation using the first unconsumed element
    * @param extrapolate Takes the current extrapolation state to produce an output element and the next extrapolation
@@ -353,7 +353,7 @@ trait Flow[+T] {
   def toFuture(materializer: FlowMaterializer): Future[T]
 
   /**
-   * Attaches a consumer to this stream which will just discard all received
+   * Attaches a subscriber to this stream which will just discard all received
    * elements. *This will materialize the flow and initiate its execution.*
    *
    * The given FlowMaterializer decides how the flow’s logical structure is
@@ -373,9 +373,9 @@ trait Flow[+T] {
   /**
    * Materialize this flow and return the downstream-most
    * [[org.reactivestreams.api.Publisher]] interface. The stream will not have
-   * any consumers attached at this point, which means that after prefetching
+   * any subscribers attached at this point, which means that after prefetching
    * elements to fill the internal buffers it will assert back-pressure until
-   * a consumer connects and creates demand for elements to be emitted.
+   * a subscriber connects and creates demand for elements to be emitted.
    *
    * The given FlowMaterializer decides how the flow’s logical structure is
    * broken down into individual processing steps.
@@ -383,14 +383,14 @@ trait Flow[+T] {
   def toPublisher(materializer: FlowMaterializer): Publisher[T @uncheckedVariance]
 
   /**
-   * Attaches a consumer to this stream.
+   * Attaches a subscriber to this stream.
    *
    * *This will materialize the flow and initiate its execution.*
    *
    * The given FlowMaterializer decides how the flow’s logical structure is
    * broken down into individual processing steps.
    */
-  def produceTo(materializer: FlowMaterializer, consumer: Subscriber[_ >: T]): Unit
+  def produceTo(materializer: FlowMaterializer, subscriber: Subscriber[_ >: T]): Unit
 
 }
 

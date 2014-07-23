@@ -17,8 +17,6 @@ import akka.stream.scaladsl.Flow
 
 // ------------------------------------------------------------------------------------------------
 // FIXME: move this file to akka-persistence-experimental once going back to project dependencies
-// NOTE: "producer" has been changed to "publisher" wherever possible, covering the upcoming
-//       changes in reactive-streams.
 // ------------------------------------------------------------------------------------------------
 
 object PersistentFlow {

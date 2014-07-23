@@ -56,16 +56,16 @@ object StreamTestKit {
     }
   }
 
-  sealed trait ConsumerEvent
-  case class OnSubscribe(subscription: Subscription) extends ConsumerEvent
-  case class OnNext[I](element: I) extends ConsumerEvent
-  case object OnComplete extends ConsumerEvent
-  case class OnError(cause: Throwable) extends ConsumerEvent
+  sealed trait SubscriberEvent
+  case class OnSubscribe(subscription: Subscription) extends SubscriberEvent
+  case class OnNext[I](element: I) extends SubscriberEvent
+  case object OnComplete extends SubscriberEvent
+  case class OnError(cause: Throwable) extends SubscriberEvent
 
-  sealed trait ProducerEvent
-  case class Subscribe(subscription: Subscription) extends ProducerEvent
-  case class CancelSubscription(subscription: Subscription) extends ProducerEvent
-  case class RequestMore(subscription: Subscription, elements: Int) extends ProducerEvent
+  sealed trait PublisherEvent
+  case class Subscribe(subscription: Subscription) extends PublisherEvent
+  case class CancelSubscription(subscription: Subscription) extends PublisherEvent
+  case class RequestMore(subscription: Subscription, elements: Int) extends PublisherEvent
 
   case class PublisherProbeSubscription[I](subscriber: Subscriber[I], publisherProbe: TestProbe) extends Subscription {
     def request(elements: Int): Unit = publisherProbe.ref ! RequestMore(this, elements)
@@ -90,7 +90,7 @@ object StreamTestKit {
     val probe = TestProbe()
 
     def expectSubscription(): Subscription = probe.expectMsgType[OnSubscribe].subscription
-    def expectEvent(event: ConsumerEvent): Unit = probe.expectMsg(event)
+    def expectEvent(event: SubscriberEvent): Unit = probe.expectMsg(event)
     def expectNext(element: I): Unit = probe.expectMsg(OnNext(element))
     def expectNext(e1: I, e2: I, es: I*): Unit = {
       val all = e1 +: e2 +: es

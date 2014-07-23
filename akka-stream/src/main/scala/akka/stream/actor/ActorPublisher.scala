@@ -23,13 +23,13 @@ object ActorPublisher {
   def apply[T](ref: ActorRef): Publisher[T] = ActorPublisherImpl(ref)
 
   /**
-   * This message is delivered to the [[ActorPublisher]] actor when the stream consumer requests
+   * This message is delivered to the [[ActorPublisher]] actor when the stream subscriber requests
    * more elements.
    */
   @SerialVersionUID(1L) case class Request(elements: Int)
 
   /**
-   * This message is delivered to the [[ActorPublisher]] actor when the stream consumer cancels the
+   * This message is delivered to the [[ActorPublisher]] actor when the stream subscriber cancels the
    * subscription.
    */
   @SerialVersionUID(1L) case object Cancel
@@ -51,26 +51,26 @@ object ActorPublisher {
 
 /**
  * Extend/mixin this trait in your [[akka.actor.Actor]] to make it a
- * stream producer that keeps track of the subscription life cycle and
+ * stream publisher that keeps track of the subscription life cycle and
  * requested elements.
  *
  * Create a [[org.reactivestreams.Publisher]] backed by this actor with [[ActorPublisher#apply]].
  * It can be attached to a [[org.reactivestreams.Subscriber]] or be used as an input source for a
- * [[akka.stream.Flow]]. You can only attach one subscriber to this producer.
+ * [[akka.stream.Flow]]. You can only attach one subscriber to this publisher.
  *
  * The life cycle state of the subscription is tracked with the following boolean members:
  * [[#isActive]], [[#isCompleted]], [[#isErrorEmitted]], and [[#isCanceled]].
  *
  * You send elements to the stream by calling [[#onNext]]. You are allowed to send as many
- * elements as have been requested by the stream consumer. This amount can be inquired with
+ * elements as have been requested by the stream subscriber. This amount can be inquired with
  * [[#totalDemand]]. It is only allowed to use `onNext` when `isActive` and `totalDemand > 0`,
  * otherwise `onNext` will throw `IllegalStateException`.
  *
- * When the stream consumer requests more elements the [[ActorPublisher#Request]] message
+ * When the stream subscriber requests more elements the [[ActorPublisher#Request]] message
  * is delivered to this actor, and you can act on that event. The [[#totalDemand]]
  * is updated automatically.
  *
- * When the stream consumer cancels the subscription the [[ActorPublisher#Cancel]] message
+ * When the stream subscriber cancels the subscription the [[ActorPublisher#Cancel]] message
  * is delivered to this actor. After that subsequent calls to `onNext` will be ignored.
  *
  * You can complete the stream by calling [[#onComplete]]. After that you are not allowed to
@@ -92,7 +92,7 @@ trait ActorPublisher[T] extends Actor {
   private var lifecycleState: LifecycleState = PreSubscriber
 
   /**
-   * The state when the producer is active, i.e. before the subscriber is attached
+   * The state when the publisher is active, i.e. before the subscriber is attached
    * and when an subscriber is attached. It is allowed to
    * call [[#onComplete]] and [[#onError]] in this state. It is
    * allowed to call [[#onNext]] in this state when [[#totalDemand]]
@@ -101,7 +101,7 @@ trait ActorPublisher[T] extends Actor {
   final def isActive = lifecycleState == Active || lifecycleState == PreSubscriber
 
   /**
-   * Total number of requested elements from the stream consumer.
+   * Total number of requested elements from the stream subscriber.
    * This actor automatically keeps tracks of this amount based on
    * incoming request messages and outgoing `onNext`.
    */
@@ -124,15 +124,15 @@ trait ActorPublisher[T] extends Actor {
   final def isErrorEmitted: Boolean = lifecycleState.isInstanceOf[ErrorEmitted]
 
   /**
-   * The state after the stream consumer has canceled the subscription.
+   * The state after the stream subscriber has canceled the subscription.
    * It is allowed to call [[#onNext]], [[#onError]], and [[#onComplete]] in
    * this state, but the calls will not perform anything.
    */
   final def isCanceled: Boolean = lifecycleState == Canceled
 
   /**
-   * Send an element to the stream consumer. You are allowed to send as many elements
-   * as have been requested by the stream consumer. This amount can be inquired with
+   * Send an element to the stream subscriber. You are allowed to send as many elements
+   * as have been requested by the stream subscriber. This amount can be inquired with
    * [[#totalDemand]]. It is only allowed to use `onNext` when `isActive` and `totalDemand > 0`,
    * otherwise `onNext` will throw `IllegalStateException`.
    */
@@ -199,7 +199,7 @@ trait ActorPublisher[T] extends Actor {
         case ErrorEmitted(cause) ⇒ sub.onError(cause)
         case Completed           ⇒ sub.onComplete()
         case Active | Canceled ⇒
-          sub.onError(new IllegalStateException(s"ActorProducer [$self] can only have one subscriber"))
+          sub.onError(new IllegalStateException(s"ActorPublisher [$self] can only have one subscriber"))
       }
 
     case Cancel ⇒

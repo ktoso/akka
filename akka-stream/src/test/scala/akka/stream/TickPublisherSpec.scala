@@ -10,12 +10,12 @@ import akka.stream.testkit.StreamTestKit
 import scala.util.control.NoStackTrace
 
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])
-class TickProducerSpec extends AkkaSpec {
+class TickPublisherSpec extends AkkaSpec {
 
   val materializer = FlowMaterializer(MaterializerSettings(
     dispatcher = "akka.test.stream-dispatcher"))
 
-  "A Flow based on tick producer" must {
+  "A Flow based on tick publisher" must {
     "produce ticks" in {
       val tickGen = Iterator from 1
       val c = StreamTestKit.SubscriberProbe[String]()

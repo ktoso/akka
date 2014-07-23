@@ -247,8 +247,8 @@ public class FlowTest {
         return elem.equals("\n");
       }
     }).foreach(new Procedure<Publisher<String>>() {
-      public void apply(Publisher<String> subProducer) {
-        Flow.create(subProducer).filter(new Predicate<String>() {
+      public void apply(Publisher<String> subPublisher) {
+        Flow.create(subPublisher).filter(new Predicate<String>() {
           public boolean test(String elem) {
             return !elem.equals("\n");
           }

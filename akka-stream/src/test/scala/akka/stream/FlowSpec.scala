@@ -100,7 +100,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
   }
 
   "A Flow with multiple subscribers (FanOutBox)" must {
-    "adapt speed to the currently slowest consumer" in {
+    "adapt speed to the currently slowest subscriber" in {
       new ChainSetup(identity, settings.copy(initialInputBufferSize = 1, maxFanOutBufferSize = 1)) {
         val downstream2 = StreamTestKit.SubscriberProbe[Any]()
         publisher.subscribe(downstream2)
@@ -126,7 +126,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
       }
     }
 
-    "support slow consumer with fan-out 2" in {
+    "support slow subscriber with fan-out 2" in {
       new ChainSetup(identity, settings.copy(initialInputBufferSize = 1, initialFanOutBufferSize = 2, maxFanOutBufferSize = 2)) {
         val downstream2 = StreamTestKit.SubscriberProbe[Any]()
         publisher.subscribe(downstream2)
@@ -271,7 +271,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
         // FIXME when adding a sleep before the following link this will fail with IllegalStateExc shut-down
         // what is the expected shutdown behavior? Is the title of this test wrong?
         //        val downstream3 = StreamTestKit.SubscriberProbe[Any]()
-        //        producer.subscribe(downstream3)
+        //        publisher.subscribe(downstream3)
         //        downstream3.expectComplete()
       }
     }

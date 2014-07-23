@@ -17,9 +17,9 @@ import scala.util.control.{ NoStackTrace, NonFatal }
 /**
  * INTERNAL API
  */
-private[akka] object ActorProducer {
+private[akka] object SimpleCallbackPublisher {
   def props[T](settings: MaterializerSettings, f: () ⇒ T): Props =
-    Props(new ActorProducerImpl(f, settings)).withDispatcher(settings.dispatcher)
+    Props(new SimpleCallbackPublisherImpl(f, settings)).withDispatcher(settings.dispatcher)
 
 }
 
@@ -138,21 +138,21 @@ private[akka] trait SoftShutdown { this: Actor ⇒
 /**
  * INTERNAL API
  */
-private[akka] object ActorProducerImpl {
+private[akka] object SimpleCallbackPublisherImpl {
   case object Generate
 }
 
 /**
  * INTERNAL API
  */
-private[akka] class ActorProducerImpl[T](f: () ⇒ T, settings: MaterializerSettings)
+private[akka] class SimpleCallbackPublisherImpl[T](f: () ⇒ T, settings: MaterializerSettings)
   extends Actor
   with ActorLogging
   with SubscriberManagement[T]
   with SoftShutdown {
 
   import akka.stream.impl.ActorBasedFlowMaterializer._
-  import akka.stream.impl.ActorProducerImpl._
+  import akka.stream.impl.SimpleCallbackPublisherImpl._
 
   type S = ActorSubscription[T]
   var pub: ActorPublisher[T] = _

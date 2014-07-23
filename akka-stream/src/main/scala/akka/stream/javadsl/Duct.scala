@@ -39,8 +39,8 @@ object Duct {
  * The difference is that it is not attached to an input source.
  *
  * The pipeline must be materialized by calling the [[#produceTo]], [[#consume]] or [[#build]]
- * methods on it and then attach the `Consumer` representing the input side of the `Duct` to an
- * upstream `Producer`.
+ * methods on it and then attach the `Subscriber` representing the input side of the `Duct` to an
+ * upstream `Publisher`.
  *
  */
 abstract class Duct[In, Out] {
@@ -78,8 +78,8 @@ abstract class Duct[In, Out] {
    * Invoke the given procedure for each received element and produce a Unit value
    * upon reaching the normal end of the stream. Please note that also in this case
    * the `Duct` needs to be materialized (e.g. using [[#consume]] and attaching the
-   * the `Consumer` representing the input side of the `Duct` to an upstream
-   * `Producer`) to initiate its execution.
+   * the `Subscriber` representing the input side of the `Duct` to an upstream
+   * `Publisher`) to initiate its execution.
    */
   def foreach(c: Procedure[Out]): Duct[In, Void]
 
@@ -102,17 +102,17 @@ abstract class Duct[In, Out] {
   def dropWithin(d: FiniteDuration): Duct[In, Out]
 
   /**
-   * Terminate processing (and cancel the upstream producer) after the given
+   * Terminate processing (and cancel the upstream publisher) after the given
    * number of elements. Due to input buffering some elements may have been
-   * requested from upstream producers that will then not be processed downstream
+   * requested from upstream publishers that will then not be processed downstream
    * of this step.
    */
   def take(n: Int): Duct[In, Out]
 
   /**
-   * Terminate processing (and cancel the upstream producer) after the given
+   * Terminate processing (and cancel the upstream publisher) after the given
    * duration. Due to input buffering some elements may have been
-   * requested from upstream producers that will then not be processed downstream
+   * requested from upstream pubilshers that will then not be processed downstream
    * of this step.
    *
    * Note that this can be combined with [[#take]] to limit the number of elements
@@ -146,9 +146,9 @@ abstract class Duct[In, Out] {
    * function is invoked and expecting a (possibly empty) sequence of output elements
    * to be produced.
    * After handing off the elements produced from one input element to the downstream
-   * consumers, the [[akka.stream.Transformer#isComplete]] predicate determines whether to end
+   * subscribers, the [[akka.stream.Transformer#isComplete]] predicate determines whether to end
    * stream processing at this point; in that case the upstream subscription is
-   * canceled. Before signaling normal completion to the downstream consumers,
+   * canceled. Before signaling normal completion to the downstream subscribers,
    * the [[akka.stream.Transformer#onComplete]] function is invoked to produce a (possibly empty)
    * sequence of elements in response to the end-of-stream event.
    *
@@ -175,8 +175,8 @@ abstract class Duct[In, Out] {
    * This operation demultiplexes the incoming stream into separate output
    * streams, one for each element key. The key is computed for each element
    * using the given function. When a new key is encountered for the first time
-   * it is emitted to the downstream consumer together with a fresh
-   * producer that will eventually produce all the elements of the substream
+   * it is emitted to the downstream subscriber together with a fresh
+   * publisher that will eventually produce all the elements of the substream
    * for that key. Not consuming the elements from the created streams will
    * stop this processor from processing more elements, therefore you must take
    * care to unblock (or cancel) all of the produced streams even if you want
@@ -200,14 +200,14 @@ abstract class Duct[In, Out] {
   def splitWhen(p: Predicate[Out]): Duct[In, Publisher[Out]]
 
   /**
-   * Merge this stream with the one emitted by the given producer, taking
+   * Merge this stream with the one emitted by the given publisher, taking
    * elements as they arrive from either side (picking randomly when both
    * have elements ready).
    */
   def merge[U >: Out](other: Publisher[U]): Duct[In, U]
 
   /**
-   * Zip this stream together with the one emitted by the given producer.
+   * Zip this stream together with the one emitted by the given publisher.
    * This transformation finishes when either input stream reaches its end,
    * cancelling the subscription to the other one.
    */
@@ -215,22 +215,22 @@ abstract class Duct[In, Out] {
 
   /**
    * Concatenate the given other stream to this stream so that the first element
-   * emitted by the given producer is emitted after the last element of this
+   * emitted by the given publisher is emitted after the last element of this
    * stream.
    */
   def concat[U >: Out](next: Publisher[U]): Duct[In, U]
 
   /**
-   * Fan-out the stream to another consumer. Each element is produced to
-   * the `other` consumer as well as to downstream consumers. It will
+   * Fan-out the stream to another subscriber. Each element is produced to
+   * the `other` subscriber as well as to downstream subscribers. It will
    * not shutdown until the subscriptions for `other` and at least
-   * one downstream consumer have been established.
+   * one downstream subscriber have been established.
    */
   def tee(other: Subscriber[_ >: Out]): Duct[In, Out]
 
   /**
    * Transforms a stream of streams into a contiguous stream of elements using the provided flattening strategy.
-   * This operation can be used on a stream of element type [[Producer]].
+   * This operation can be used on a stream of element type [[Publisher]].
    */
   def flatten[U](strategy: FlattenStrategy[Out, U]): Duct[In, U]
 
@@ -240,9 +240,9 @@ abstract class Duct[In, Out] {
   def append[U](duct: Duct[_ >: Out, U]): Duct[In, U]
 
   /**
-   * Allows a faster upstream to progress independently of a slower consumer by conflating elements into a summary
-   * until the consumer is ready to accept them. For example a conflate step might average incoming numbers if the
-   * upstream producer is faster.
+   * Allows a faster upstream to progress independently of a slower subscriber by conflating elements into a summary
+   * until the subscriber is ready to accept them. For example a conflate step might average incoming numbers if the
+   * upstream publisher is faster.
    *
    * This element only rolls up elements if the upstream is faster, but if the downstream is faster it will not
    * duplicate elements.
@@ -253,13 +253,13 @@ abstract class Duct[In, Out] {
   def conflate[S](seed: Function[Out, S], aggregate: Function2[S, Out, S]): Duct[In, S]
 
   /**
-   * Allows a faster downstream to progress independently of a slower producer by extrapolating elements from an older
+   * Allows a faster downstream to progress independently of a slower publisher by extrapolating elements from an older
    * element until new element comes from the upstream. For example an expand step might repeat the last element for
-   * the consumer until it receives an update from upstream.
+   * the subscriber until it receives an update from upstream.
    *
    * This element will never "drop" upstream elements as all elements go through at least one extrapolation step.
    * This means that if the upstream is actually faster than the upstream it will be backpressured by the downstream
-   * consumer.
+   * subscriber.
    *
    * @param seed Provides the first state for extrapolation using the first unconsumed element
    * @param extrapolate Takes the current extrapolation state to produce an output element and the next extrapolation
@@ -278,21 +278,21 @@ abstract class Duct[In, Out] {
   def buffer(size: Int, overflowStrategy: OverflowStrategy): Duct[In, Out]
 
   /**
-   * Materialize this `Duct` by attaching it to the specified downstream `consumer`
-   * and return a `Consumer` representing the input side of the `Duct`.
-   * The returned `Consumer` can later be connected to an upstream `Producer`.
+   * Materialize this `Duct` by attaching it to the specified downstream `subscriber`
+   * and return a `Subscriber` representing the input side of the `Duct`.
+   * The returned `Subscriber` can later be connected to an upstream `Publisher`.
    *
    * *This will materialize the flow and initiate its execution.*
    *
    * The given FlowMaterializer decides how the flow’s logical structure is
    * broken down into individual processing steps.
    */
-  def produceTo(materializer: FlowMaterializer, consumer: Subscriber[Out]): Subscriber[In]
+  def produceTo(materializer: FlowMaterializer, subscriber: Subscriber[Out]): Subscriber[In]
 
   /**
-   * Attaches a consumer to this stream which will just discard all received
-   * elements. The returned `Consumer` represents the input side of the `Duct` and can
-   * later be connected to an upstream `Producer`.
+   * Attaches a subscriber to this stream which will just discard all received
+   * elements. The returned `Subscriber` represents the input side of the `Duct` and can
+   * later be connected to an upstream `Publisher`.
    *
    * *This will materialize the flow and initiate its execution.*
    *
@@ -304,19 +304,19 @@ abstract class Duct[In, Out] {
   /**
    * When this flow is completed, either through an error or normal
    * completion, apply the provided function with [[scala.util.Success]]
-   * or [[scala.util.Failure]]. The returned `Consumer` represents the input side of
-   * the `Duct` and can later be connected to an upstream `Producer`.
+   * or [[scala.util.Failure]]. The returned `Subscriber` represents the input side of
+   * the `Duct` and can later be connected to an upstream `Publisher`.
    *
    * *This operation materializes the flow and initiates its execution.*
    */
   def onComplete(materializer: FlowMaterializer)(callback: OnCompleteCallback): Subscriber[In]
 
   /**
-   * Materialize this `Duct` into a `Consumer` representing the input side of the `Duct`
-   * and a `Producer`representing the output side of the the `Duct`.
+   * Materialize this `Duct` into a `Subscriber` representing the input side of the `Duct`
+   * and a `Publisher` representing the output side of the the `Duct`.
    *
-   * The returned `Producer` can later be connected to an downstream `Consumer`.
-   * The returned `Consumer` can later be connected to an upstream `Producer`.
+   * The returned `Publisher` can later be connected to an downstream `Subscriber`.
+   * The returned `Subscriber` can later be connected to an upstream `Publisher`.
    *
    * *This will materialize the flow and initiate its execution.*
    *
@@ -414,8 +414,8 @@ private[akka] class DuctAdapter[In, T](delegate: SDuct[In, T]) extends Duct[In, 
   override def append[U](duct: Duct[_ >: T, U]): Duct[In, U] =
     new DuctAdapter(delegate.appendJava(duct))
 
-  override def produceTo(materializer: FlowMaterializer, consumer: Subscriber[T]): Subscriber[In] =
-    delegate.produceTo(materializer, consumer)
+  override def produceTo(materializer: FlowMaterializer, subscriber: Subscriber[T]): Subscriber[In] =
+    delegate.produceTo(materializer, subscriber)
 
   override def consume(materializer: FlowMaterializer): Subscriber[In] =
     delegate.consume(materializer)

@@ -21,7 +21,7 @@ import akka.util.Collections.EmptyImmutableSeq
 /**
  * INTERNAL API
  */
-private[akka] case class FlowImpl[I, O](producerNode: Ast.PublisherNode[I], ops: List[Ast.AstNode]) extends Flow[O] with Builder[O] {
+private[akka] case class FlowImpl[I, O](publisherNode: Ast.PublisherNode[I], ops: List[Ast.AstNode]) extends Flow[O] with Builder[O] {
   import FlowImpl._
   import Ast._
 
@@ -64,10 +64,10 @@ private[akka] case class FlowImpl[I, O](producerNode: Ast.PublisherNode[I], ops:
       }
     }).consume(materializer)
 
-  override def toPublisher(materializer: FlowMaterializer): Publisher[O] = materializer.toPublisher(producerNode, ops)
+  override def toPublisher(materializer: FlowMaterializer): Publisher[O] = materializer.toPublisher(publisherNode, ops)
 
-  override def produceTo(materializer: FlowMaterializer, consumer: Subscriber[_ >: O]): Unit =
-    toPublisher(materializer).subscribe(consumer.asInstanceOf[Subscriber[O]])
+  override def produceTo(materializer: FlowMaterializer, subscriber: Subscriber[_ >: O]): Unit =
+    toPublisher(materializer).subscribe(subscriber.asInstanceOf[Subscriber[O]])
 }
 
 /**
@@ -86,8 +86,8 @@ private[akka] case class DuctImpl[In, Out](ops: List[Ast.AstNode]) extends Duct[
   override def appendJava[U](duct: akka.stream.javadsl.Duct[_ >: Out, U]): Duct[In, U] =
     copy(ops = duct.ops ++: ops)
 
-  override def produceTo(materializer: FlowMaterializer, consumer: Subscriber[Out]): Subscriber[In] =
-    materializer.ductProduceTo(consumer, ops)
+  override def produceTo(materializer: FlowMaterializer, subscriber: Subscriber[Out]): Subscriber[In] =
+    materializer.ductProduceTo(subscriber, ops)
 
   override def consume(materializer: FlowMaterializer): Subscriber[In] =
     produceTo(materializer, new BlackholeSubscriber(materializer.settings.maximumInputBufferSize))

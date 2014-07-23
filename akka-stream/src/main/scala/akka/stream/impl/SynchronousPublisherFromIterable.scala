@@ -57,7 +57,7 @@ private[akka] object SynchronousPublisherFromIterable {
 
 /**
  * INTERNAL API
- * Producer that will push all requested elements from the iterator of the iterable
+ * Publisher that will push all requested elements from the iterator of the iterable
  * to the subscriber in the calling thread of `requestMore`.
  *
  * It is only intended to be used with iterators over static collections.
@@ -67,7 +67,7 @@ private[akka] object SynchronousPublisherFromIterable {
  * It is the responsibility of the subscriber to provide necessary memory visibility
  * if calls to `requestMore` and `cancel` are performed from different threads.
  * For example, usage from an actor is fine. Concurrent calls to the subscription is not allowed.
- * Reentrant calls to `requestMore` directly from `onNext` are supported by this producer.
+ * Reentrant calls to `requestMore` directly from `onNext` are supported by this publisher.
  */
 private[akka] class SynchronousPublisherFromIterable[T](private val iterable: immutable.Iterable[T]) extends Publisher[T] {
 
@@ -83,5 +83,5 @@ private[akka] class SynchronousPublisherFromIterable[T](private val iterable: im
 
   override def hashCode: Int = iterable.hashCode
 
-  override def toString: String = s"SynchronousProducerFromIterable(${iterable.mkString(", ")})"
+  override def toString: String = s"SynchronousPublisherFromIterable(${iterable.mkString(", ")})"
 }

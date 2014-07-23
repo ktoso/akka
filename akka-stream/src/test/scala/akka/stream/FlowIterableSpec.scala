@@ -133,7 +133,7 @@ class FlowIterableSpec extends AkkaSpec {
       got.size should be < (count - 1)
     }
 
-    "have value equality of producer" in {
+    "have value equality of publisher" in {
       val p1 = Flow(List(1, 2, 3)).toPublisher(materializer)
       val p2 = Flow(List(1, 2, 3)).toPublisher(materializer)
       p1 should be(p2)

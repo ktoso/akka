@@ -149,15 +149,15 @@ class TcpFlowSpec extends AkkaSpec {
   }
 
   class TcpReadProbe(tcpProcessor: Processor[ByteString, ByteString]) {
-    val consumerProbe = StreamTestKit.SubscriberProbe[ByteString]()
-    tcpProcessor.subscribe(consumerProbe)
-    val tcpReadSubscription = consumerProbe.expectSubscription()
+    val subscriberProbe = StreamTestKit.SubscriberProbe[ByteString]()
+    tcpProcessor.subscribe(subscriberProbe)
+    val tcpReadSubscription = subscriberProbe.expectSubscription()
 
     def read(count: Int): ByteString = {
       var result = ByteString.empty
       while (result.size < count) {
         tcpReadSubscription.request(1)
-        result ++= consumerProbe.expectNext()
+        result ++= subscriberProbe.expectNext()
       }
       result
     }
@@ -166,9 +166,9 @@ class TcpFlowSpec extends AkkaSpec {
   }
 
   class TcpWriteProbe(tcpProcessor: Processor[ByteString, ByteString]) {
-    val producerProbe = StreamTestKit.PublisherProbe[ByteString]()
-    producerProbe.subscribe(tcpProcessor)
-    val tcpWriteSubscription = producerProbe.expectSubscription()
+    val publisherProbe = StreamTestKit.PublisherProbe[ByteString]()
+    publisherProbe.subscribe(tcpProcessor)
+    val tcpWriteSubscription = publisherProbe.expectSubscription()
     var demand = 0
 
     def write(bytes: ByteString): Unit = {
@@ -275,7 +275,7 @@ class TcpFlowSpec extends AkkaSpec {
       serverConnection.write(testData)
       tcpReadProbe.read(5) should be(testData)
       serverConnection.confirmedClose()
-      tcpReadProbe.consumerProbe.expectComplete()
+      tcpReadProbe.subscriberProbe.expectComplete()
     }
 
     "stop reading when the input stream is cancelled" in {
@@ -289,7 +289,7 @@ class TcpFlowSpec extends AkkaSpec {
       tcpReadProbe.close()
       // FIXME: expect PeerClosed on server
       serverConnection.write(testData)
-      tcpReadProbe.consumerProbe.expectNoMsg(1.second)
+      tcpReadProbe.subscriberProbe.expectNoMsg(1.second)
       serverConnection.read(5)
       tcpWriteProbe.write(testData)
       serverConnection.waitRead() should be(testData)
@@ -308,7 +308,7 @@ class TcpFlowSpec extends AkkaSpec {
       // there should be a chitchat and non-chitchat version
 
       serverConnection.confirmedClose()
-      tcpReadProbe.consumerProbe.expectComplete()
+      tcpReadProbe.subscriberProbe.expectComplete()
 
       serverConnection.read(5)
       tcpWriteProbe.write(testData)
@@ -328,7 +328,7 @@ class TcpFlowSpec extends AkkaSpec {
       val tcpReadProbe = new TcpReadProbe(tcpProcessor)
 
       serverConnection.abort()
-      tcpReadProbe.consumerProbe.expectError()
+      tcpReadProbe.subscriberProbe.expectError()
       tcpWriteProbe.tcpWriteSubscription.expectCancellation()
     }
 

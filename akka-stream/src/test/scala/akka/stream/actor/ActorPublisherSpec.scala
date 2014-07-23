@@ -21,7 +21,7 @@ import akka.testkit.TestProbe
 
 object ActorPublisherSpec {
 
-  def testProducerProps(probe: ActorRef): Props =
+  def testPublisherProps(probe: ActorRef): Props =
     Props(new TestPublisher(probe)).withDispatcher("akka.test.stream-dispatcher")
 
   case class TotalDemand(elements: Long)
@@ -95,11 +95,11 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
 
   system.eventStream.publish(Mute(EventFilter[IllegalStateException]()))
 
-  "An ActorProducer" must {
+  "An ActorPublisher" must {
 
     "accumulate demand" in {
       val probe = TestProbe()
-      val ref = system.actorOf(testProducerProps(probe.ref))
+      val ref = system.actorOf(testPublisherProps(probe.ref))
       val p = ActorPublisher[String](ref)
       val c = StreamTestKit.SubscriberProbe[String]()
       p.subscribe(c)
@@ -113,7 +113,7 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
 
     "allow onNext up to requested elements, but not more" in {
       val probe = TestProbe()
-      val ref = system.actorOf(testProducerProps(probe.ref))
+      val ref = system.actorOf(testPublisherProps(probe.ref))
       val p = ActorPublisher[String](ref)
       val c = StreamTestKit.SubscriberProbe[String]()
       p.subscribe(c)
@@ -130,7 +130,7 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
 
     "signal error" in {
       val probe = TestProbe()
-      val ref = system.actorOf(testProducerProps(probe.ref))
+      val ref = system.actorOf(testPublisherProps(probe.ref))
       val c = StreamTestKit.SubscriberProbe[String]()
       ActorPublisher[String](ref).subscribe(c)
       ref ! Err("wrong")
@@ -140,7 +140,7 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
 
     "signal error before subscribe" in {
       val probe = TestProbe()
-      val ref = system.actorOf(testProducerProps(probe.ref))
+      val ref = system.actorOf(testPublisherProps(probe.ref))
       ref ! Err("early err")
       val c = StreamTestKit.SubscriberProbe[String]()
       ActorPublisher[String](ref).subscribe(c)
@@ -149,7 +149,7 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
 
     "drop onNext elements after cancel" in {
       val probe = TestProbe()
-      val ref = system.actorOf(testProducerProps(probe.ref))
+      val ref = system.actorOf(testPublisherProps(probe.ref))
       val p = ActorPublisher[String](ref)
       val c = StreamTestKit.SubscriberProbe[String]()
       p.subscribe(c)
@@ -165,7 +165,7 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
 
     "remember requested after restart" in {
       val probe = TestProbe()
-      val ref = system.actorOf(testProducerProps(probe.ref))
+      val ref = system.actorOf(testPublisherProps(probe.ref))
       val p = ActorPublisher[String](ref)
       val c = StreamTestKit.SubscriberProbe[String]()
       p.subscribe(c)
@@ -184,7 +184,7 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
 
     "signal onComplete" in {
       val probe = TestProbe()
-      val ref = system.actorOf(testProducerProps(probe.ref))
+      val ref = system.actorOf(testPublisherProps(probe.ref))
       val c = StreamTestKit.SubscriberProbe[String]()
       ActorPublisher[String](ref).subscribe(c)
       val sub = c.expectSubscription
@@ -197,7 +197,7 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
 
     "signal immediate onComplete" in {
       val probe = TestProbe()
-      val ref = system.actorOf(testProducerProps(probe.ref))
+      val ref = system.actorOf(testPublisherProps(probe.ref))
       ref ! Complete
       val c = StreamTestKit.SubscriberProbe[String]()
       ActorPublisher[String](ref).subscribe(c)
@@ -206,7 +206,7 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
 
     "only allow one subscriber" in {
       val probe = TestProbe()
-      val ref = system.actorOf(testProducerProps(probe.ref))
+      val ref = system.actorOf(testPublisherProps(probe.ref))
       val c = StreamTestKit.SubscriberProbe[String]()
       ActorPublisher[String](ref).subscribe(c)
       c.expectSubscription
@@ -217,7 +217,7 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
 
     "signal onCompete when actor is stopped" in {
       val probe = TestProbe()
-      val ref = system.actorOf(testProducerProps(probe.ref))
+      val ref = system.actorOf(testPublisherProps(probe.ref))
       val c = StreamTestKit.SubscriberProbe[String]()
       ActorPublisher[String](ref).subscribe(c)
       c.expectSubscription
@@ -225,7 +225,7 @@ class ActorPublisherSpec extends AkkaSpec with ImplicitSender {
       c.expectComplete
     }
 
-    "work together with Flow and ActorConsumer" in {
+    "work together with Flow and ActorSubscriber" in {
       val materializer = FlowMaterializer(MaterializerSettings(dispatcher = "akka.test.stream-dispatcher"))
       val probe = TestProbe()
       val snd = system.actorOf(senderProps)

@@ -36,14 +36,14 @@ class FlowTimerTransformerSpec extends AkkaSpec {
           override def isComplete: Boolean = !isTimerActive("tick")
         }).
         toPublisher(materializer)
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      p2.subscribe(consumer)
-      val subscription = consumer.expectSubscription()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      p2.subscribe(subscriber)
+      val subscription = subscriber.expectSubscription()
       subscription.request(5)
-      consumer.expectNext(1)
-      consumer.expectNext(2)
-      consumer.expectNext(3)
-      consumer.expectComplete()
+      subscriber.expectNext(1)
+      subscriber.expectNext(2)
+      subscriber.expectNext(3)
+      subscriber.expectComplete()
     }
 
     "schedule ticks when last transformation step (consume)" in {
@@ -81,11 +81,11 @@ class FlowTimerTransformerSpec extends AkkaSpec {
             throw exception
         }).toPublisher(materializer)
 
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      p2.subscribe(consumer)
-      val subscription = consumer.expectSubscription()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      p2.subscribe(subscriber)
+      val subscription = subscriber.expectSubscription()
       subscription.request(5)
-      consumer.expectError(exception)
+      subscriber.expectError(exception)
     }
   }
 }

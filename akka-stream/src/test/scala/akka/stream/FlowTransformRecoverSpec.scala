@@ -55,16 +55,16 @@ class FlowTransformRecoverSpec extends AkkaSpec {
           }
         }).
         toPublisher(materializer)
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      p2.subscribe(consumer)
-      val subscription = consumer.expectSubscription()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      p2.subscribe(subscriber)
+      val subscription = subscriber.expectSubscription()
       subscription.request(1)
-      consumer.expectNext(1)
-      consumer.expectNoMsg(200.millis)
+      subscriber.expectNext(1)
+      subscriber.expectNoMsg(200.millis)
       subscription.request(2)
-      consumer.expectNext(3)
-      consumer.expectNext(6)
-      consumer.expectComplete()
+      subscriber.expectNext(3)
+      subscriber.expectNext(6)
+      subscriber.expectComplete()
     }
 
     "produce one-to-several transformation as expected" in {
@@ -83,19 +83,19 @@ class FlowTransformRecoverSpec extends AkkaSpec {
           }
         }).
         toPublisher(materializer)
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      p2.subscribe(consumer)
-      val subscription = consumer.expectSubscription()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      p2.subscribe(subscriber)
+      val subscription = subscriber.expectSubscription()
       subscription.request(4)
-      consumer.expectNext(1)
-      consumer.expectNext(3)
-      consumer.expectNext(3)
-      consumer.expectNext(6)
-      consumer.expectNoMsg(200.millis)
+      subscriber.expectNext(1)
+      subscriber.expectNext(3)
+      subscriber.expectNext(3)
+      subscriber.expectNext(6)
+      subscriber.expectNoMsg(200.millis)
       subscription.request(100)
-      consumer.expectNext(6)
-      consumer.expectNext(6)
-      consumer.expectComplete()
+      subscriber.expectNext(6)
+      subscriber.expectNext(6)
+      subscriber.expectComplete()
     }
 
     "produce dropping transformation as expected" in {
@@ -114,16 +114,16 @@ class FlowTransformRecoverSpec extends AkkaSpec {
           }
         }).
         toPublisher(materializer)
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      p2.subscribe(consumer)
-      val subscription = consumer.expectSubscription()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      p2.subscribe(subscriber)
+      val subscription = subscriber.expectSubscription()
       subscription.request(1)
-      consumer.expectNext(1)
-      consumer.expectNoMsg(200.millis)
+      subscriber.expectNext(1)
+      subscriber.expectNoMsg(200.millis)
       subscription.request(1)
-      consumer.expectNext(6)
+      subscriber.expectNext(6)
       subscription.request(1)
-      consumer.expectComplete()
+      subscriber.expectComplete()
     }
 
     "produce multi-step transformation as expected" in {
@@ -251,17 +251,17 @@ class FlowTransformRecoverSpec extends AkkaSpec {
           override def onError(e: Throwable) = List(-1)
         }).
         toPublisher(materializer)
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      p2.subscribe(consumer)
-      val subscription = consumer.expectSubscription()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      p2.subscribe(subscriber)
+      val subscription = subscriber.expectSubscription()
       EventFilter[IllegalArgumentException]("two not allowed") intercept {
         subscription.request(1)
-        consumer.expectNext(1)
-        consumer.expectNoMsg(200.millis)
+        subscriber.expectNext(1)
+        subscriber.expectNoMsg(200.millis)
         subscription.request(100)
-        consumer.expectNext(1)
-        consumer.expectError().getMessage should be("two not allowed")
-        consumer.expectNoMsg(200.millis)
+        subscriber.expectNext(1)
+        subscriber.expectError().getMessage should be("two not allowed")
+        subscriber.expectNoMsg(200.millis)
       }
     }
 
@@ -281,34 +281,34 @@ class FlowTransformRecoverSpec extends AkkaSpec {
             }
           }).
           toPublisher(materializer)
-        val consumer = StreamTestKit.SubscriberProbe[Int]()
-        p2.subscribe(consumer)
-        val subscription = consumer.expectSubscription()
+        val subscriber = StreamTestKit.SubscriberProbe[Int]()
+        p2.subscribe(subscriber)
+        val subscription = subscriber.expectSubscription()
 
         subscription.request(1)
-        consumer.expectNext(101)
-        consumer.expectNoMsg(100.millis)
+        subscriber.expectNext(101)
+        subscriber.expectNoMsg(100.millis)
         subscription.request(1)
-        consumer.expectNext(102)
-        consumer.expectNoMsg(100.millis)
+        subscriber.expectNext(102)
+        subscriber.expectNoMsg(100.millis)
         subscription.request(1)
-        consumer.expectNext(103)
-        consumer.expectNoMsg(100.millis)
+        subscriber.expectNext(103)
+        subscriber.expectNoMsg(100.millis)
         subscription.request(1)
-        consumer.expectNext(104)
-        consumer.expectNoMsg(100.millis)
+        subscriber.expectNext(104)
+        subscriber.expectNoMsg(100.millis)
         subscription.request(1)
-        consumer.expectNext(105)
-        consumer.expectNoMsg(100.millis)
+        subscriber.expectNext(105)
+        subscriber.expectNoMsg(100.millis)
 
         subscription.request(1)
-        consumer.expectNext(-1)
-        consumer.expectNoMsg(100.millis)
+        subscriber.expectNext(-1)
+        subscriber.expectNoMsg(100.millis)
         subscription.request(10)
-        consumer.expectNext(-2)
-        consumer.expectNext(-3)
-        consumer.expectComplete()
-        consumer.expectNoMsg(200.millis)
+        subscriber.expectNext(-2)
+        subscriber.expectNext(-3)
+        subscriber.expectComplete()
+        subscriber.expectNoMsg(200.millis)
       }
     }
 
@@ -374,16 +374,16 @@ class FlowTransformRecoverSpec extends AkkaSpec {
           override def onError(e: Throwable) = List(-1)
         }).
         toPublisher(materializer)
-      val consumer = StreamTestKit.SubscriberProbe[Int]()
-      p2.subscribe(consumer)
-      val subscription = consumer.expectSubscription()
+      val subscriber = StreamTestKit.SubscriberProbe[Int]()
+      p2.subscribe(subscriber)
+      val subscription = subscriber.expectSubscription()
       subscription.request(2)
-      consumer.expectNext(1)
+      subscriber.expectNext(1)
       subscription.cancel()
-      consumer.expectNext(1)
-      consumer.expectNoMsg(500.millis)
+      subscriber.expectNext(1)
+      subscriber.expectNoMsg(500.millis)
       subscription.request(2)
-      consumer.expectNoMsg(200.millis)
+      subscriber.expectNoMsg(200.millis)
     }
   }
 

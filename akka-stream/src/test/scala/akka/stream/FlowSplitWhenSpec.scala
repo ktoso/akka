@@ -34,18 +34,18 @@ class FlowSplitWhenSpec extends AkkaSpec {
   class SubstreamsSupport(splitWhen: Int = 3, elementCount: Int = 6) {
     val source = Flow((1 to elementCount).iterator).toPublisher(materializer)
     val groupStream = Flow(source).splitWhen(_ == splitWhen).toPublisher(materializer)
-    val masterConsumer = StreamTestKit.SubscriberProbe[Publisher[Int]]()
+    val masterSubscriber = StreamTestKit.SubscriberProbe[Publisher[Int]]()
 
-    groupStream.subscribe(masterConsumer)
-    val masterSubscription = masterConsumer.expectSubscription()
+    groupStream.subscribe(masterSubscriber)
+    val masterSubscription = masterSubscriber.expectSubscription()
 
-    def getSubproducer(): Publisher[Int] = {
+    def getSubPublisher(): Publisher[Int] = {
       masterSubscription.request(1)
-      expectSubproducer()
+      expectSubPublisher()
     }
 
-    def expectSubproducer(): Publisher[Int] = {
-      val substream = masterConsumer.expectNext()
+    def expectSubPublisher(): Publisher[Int] = {
+      val substream = masterSubscriber.expectNext()
       substream
     }
 
@@ -54,16 +54,16 @@ class FlowSplitWhenSpec extends AkkaSpec {
   "splitWhen" must {
 
     "work in the happy case" in new SubstreamsSupport(elementCount = 4) {
-      val s1 = StreamPuppet(getSubproducer())
-      masterConsumer.expectNoMsg(100.millis)
+      val s1 = StreamPuppet(getSubPublisher())
+      masterSubscriber.expectNoMsg(100.millis)
 
       s1.request(2)
       s1.expectNext(1)
       s1.expectNext(2)
       s1.expectComplete()
 
-      val s2 = StreamPuppet(getSubproducer())
-      masterConsumer.expectComplete()
+      val s2 = StreamPuppet(getSubPublisher())
+      masterSubscriber.expectComplete()
 
       s2.request(1)
       s2.expectNext(3)
@@ -76,9 +76,9 @@ class FlowSplitWhenSpec extends AkkaSpec {
     }
 
     "support cancelling substreams" in new SubstreamsSupport(splitWhen = 5, elementCount = 8) {
-      val s1 = StreamPuppet(getSubproducer())
+      val s1 = StreamPuppet(getSubPublisher())
       s1.cancel()
-      val s2 = StreamPuppet(getSubproducer())
+      val s2 = StreamPuppet(getSubPublisher())
 
       s2.request(4)
       s2.expectNext(5)
@@ -87,11 +87,11 @@ class FlowSplitWhenSpec extends AkkaSpec {
       s2.expectNext(8)
       s2.expectComplete()
 
-      masterConsumer.expectComplete()
+      masterSubscriber.expectComplete()
     }
 
     "support cancelling the master stream" in new SubstreamsSupport(splitWhen = 5, elementCount = 8) {
-      val s1 = StreamPuppet(getSubproducer())
+      val s1 = StreamPuppet(getSubPublisher())
       masterSubscription.cancel()
       s1.request(4)
       s1.expectNext(1)

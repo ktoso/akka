@@ -18,18 +18,18 @@ private[akka] object TickPublisher {
   def props(interval: FiniteDuration, tick: () ⇒ Any, settings: MaterializerSettings): Props =
     Props(new TickPublisher(interval, tick, settings)).withDispatcher(settings.dispatcher)
 
-  object TickProducerSubscription {
+  object TickPublisherSubscription {
     case class Cancel(subscriber: Subscriber[Any])
     case class RequestMore(elements: Int, subscriber: Subscriber[Any])
   }
 
-  class TickProducerSubscription(ref: ActorRef, subscriber: Subscriber[Any]) extends Subscription {
-    import akka.stream.impl.TickPublisher.TickProducerSubscription._
+  class TickPublisherSubscription(ref: ActorRef, subscriber: Subscriber[Any]) extends Subscription {
+    import akka.stream.impl.TickPublisher.TickPublisherSubscription._
     def cancel(): Unit = ref ! Cancel(subscriber)
     def request(elements: Int): Unit =
       if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
       else ref ! RequestMore(elements, subscriber)
-    override def toString = "TickProducerSubscription"
+    override def toString = "TickPublisherSubscription"
   }
 
   private case object Tick
@@ -43,7 +43,7 @@ private[akka] object TickPublisher {
  * otherwise the tick element is dropped for that subscriber.
  */
 private[akka] class TickPublisher(interval: FiniteDuration, tick: () ⇒ Any, settings: MaterializerSettings) extends Actor with SoftShutdown {
-  import akka.stream.impl.TickPublisher.TickProducerSubscription._
+  import akka.stream.impl.TickPublisher.TickPublisherSubscription._
   import akka.stream.impl.TickPublisher._
 
   var exposedPublisher: ActorPublisher[Any] = _
@@ -105,7 +105,7 @@ private[akka] class TickPublisher(interval: FiniteDuration, tick: () ⇒ Any, se
     if (demand.contains(subscriber))
       subscriber.onError(new IllegalStateException(s"Cannot subscribe $subscriber twice"))
     else {
-      val subscription = new TickProducerSubscription(self, subscriber)
+      val subscription = new TickPublisherSubscription(self, subscriber)
       demand(subscriber) = 0
       subscriber.onSubscribe(subscription)
     }
