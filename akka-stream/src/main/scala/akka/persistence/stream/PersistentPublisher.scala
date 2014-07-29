@@ -150,7 +150,7 @@ private class PersistentPublisherImpl(processorId: String, publisherSettings: Pe
 }
 
 private object PersistentPublisherBuffer {
-  case class Request(num: Int)
+  case class Request(num: Long)
   case class Response(messages: Vector[Persistent])
 
   case object Fill
@@ -168,7 +168,7 @@ private class PersistentPublisherBuffer(override val processorId: String, publis
   import context.dispatcher
 
   private var replayed = 0
-  private var requested = 0
+  private var requested: Long = 0L
   private var buffer: Vector[Persistent] = Vector.empty
 
   private val filling: Receive = {
@@ -239,8 +239,8 @@ private class PersistentPublisherBuffer(override val processorId: String, publis
     context.system.scheduler.scheduleOnce(autoUpdateInterval, self, Fill)
   }
 
-  private def respond(num: Int): Unit = {
-    val (res, buf) = buffer.splitAt(num)
+  private def respond(num: Long): Unit = {
+    val (res, buf) = buffer.splitAt(num.toInt) // TODO this is not safe
     publisher ! Response(res)
     buffer = buf
     requested -= res.size

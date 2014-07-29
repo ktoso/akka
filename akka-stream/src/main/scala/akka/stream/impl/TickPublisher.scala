@@ -20,13 +20,13 @@ private[akka] object TickPublisher {
 
   object TickPublisherSubscription {
     case class Cancel(subscriber: Subscriber[Any])
-    case class RequestMore(elements: Int, subscriber: Subscriber[Any])
+    case class RequestMore(elements: Long, subscriber: Subscriber[Any])
   }
 
   class TickPublisherSubscription(ref: ActorRef, subscriber: Subscriber[Any]) extends Subscription {
     import akka.stream.impl.TickPublisher.TickPublisherSubscription._
     def cancel(): Unit = ref ! Cancel(subscriber)
-    def request(elements: Int): Unit =
+    def request(elements: Long): Unit =
       if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
       else ref ! RequestMore(elements, subscriber)
     override def toString = "TickPublisherSubscription"
@@ -103,7 +103,7 @@ private[akka] class TickPublisher(interval: FiniteDuration, tick: () ⇒ Any, se
 
   def registerSubscriber(subscriber: Subscriber[Any]): Unit = {
     if (demand.contains(subscriber))
-      subscriber.onError(new IllegalStateException(s"Cannot subscribe $subscriber twice"))
+      subscriber.onError(new IllegalStateException(s"Cannot subscribe $subscriber twice (see reactive-streams 1.10)"))
     else {
       val subscription = new TickPublisherSubscription(self, subscriber)
       demand(subscriber) = 0

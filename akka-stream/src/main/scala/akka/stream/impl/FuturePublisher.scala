@@ -27,7 +27,7 @@ private[akka] object FuturePublisher {
   class FutureSubscription(ref: ActorRef) extends Subscription {
     import akka.stream.impl.FuturePublisher.FutureSubscription._
     def cancel(): Unit = ref ! Cancel(this)
-    def request(elements: Int): Unit =
+    def request(elements: Long): Unit =
       if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
       else ref ! RequestMore(this)
     override def toString = "FutureSubscription"
@@ -100,7 +100,7 @@ private[akka] class FuturePublisher(future: Future[Any], settings: MaterializerS
 
   def registerSubscriber(subscriber: Subscriber[Any]): Unit = {
     if (subscribers.contains(subscriber))
-      subscriber.onError(new IllegalStateException(s"Cannot subscribe $subscriber twice"))
+      subscriber.onError(new IllegalStateException(s"Cannot subscribe $subscriber twice (see reactive-streams 1.10)"))
     else {
       val subscription = new FutureSubscription(self)
       subscribers = subscribers.updated(subscriber, subscription)

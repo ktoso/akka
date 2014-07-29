@@ -26,7 +26,7 @@ object ActorPublisher {
    * This message is delivered to the [[ActorPublisher]] actor when the stream subscriber requests
    * more elements.
    */
-  @SerialVersionUID(1L) case class Request(elements: Int)
+  @SerialVersionUID(1L) case class Request(elements: Long)
 
   /**
    * This message is delivered to the [[ActorPublisher]] actor when the stream subscriber cancels the
@@ -252,7 +252,7 @@ private[akka] case class ActorPublisherImpl[T](ref: ActorRef) extends Publisher[
  */
 private[akka] class ActorPublisherSubscription[T](ref: ActorRef) extends Subscription {
   import ActorPublisher._
-  override def request(elements: Int): Unit =
+  override def request(elements: Long): Unit =
     if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
     else ref ! Request(elements)
   override def cancel(): Unit = ref ! Cancel

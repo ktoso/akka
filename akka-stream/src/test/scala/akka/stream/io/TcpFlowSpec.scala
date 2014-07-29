@@ -169,10 +169,10 @@ class TcpFlowSpec extends AkkaSpec {
     val publisherProbe = StreamTestKit.PublisherProbe[ByteString]()
     publisherProbe.subscribe(tcpProcessor)
     val tcpWriteSubscription = publisherProbe.expectSubscription()
-    var demand = 0
+    var demand = 0L
 
     def write(bytes: ByteString): Unit = {
-      if (demand == 0) demand += tcpWriteSubscription.expectRequest()
+      if (demand == 0L) demand += tcpWriteSubscription.expectRequest()
       tcpWriteSubscription.sendNext(bytes)
       demand -= 1
     }

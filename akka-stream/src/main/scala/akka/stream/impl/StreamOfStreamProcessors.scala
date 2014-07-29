@@ -12,11 +12,11 @@ import akka.stream.actor.ActorSubscriber.{ OnNext, OnError, OnComplete, OnSubscr
  * INTERNAL API
  */
 private[akka] object MultiStreamOutputProcessor {
-  case class SubstreamRequestMore(substream: ActorRef, demand: Int)
+  case class SubstreamRequestMore(substream: ActorRef, demand: Long)
   case class SubstreamCancel(substream: ActorRef)
 
   class SubstreamSubscription(val parent: ActorRef, val substream: ActorRef) extends Subscription {
-    override def request(elements: Int): Unit =
+    override def request(elements: Long): Unit =
       if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
       else parent ! SubstreamRequestMore(substream, elements)
     override def cancel(): Unit = parent ! SubstreamCancel(substream)
@@ -35,7 +35,7 @@ private[akka] abstract class MultiStreamOutputProcessor(_settings: MaterializerS
 
   class SubstreamOutputs extends Outputs {
     private var completed: Boolean = false
-    private var demands: Int = 0
+    private var demands: Long = 0L
 
     override def subreceive: SubReceive =
       throw new UnsupportedOperationException("Substream outputs are managed in a dedicated receive block")
@@ -61,7 +61,7 @@ private[akka] abstract class MultiStreamOutputProcessor(_settings: MaterializerS
       substream ! OnNext(elem)
     }
 
-    def enqueueOutputDemand(demand: Int): Unit = demands += demand
+    def enqueueOutputDemand(demand: Long): Unit = demands += demand
     override def demandAvailable: Boolean = demands > 0
     override val NeedsDemand: TransferState = new TransferState {
       override def isReady: Boolean = demandAvailable

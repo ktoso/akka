@@ -1301,7 +1301,8 @@ object Dependencies {
     // mirrored in OSGi sample
     val levelDBNative = "org.fusesource.leveldbjni"   % "leveldbjni-all"               % "1.7"         // New BSD
 
-    val reactiveStreams = "org.reactivestreams"       % "reactive-streams"             % "0.4.0.M1"         // CC0
+    val reactiveStreams    = "org.reactivestreams"       % "reactive-streams"             % "0.4.0.M1"         // CC0
+    val reactiveStreamsTck = "org.reactivestreams"       % "reactive-streams-tck"         % "0.4.0.M1"         // CC0
 
     // Camel Sample
     val camelJetty  = "org.apache.camel"              % "camel-jetty"                  % camelCore.revision // ApacheV2
@@ -1384,7 +1385,7 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-actor" % "2.3.3",
     "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.3",
     "com.typesafe.akka" %% "akka-testkit" % "2.3.3" % "test",
-    Test.scalatest, Test.scalacheck, Test.junit, reactiveStreams, Test.commonsIo)
+    Test.scalatest, Test.scalacheck, Test.junit, reactiveStreams, reactiveStreamsTck, Test.commonsIo)
 
   val mailboxes = Seq(Test.scalatest, Test.junit)
 

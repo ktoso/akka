@@ -205,7 +205,7 @@ trait ActorSubscriber extends Actor {
   /**
    * Request a number of elements from upstream.
    */
-  protected def request(elements: Int): Unit =
+  protected def request(elements: Long): Unit =
     if (elements > 0 && !canceled) {
       // if we don't have a subscription yet, it will be requested when it arrives
       subscription.foreach(_.request(elements))

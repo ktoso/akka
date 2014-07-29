@@ -19,13 +19,13 @@ private[akka] object SynchronousPublisherFromIterable {
 
   private class IteratorSubscription[T](subscriber: Subscriber[T], iterator: Iterator[T]) extends Subscription {
     var done = false
-    var demand = 0
+    var demand = 0L
     var pushing = false
 
     override def cancel(): Unit =
       done = true
 
-    override def request(elements: Int): Unit = {
+    override def request(elements: Long): Unit = {
       @tailrec def pushNext(): Unit = {
         if (!done)
           if (iterator.isEmpty) {

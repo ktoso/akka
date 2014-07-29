@@ -111,7 +111,7 @@ private[akka] class ActorPublisher[T](val impl: ActorRef, val equalityValue: Opt
  * INTERNAL API
  */
 private[akka] class ActorSubscription[T]( final val impl: ActorRef, final val subscriber: Subscriber[T]) extends SubscriptionWithCursor[T] {
-  override def request(elements: Int): Unit =
+  override def request(elements: Long): Unit =
     if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
     else impl ! RequestMore(this, elements)
   override def cancel(): Unit = impl ! Cancel(this)

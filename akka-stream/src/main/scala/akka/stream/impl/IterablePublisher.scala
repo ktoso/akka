@@ -21,14 +21,14 @@ private[akka] object IterablePublisher {
 
   object BasicActorSubscription {
     case object Cancel
-    case class RequestMore(elements: Int)
+    case class RequestMore(elements: Long)
   }
 
   class BasicActorSubscription(ref: ActorRef)
     extends Subscription {
     import akka.stream.impl.IterablePublisher.BasicActorSubscription._
     def cancel(): Unit = ref ! Cancel
-    def request(elements: Int): Unit =
+    def request(elements: Long): Unit =
       if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
       else ref ! RequestMore(elements)
     override def toString = "BasicActorSubscription"
@@ -59,7 +59,7 @@ private[akka] class IterablePublisher(iterable: immutable.Iterable[Any], setting
       exposedPublisher = publisher
       context.setReceiveTimeout(settings.downstreamSubscriptionTimeout)
       context.become(waitingForFirstSubscriber)
-    case _ ⇒ throw new IllegalStateException("The first message must be ExposedPublisher")
+    case x ⇒ throw new IllegalStateException("The first message must be ExposedPublisher, but was: " + x)
   }
 
   def waitingForFirstSubscriber: Receive = {
@@ -93,7 +93,7 @@ private[akka] class IterablePublisher(iterable: immutable.Iterable[Any], setting
 
   def registerSubscriber(subscriber: Subscriber[Any]): Unit = {
     if (subscribers(subscriber))
-      subscriber.onError(new IllegalStateException(s"Cannot subscribe $subscriber twice"))
+      subscriber.onError(new IllegalStateException(s"Cannot subscribe $subscriber twice (see reactive-streams 1.10)"))
     else {
       val iterator = withCtx(context)(iterable.iterator)
       val worker = context.watch(context.actorOf(IterablePublisherWorker.props(iterator, subscriber,

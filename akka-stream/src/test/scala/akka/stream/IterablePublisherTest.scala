@@ -3,14 +3,15 @@
  */
 package akka.stream
 
-import org.reactivestreams.Publisher
-import org.reactivestreams.tck.{ PublisherVerification, TestEnvironment }
 import org.scalatest.testng.TestNGSuiteLike
+import org.reactivestreams._
+import org.reactivestreams.tck.{ TestEnvironment, PublisherVerification }
+import scala.collection.immutable
 import akka.stream.scaladsl.Flow
 import akka.actor.ActorSystem
 import akka.stream.testkit.AkkaSpec
 
-class IteratorProducerTest(_system: ActorSystem, env: TestEnvironment, publisherShutdownTimeout: Long)
+class IterablePublisherTest(_system: ActorSystem, env: TestEnvironment, publisherShutdownTimeout: Long)
   extends PublisherVerification[Int](env, publisherShutdownTimeout)
   with WithActorSystem with TestNGSuiteLike {
 
@@ -21,23 +22,29 @@ class IteratorProducerTest(_system: ActorSystem, env: TestEnvironment, publisher
   }
 
   def this() {
-    this(ActorSystem(classOf[IteratorProducerTest].getSimpleName, AkkaSpec.testConf))
+    this(ActorSystem(classOf[IterablePublisherTest].getSimpleName, AkkaSpec.testConf))
   }
 
   val materializer = FlowMaterializer(MaterializerSettings(
     maximumInputBufferSize = 512, dispatcher = "akka.test.stream-dispatcher"))(system)
 
   def createPublisher(elements: Int): Publisher[Int] = {
-    val iter: Iterator[Int] =
+    val iterable: immutable.Iterable[Int] =
       if (elements == 0)
-        Iterator from 0
+        new immutable.Iterable[Int] { override def iterator = Iterator from 0 }
       else
-        (Iterator from 0).take(elements)
-    Flow(iter).toPublisher(materializer)
+        0 until elements
+    Flow(iterable).toPublisher(materializer)
   }
 
   override def createCompletedStatePublisher(): Publisher[Int] =
-    Flow(List.empty[Int].iterator).toPublisher(materializer)
+    Flow[Int](Nil).toPublisher(materializer)
 
-  override def createErrorStatePublisher(): Publisher[Int] = null // ignore error-state tests
+  override def createErrorStatePublisher(): Publisher[Int] =
+    new Publisher[Int] {
+      override def subscribe(s: Subscriber[Int]): Unit = {
+        s.onError(new Exception("Unable to serve subscribers right now!"))
+      }
+    }
+
 }

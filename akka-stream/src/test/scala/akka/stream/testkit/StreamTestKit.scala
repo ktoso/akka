@@ -36,16 +36,16 @@ object StreamTestKit {
   }
 
   private case class FailedSubscription[T](subscriber: Subscriber[T], cause: Throwable) extends Subscription {
-    override def request(elements: Int): Unit = subscriber.onError(cause)
+    override def request(elements: Long): Unit = subscriber.onError(cause)
     override def cancel(): Unit = ()
   }
 
   private case class CompletedSubscription[T](subscriber: Subscriber[T]) extends Subscription {
-    override def request(elements: Int): Unit = subscriber.onComplete()
+    override def request(elements: Long): Unit = subscriber.onComplete()
     override def cancel(): Unit = ()
   }
 
-  class AutoPublisher[T](probe: PublisherProbe[T], initialPendingRequests: Int = 0) {
+  class AutoPublisher[T](probe: PublisherProbe[T], initialPendingRequests: Long = 0) {
     val subscription = probe.expectSubscription()
     var pendingRequests = initialPendingRequests
 
@@ -65,14 +65,14 @@ object StreamTestKit {
   sealed trait PublisherEvent
   case class Subscribe(subscription: Subscription) extends PublisherEvent
   case class CancelSubscription(subscription: Subscription) extends PublisherEvent
-  case class RequestMore(subscription: Subscription, elements: Int) extends PublisherEvent
+  case class RequestMore(subscription: Subscription, elements: Long) extends PublisherEvent
 
   case class PublisherProbeSubscription[I](subscriber: Subscriber[I], publisherProbe: TestProbe) extends Subscription {
-    def request(elements: Int): Unit = publisherProbe.ref ! RequestMore(this, elements)
+    def request(elements: Long): Unit = publisherProbe.ref ! RequestMore(this, elements)
     def cancel(): Unit = publisherProbe.ref ! CancelSubscription(this)
 
-    def expectRequest(n: Int): Unit = publisherProbe.expectMsg(RequestMore(this, n))
-    def expectRequest(): Int = publisherProbe.expectMsgPF() {
+    def expectRequest(n: Long): Unit = publisherProbe.expectMsg(RequestMore(this, n))
+    def expectRequest(): Long = publisherProbe.expectMsgPF() {
       case RequestMore(sub, n) if sub eq this ⇒ n
     }
 

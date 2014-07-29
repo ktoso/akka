@@ -96,7 +96,7 @@ private[akka] trait SubscriberManagement[T] extends ResizableMultiReaderRingBuff
   /**
    * more demand was signaled from a given subscriber
    */
-  protected def moreRequested(subscription: S, elements: Int): Unit =
+  protected def moreRequested(subscription: S, elements: Long): Unit =
     if (subscription.active) {
 
       // returns Long.MinValue if the subscription is to be terminated
@@ -200,7 +200,7 @@ private[akka] trait SubscriberManagement[T] extends ResizableMultiReaderRingBuff
    */
   protected def registerSubscriber(subscriber: Subscriber[T]): Unit = endOfStream match {
     case NotReached if subscriptions.exists(_.subscriber eq subscriber) ⇒
-      subscriber.onError(new IllegalStateException(s"Cannot subscribe $subscriber twice"))
+      subscriber.onError(new IllegalStateException(s"Cannot subscribe $subscriber twice (see reactive-streams 1.10)"))
     case NotReached ⇒
       val newSubscription = createSubscription(subscriber)
       subscriptions ::= newSubscription
