@@ -3,10 +3,7 @@
  */
 package akka.stream
 
-import org.scalatest.testng.TestNGSuiteLike
-import akka.stream.scaladsl.Flow
 import akka.actor.ActorSystem
-import akka.stream.testkit.AkkaSpec
 
 class ActorPublisherTest(_system: ActorSystem, /*env: TestEnvironment,*/ publisherShutdownTimeout: Long) {
   // FIXME: Needs new TCK version
@@ -27,7 +24,7 @@ class ActorPublisherTest(_system: ActorSystem, /*env: TestEnvironment,*/ publish
   //
   //  private val materializer = FlowMaterializer(MaterializerSettings(dispatcher = "akka.test.stream-dispatcher"))
   //
-  //  private def createProducer(elements: Int): Producer[Int] = {
+  //  private def createProducer(elements: Long): Producer[Int] = {
   //    val iter = Iterator from 1000
   //    val iter2 = if (elements > 0) iter take elements else iter
   //    Flow(() ⇒ if (iter2.hasNext) iter2.next() else throw Stop).toProducer(materializer)

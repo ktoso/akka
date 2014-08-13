@@ -9,7 +9,6 @@ import akka.actor.ActorSystem
 import akka.stream.impl.{ ActorBasedFlowMaterializer, Ast }
 import akka.stream.scaladsl.Flow
 import akka.stream.testkit.AkkaSpec
-import akka.testkit.{ EventFilter, TestEvent }
 import org.reactivestreams.tck.{ IdentityProcessorVerification, TestEnvironment }
 import org.reactivestreams.{ Processor, Publisher }
 import org.scalatest.testng.TestNGSuiteLike
@@ -28,7 +27,6 @@ class IdentityProcessorTest(_system: ActorSystem, env: TestEnvironment, publishe
     this(ActorSystem(classOf[IdentityProcessorTest].getSimpleName, AkkaSpec.testConf))
   }
 
-  system.eventStream.publish(TestEvent.Mute(EventFilter[RuntimeException]("Test exception")))
   val processorCounter = new AtomicInteger
 
   def createIdentityProcessor(maxBufferSize: Int): Processor[Int, Int] = {
@@ -52,12 +50,14 @@ class IdentityProcessorTest(_system: ActorSystem, env: TestEnvironment, publishe
     processor.asInstanceOf[Processor[Int, Int]]
   }
 
-  def createHelperPublisher(elements: Int): Publisher[Int] = {
+  def createHelperPublisher(elements: Long): Publisher[Int] = {
     val materializer = FlowMaterializer(MaterializerSettings(
       maximumInputBufferSize = 512, dispatcher = "akka.test.stream-dispatcher"))(system)
     val iter = Iterator from 1000
-    Flow(if (elements > 0) iter take elements else iter).toPublisher(materializer)
+    Flow(if (elements == Long.MaxValue) iter else iter take elements.toInt).toPublisher(materializer)
   }
+
+  override def maxElementsFromPublisher(): Long = 1000
 
   override def createErrorStatePublisher(): Publisher[Int] = null // ignore error-state tests
   override def createCompletedStatePublisher(): Publisher[Int] = null // ignore completed-state tests

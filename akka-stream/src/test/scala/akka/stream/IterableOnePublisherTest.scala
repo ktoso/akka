@@ -3,15 +3,16 @@
  */
 package akka.stream
 
-import org.scalatest.testng.TestNGSuiteLike
-import org.reactivestreams._
-import org.reactivestreams.tck.{ TestEnvironment, PublisherVerification }
-import scala.collection.immutable
-import akka.stream.scaladsl.Flow
 import akka.actor.ActorSystem
+import akka.stream.scaladsl.Flow
 import akka.stream.testkit.AkkaSpec
+import org.reactivestreams._
+import org.reactivestreams.tck.{ PublisherVerification, TestEnvironment }
+import org.scalatest.testng.TestNGSuiteLike
 
-class IterablePublisherTest(_system: ActorSystem, env: TestEnvironment, publisherShutdownTimeout: Long)
+import scala.collection.immutable
+
+class IterableOnePublisherTest(_system: ActorSystem, env: TestEnvironment, publisherShutdownTimeout: Long)
   extends PublisherVerification[Int](env, publisherShutdownTimeout)
   with WithActorSystem with TestNGSuiteLike {
 
@@ -22,21 +23,19 @@ class IterablePublisherTest(_system: ActorSystem, env: TestEnvironment, publishe
   }
 
   def this() {
-    this(ActorSystem(classOf[IterablePublisherTest].getSimpleName, AkkaSpec.testConf))
+    this(ActorSystem(classOf[IterableOnePublisherTest].getSimpleName, AkkaSpec.testConf))
   }
 
   val materializer = FlowMaterializer(MaterializerSettings(
     maximumInputBufferSize = 512, dispatcher = "akka.test.stream-dispatcher"))(system)
 
   def createPublisher(elements: Long): Publisher[Int] = {
-    val iterable: immutable.Iterable[Int] =
-      if (elements == Long.MaxValue)
-        new immutable.Iterable[Int] { override def iterator = Iterator from 0 }
-      else
-        0 until elements.toInt
+    val iterable: immutable.Iterable[Int] = 0 until 1
 
     Flow(iterable).toPublisher(materializer)
   }
+
+  override def maxElementsFromPublisher = 1
 
   override def createCompletedStatePublisher(): Publisher[Int] =
     Flow[Int](Nil).toPublisher(materializer)

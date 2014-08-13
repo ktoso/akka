@@ -28,9 +28,10 @@ private[akka] object IterablePublisher {
     extends Subscription {
     import akka.stream.impl.IterablePublisher.BasicActorSubscription._
     def cancel(): Unit = ref ! Cancel
-    def request(elements: Long): Unit =
+    def request(elements: Long): Unit = {
       if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
       else ref ! RequestMore(elements)
+    }
     override def toString = "BasicActorSubscription"
   }
 }
