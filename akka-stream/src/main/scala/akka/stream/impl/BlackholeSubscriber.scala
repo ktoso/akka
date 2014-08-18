@@ -43,7 +43,7 @@ private[akka] class BlackholeSubscriber[T](highWatermark: Int) extends Subscribe
       subscription.request(amount)
       requested += amount
     } else {
-      println("nope = ")
+      println("request more, but requested < lowWatermark ")
     }
 
 }

@@ -38,9 +38,6 @@ class IterablePublisherTest(_system: ActorSystem, env: TestEnvironment, publishe
     Flow(iterable).toPublisher(materializer)
   }
 
-  override def createCompletedStatePublisher(): Publisher[Int] =
-    Flow[Int](Nil).toPublisher(materializer)
-
   override def createErrorStatePublisher(): Publisher[Int] =
     new Publisher[Int] {
       override def subscribe(s: Subscriber[Int]): Unit = {

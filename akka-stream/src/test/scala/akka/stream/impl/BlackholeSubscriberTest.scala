@@ -30,7 +30,7 @@ class BlackholeSubscriberTest(_system: ActorSystem, env: TestEnvironment, publis
   val materializer = FlowMaterializer(MaterializerSettings(
     maximumInputBufferSize = 512, dispatcher = "akka.test.stream-dispatcher"))(system)
 
-  override def createBlackboxSubscriber(): Subscriber[Int] =
+  override def createSubscriber(): Subscriber[Int] =
     new BlackholeSubscriber[Int](2)
 
   override def createHelperPublisher(elements: Long): Publisher[Int] = {

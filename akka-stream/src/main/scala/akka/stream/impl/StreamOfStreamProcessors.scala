@@ -47,6 +47,7 @@ private[akka] abstract class MultiStreamOutputProcessor(_settings: MaterializerS
 
     override def isClosed: Boolean = completed
     override def complete(): Unit = {
+      s"$this.get"
       if (!completed) substream ! OnComplete
       completed = true
     }

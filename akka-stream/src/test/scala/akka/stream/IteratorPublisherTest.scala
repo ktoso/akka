@@ -38,9 +38,5 @@ class IteratorPublisherTest(_system: ActorSystem, env: TestEnvironment, publishe
     //    Flow(iter).map { i ⇒ println(s">>> $i"); i }.toPublisher(materializer)
   }
 
-  override def createCompletedStatePublisher(): Publisher[Int] =
-    Flow(List.empty[Int].iterator).toPublisher(materializer)
-  //    Flow(List.empty[Int].iterator).map { i ⇒ println(s">> $i"); i }.toPublisher(materializer)
-
   override def createErrorStatePublisher(): Publisher[Int] = null // ignore error-state tests
 }

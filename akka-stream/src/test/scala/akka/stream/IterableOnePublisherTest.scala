@@ -37,9 +37,6 @@ class IterableOnePublisherTest(_system: ActorSystem, env: TestEnvironment, publi
 
   override def maxElementsFromPublisher = 1
 
-  override def createCompletedStatePublisher(): Publisher[Int] =
-    Flow[Int](Nil).toPublisher(materializer)
-
   override def createErrorStatePublisher(): Publisher[Int] =
     new Publisher[Int] {
       override def subscribe(s: Subscriber[Int]): Unit = {

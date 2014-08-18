@@ -60,5 +60,4 @@ class IdentityProcessorTest(_system: ActorSystem, env: TestEnvironment, publishe
   override def maxElementsFromPublisher(): Long = 1000
 
   override def createErrorStatePublisher(): Publisher[Int] = null // ignore error-state tests
-  override def createCompletedStatePublisher(): Publisher[Int] = null // ignore completed-state tests
 }
