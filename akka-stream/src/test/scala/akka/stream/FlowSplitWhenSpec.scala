@@ -19,22 +19,27 @@ class FlowSplitWhenSpec extends AkkaSpec {
     maxFanOutBufferSize = 2,
     dispatcher = "akka.test.stream-dispatcher"))
 
-  case class StreamPuppet(p: Publisher[Int]) {
-    val probe = StreamTestKit.SubscriberProbe[Int]()
+  case class StreamPuppet(p: Publisher[Int], name: String) {
+    val probe = StreamTestKit.SubscriberProbe[Int](name)
+    println("subscribe puppet = " + probe)
     p.subscribe(probe)
     val subscription = probe.expectSubscription()
+    println("got subscription = " + subscription)
 
     def request(demand: Int): Unit = subscription.request(demand)
     def expectNext(elem: Int): Unit = probe.expectNext(elem)
     def expectNoMsg(max: FiniteDuration): Unit = probe.expectNoMsg(max)
     def expectComplete(): Unit = probe.expectComplete()
-    def cancel(): Unit = subscription.cancel()
+    def cancel(): Unit = {
+      println("cancel() = " + subscription)
+      subscription.cancel()
+    }
   }
 
-  class SubstreamsSupport(splitWhen: Int = 3, elementCount: Int = 6) {
+  class SubstreamsSupport(splitWhen: Int ⇒ Boolean = _ == 3, elementCount: Int = 6) {
     val source = Flow((1 to elementCount).iterator).toPublisher(materializer)
-    val groupStream = Flow(source).splitWhen(_ == splitWhen).toPublisher(materializer)
-    val masterSubscriber = StreamTestKit.SubscriberProbe[Publisher[Int]]()
+    val groupStream = Flow(source).splitWhen(splitWhen).toPublisher(materializer)
+    val masterSubscriber = StreamTestKit.SubscriberProbe[Publisher[Int]]("masterSubscriber")
 
     groupStream.subscribe(masterSubscriber)
     val masterSubscription = masterSubscriber.expectSubscription()
@@ -54,7 +59,7 @@ class FlowSplitWhenSpec extends AkkaSpec {
   "splitWhen" must {
 
     "work in the happy case" in new SubstreamsSupport(elementCount = 4) {
-      val s1 = StreamPuppet(getSubPublisher())
+      val s1 = StreamPuppet(getSubPublisher(), "s-a-1")
       masterSubscriber.expectNoMsg(100.millis)
 
       s1.request(2)
@@ -62,8 +67,7 @@ class FlowSplitWhenSpec extends AkkaSpec {
       s1.expectNext(2)
       s1.expectComplete()
 
-      val s2 = StreamPuppet(getSubPublisher())
-      masterSubscriber.expectComplete()
+      val s2 = StreamPuppet(getSubPublisher(), "s-a-2")
 
       s2.request(1)
       s2.expectNext(3)
@@ -73,12 +77,17 @@ class FlowSplitWhenSpec extends AkkaSpec {
       s2.expectNext(4)
       s2.expectComplete()
 
+      masterSubscriber.expectComplete()
     }
 
-    "support cancelling substreams" in new SubstreamsSupport(splitWhen = 5, elementCount = 8) {
-      val s1 = StreamPuppet(getSubPublisher())
+    "support cancelling substream, with request() prior to cancelation" in new SubstreamsSupport(splitWhen = _ == 5, elementCount = 8) {
+      println("s-b-1 = ")
+      val s1 = StreamPuppet(getSubPublisher(), "s-b-1")
+      s1.request(1)
+      s1.expectNext(1)
       s1.cancel()
-      val s2 = StreamPuppet(getSubPublisher())
+      println("s-b-2 = ")
+      val s2 = StreamPuppet(getSubPublisher(), "s-b-2")
 
       s2.request(4)
       s2.expectNext(5)
@@ -90,8 +99,25 @@ class FlowSplitWhenSpec extends AkkaSpec {
       masterSubscriber.expectComplete()
     }
 
-    "support cancelling the master stream" in new SubstreamsSupport(splitWhen = 5, elementCount = 8) {
-      val s1 = StreamPuppet(getSubPublisher())
+    "support cancelling substream, without any requests being made prior to cancelation" in new SubstreamsSupport(splitWhen = _ == 5, elementCount = 8) {
+      println("s-b-1 = ")
+      val s1 = StreamPuppet(getSubPublisher(), "s-b-1")
+      s1.cancel()
+      println("s-b-2 = ")
+      val s2 = StreamPuppet(getSubPublisher(), "s-b-2")
+
+      s2.request(4)
+      s2.expectNext(5)
+      s2.expectNext(6)
+      s2.expectNext(7)
+      s2.expectNext(8)
+      s2.expectComplete()
+
+      masterSubscriber.expectComplete()
+    }
+
+    "support cancelling the master stream" in new SubstreamsSupport(splitWhen = _ == 5, elementCount = 8) {
+      val s1 = StreamPuppet(getSubPublisher(), "s-c-1")
       masterSubscription.cancel()
       s1.request(4)
       s1.expectNext(1)

@@ -52,10 +52,23 @@ private[akka] trait LazyElement {
  * INTERNAL API
  */
 private[akka] class LazySubscription[T]( final val publisher: LazyPublisherLike[T], final val subscriber: Subscriber[T]) extends SubscriptionWithCursor[T] {
-  override def request(elements: Int): Unit =
+  override def request(elements: Int): Unit = {
+    println("lazyRequest() = " + elements + ", pub = " + publisher + ", subs = " + subscriber)
     if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
     else publisher.request(this, elements)
-  override def cancel(): Unit = publisher.cancel(this)
+  }
+  override def cancel(): Unit = {
+    println("lazyCancel = pub = " + publisher + ", subs = " + subscriber)
+
+    //    println("force wakeup = ")
+    //    // todo blackhole until we reach a split
+    //    request(1) //
+    //    request(1) //
+    //    request(1) //
+    //    request(1) //
+
+    publisher.cancel(this)
+  }
 }
 
 /**
@@ -74,7 +87,11 @@ private[akka] trait LazyPublisherLike[T] extends Publisher[T] with LazyElement {
   def request(subscription: LazySubscription[T], elements: Int): Unit = doRequest(subscription, elements)
   def cancel(subscription: LazySubscription[T]): Unit = doCancel(subscription)
 
-  protected def createSubscription(subscriber: Subscriber[T]): LazySubscription[T] = new LazySubscription[T](this, subscriber)
+  protected def createSubscription(subscriber: Subscriber[T]): LazySubscription[T] = {
+    val s = new LazySubscription[T](this, subscriber)
+    println("createLazySubscription (" + s + "), lazyPublisherLike = " + this + ", subscriber = " + subscriber)
+    s
+  }
 
   @tailrec
   final protected def doRequest(subscription: LazySubscription[T], elements: Long): Unit = state.get match {
@@ -96,13 +113,23 @@ private[akka] trait LazyPublisherLike[T] extends Publisher[T] with LazyElement {
 
   @tailrec
   final protected def doCancel(subscription: LazySubscription[T]): Unit = state.get match {
-    case Awake(impl, _) ⇒ impl ! Cancel(subscription.asInstanceOf[LazySubscription[Any]])
+    case Awake(impl, _) ⇒
+      println("doCancel() = " + subscription + " @ " + Awake(impl, null))
+      impl ! Cancel(subscription.asInstanceOf[LazySubscription[Any]])
+
     case s @ Subscribed(subscriptions, _, _, _, _) ⇒
+      println("doCancel() = " + subscription + " @ " + s)
       if (!state.compareAndSet(s, s.copy(subscriptions = subscriptions - subscription)))
         doCancel(subscription)
-    case Dormant        ⇒ // WAT?
-    case Signaled(_, _) ⇒ // WAT?
-    case Terminated     ⇒ // Ignore
+    case Dormant ⇒
+      println("doCancel() = " + subscription + " @ " + Dormant)
+    // WAT?
+    case Signaled(_, _) ⇒
+      println("doCancel() = " + subscription + " @ " + Signaled(null, null))
+    // WAT?
+    case Terminated ⇒
+      println("doCancel() = " + subscription + " @ " + Terminated)
+    // Ignore
   }
 
   @tailrec
@@ -122,7 +149,7 @@ private[akka] trait LazyPublisherLike[T] extends Publisher[T] with LazyElement {
       else
         doSubscribe(subscriber)
     case s @ Subscribed(subscriptions, _, _, _, _) ⇒
-      // TODO: report duplicte subscriptions
+      // TODO: report duplicate subscriptions
       val subscription = createSubscription(subscriber)
       if (state.compareAndSet(s, s.copy(subscriptions = subscriptions + (subscription -> 0))))
         subscriber.onSubscribe(subscription)

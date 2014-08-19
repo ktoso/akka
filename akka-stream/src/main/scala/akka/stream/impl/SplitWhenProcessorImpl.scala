@@ -15,10 +15,12 @@ private[akka] class SplitWhenProcessorImpl(_settings: MaterializerSettings, val 
   var currentSubstream: SubstreamOutputs = _
 
   val waitFirst = TransferPhase(primaryInputs.NeedsInput && primaryOutputs.NeedsDemand) { () ⇒
+    println("waitFirst = ")
     nextPhase(openSubstream(primaryInputs.dequeueInputElement()))
   }
 
   def openSubstream(elem: Any): TransferPhase = TransferPhase(primaryOutputs.NeedsDemand) { () ⇒
+    println("openStream(elem) = " + elem)
     val substreamOutput = newSubstream()
     primaryOutputs.enqueueOutputElement(substreamOutput.processor)
     currentSubstream = substreamOutput
@@ -27,12 +29,14 @@ private[akka] class SplitWhenProcessorImpl(_settings: MaterializerSettings, val 
 
   // Serving the substream is split into two phases to minimize elements "held in hand"
   def serveSubstreamFirst(substream: SubstreamOutputs, elem: Any) = TransferPhase(substream.NeedsDemand) { () ⇒
+    println("serveSubstreamFirst() = " + elem)
     substream.enqueueOutputElement(elem)
     nextPhase(serveSubstreamRest(substream))
   }
 
   // Note that this phase is allocated only once per _slice_ and not per element
   def serveSubstreamRest(substream: SubstreamOutputs) = TransferPhase(primaryInputs.NeedsInput && substream.NeedsDemand) { () ⇒
+    println("serveSubstreamRest = " + substream)
     val elem = primaryInputs.dequeueInputElement()
     if (splitPredicate(elem)) {
       currentSubstream.complete()
@@ -43,6 +47,7 @@ private[akka] class SplitWhenProcessorImpl(_settings: MaterializerSettings, val 
 
   // Ignore elements for a cancelled substream until a new substream needs to be opened
   val ignoreUntilNewSubstream = TransferPhase(primaryInputs.NeedsInput) { () ⇒
+    println("ignoreUntilNewSubstream = ")
     val elem = primaryInputs.dequeueInputElement()
     if (splitPredicate(elem)) nextPhase(openSubstream(elem))
   }
@@ -51,6 +56,7 @@ private[akka] class SplitWhenProcessorImpl(_settings: MaterializerSettings, val 
 
   override def invalidateSubstream(substream: ActorRef): Unit = {
     val key = childToKey(substream)
+    println("invalidateSubstream() = " + substream + ", key = " + key)
     if ((currentSubstream ne null) && key == currentSubstream.key) nextPhase(ignoreUntilNewSubstream)
     super.invalidateSubstream(substream)
   }

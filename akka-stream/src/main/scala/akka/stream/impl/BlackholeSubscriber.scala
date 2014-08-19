@@ -26,6 +26,7 @@ private[akka] class BlackholeSubscriber[T](highWatermark: Int) extends Subscribe
   override def onComplete(): Unit = ()
 
   override def onNext(element: T): Unit = {
+    println("BLACKHOLE << " + element)
     requested -= 1
     requestMore()
   }

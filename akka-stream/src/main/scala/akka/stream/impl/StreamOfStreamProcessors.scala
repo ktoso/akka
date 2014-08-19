@@ -3,11 +3,11 @@
  */
 package akka.stream.impl
 
+import akka.actor.{ Props, Actor, ActorRef, Terminated }
 import akka.stream.MaterializerSettings
-import akka.actor.{ Actor, Terminated, ActorRef }
+import akka.stream.actor.ActorSubscriber.OnComplete
 import akka.stream.impl.StreamSupervisor.Materialize
 import org.reactivestreams.{ Publisher, Subscriber, Subscription }
-import akka.stream.actor.ActorSubscriber.{ OnNext, OnError, OnComplete, OnSubscribe }
 
 /**
  * INTERNAL API
@@ -18,20 +18,39 @@ private[akka] object MultiStreamOutputProcessor {
   case class SubstreamKey(key: Long)
 
   class SubstreamSubscription(val parent: ActorRef, val subscriber: Subscriber[AnyRef], val key: Long) extends Subscription {
-    override def request(elements: Int): Unit =
+    println("SubstreamSubscription.this = " + this)
+    override def request(elements: Int): Unit = {
+      println("substream requesting, n = " + elements)
       if (elements <= 0) throw new IllegalArgumentException("The number of requested elements must be > 0")
       else parent ! SubstreamRequestMore(key, elements)
-    override def cancel(): Unit = parent ! SubstreamCancel(key)
+    }
+    override def cancel(): Unit = {
+      println("substream cancelling = ")
+      parent ! SubstreamCancel(key)
+    }
     override def toString = "SubstreamSubscription" + System.identityHashCode(this)
   }
 
+}
+
+class MyLazyActorProcessor[A, B](props: Props, name: String, materializer: ActorRef, extraArguments: Any)
+  extends LazyActorProcessor[A, B](props, name, materializer, extraArguments) {
+
+  val blackhole = new BlackholeSubscriber[B](2)
+  val blackholeSubs = new LazySubscription[B](this, blackhole)
+
+  override def cancel(subscription: LazySubscription[B]): Unit = {
+    this.doSubscribe(blackhole)
+    this.doRequest(blackholeSubs, Long.MaxValue)
+    doCancel(subscription)
+  }
 }
 
 /**
  * INTERNAL API
  */
 private[akka] abstract class MultiStreamOutputProcessor(_settings: MaterializerSettings) extends ActorProcessorImpl(_settings) {
-  import MultiStreamOutputProcessor._
+  import akka.stream.impl.MultiStreamOutputProcessor._
 
   private val substreamOutputs = collection.mutable.Map.empty[Long, SubstreamOutputs]
   protected val childToKey = collection.mutable.Map.empty[ActorRef, Long]
@@ -44,7 +63,7 @@ private[akka] abstract class MultiStreamOutputProcessor(_settings: MaterializerS
     override def subreceive: SubReceive =
       throw new UnsupportedOperationException("Substream outputs are managed in a dedicated receive block")
 
-    val processor = LazyActorProcessor[AnyRef, AnyRef](
+    val processor = new MyLazyActorProcessor[AnyRef, AnyRef](
       IdentityProcessorImpl.props(settings).withDispatcher(context.props.dispatcher),
       s"substream-$key",
       materializer = self,
@@ -63,6 +82,7 @@ private[akka] abstract class MultiStreamOutputProcessor(_settings: MaterializerS
 
     override def enqueueOutputElement(elem: Any): Unit = {
       demands -= 1
+      println("enqueueOutputElement() = " + elem)
       processor.onNext(elem.asInstanceOf[AnyRef])
     }
 
@@ -78,11 +98,14 @@ private[akka] abstract class MultiStreamOutputProcessor(_settings: MaterializerS
     }
   }
 
+  // does not reach here
   protected def newSubstream(): SubstreamOutputs = {
     val key = nextChildId
     nextChildId += 1
     val outputs = new SubstreamOutputs(key)
     substreamCount += 1
+    println("new substream = " + key)
+    println("substreamCount = " + substreamCount)
     outputs.processor.onSubscribe(new SubstreamSubscription(parent = self, outputs.processor, key))
     substreamOutputs.update(key, outputs)
     outputs
@@ -92,7 +115,9 @@ private[akka] abstract class MultiStreamOutputProcessor(_settings: MaterializerS
 
   protected def invalidateSubstream(child: ActorRef): Unit = {
     val key = childToKey(child)
+    println("invalidateSubstream() = " + child)
     substreamOutputs(key).complete()
+    println("invalidateSubstream() = " + key)
     substreamOutputs -= key
     childToKey -= child
     substreamCount -= 1
@@ -117,10 +142,17 @@ private[akka] abstract class MultiStreamOutputProcessor(_settings: MaterializerS
     case SubstreamRequestMore(key, demand) ⇒
       substreamOutputs(key).enqueueOutputDemand(demand)
       pump()
-    case SubstreamCancel(key) ⇒ // FIXME: Terminated should handle this case. Maybe remove SubstreamCancel and just Poison self?
-    case Terminated(child)    ⇒ invalidateSubstream(child)
+
+    case SubstreamCancel(key) ⇒
+      println("substreamManagement#SubstreamCancel(key) = " + SubstreamCancel(key))
+    // FIXME: Terminated should handle this case. Maybe remove SubstreamCancel and just Poison self?
+
+    case Terminated(child) ⇒
+      invalidateSubstream(child)
+
     case Materialize(props, wrapper) ⇒
-      val impl = context.actorOf(props, wrapper.name)
+      val impl = context.watch(context.actorOf(props, wrapper.name))
+      println("materialize!!! impl = " + impl)
       wrapper.extraArguments match {
         case SubstreamKey(key) ⇒
           childToKey.update(impl, key)
@@ -156,7 +188,7 @@ private[akka] object TwoStreamInputProcessor {
  */
 private[akka] abstract class TwoStreamInputProcessor(_settings: MaterializerSettings, val other: Publisher[Any])
   extends ActorProcessorImpl(_settings) {
-  import TwoStreamInputProcessor._
+  import akka.stream.impl.TwoStreamInputProcessor._
 
   val secondaryInputs: Inputs = new BatchingInputBuffer(settings.initialInputBufferSize, this) {
     override val subreceive: SubReceive = new SubReceive(waitingForUpstream)
@@ -212,7 +244,7 @@ private[akka] object MultiStreamInputProcessor {
  * INTERNAL API
  */
 private[akka] abstract class MultiStreamInputProcessor(_settings: MaterializerSettings) extends ActorProcessorImpl(_settings) {
-  import MultiStreamInputProcessor._
+  import akka.stream.impl.MultiStreamInputProcessor._
   var nextId = 0
 
   private val substreamInputs = collection.mutable.Map.empty[SubstreamKey, SubstreamInputs]

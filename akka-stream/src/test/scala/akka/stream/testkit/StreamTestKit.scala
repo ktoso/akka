@@ -86,7 +86,7 @@ object StreamTestKit {
     def sendError(cause: Exception): Unit = subscriber.onError(cause)
   }
 
-  case class SubscriberProbe[I]()(implicit system: ActorSystem) extends Subscriber[I] {
+  case class SubscriberProbe[I](name: String = "")(implicit system: ActorSystem) extends Subscriber[I] {
     val probe = TestProbe()
 
     def expectSubscription(): Subscription = probe.expectMsgType[OnSubscribe].subscription
@@ -128,10 +128,22 @@ object StreamTestKit {
     def expectNoMsg(): Unit = probe.expectNoMsg()
     def expectNoMsg(max: FiniteDuration): Unit = probe.expectNoMsg(max)
 
-    def onSubscribe(subscription: Subscription): Unit = probe.ref ! OnSubscribe(subscription)
-    def onNext(element: I): Unit = probe.ref ! OnNext(element)
-    def onComplete(): Unit = probe.ref ! OnComplete
-    def onError(cause: Throwable): Unit = probe.ref ! OnError(cause)
+    def onSubscribe(subscription: Subscription): Unit = {
+      println(this + "#onSubscribe = " + subscription)
+      probe.ref ! OnSubscribe(subscription)
+    }
+    def onNext(element: I): Unit = {
+      println(this + "#onNext = " + element)
+      probe.ref ! OnNext(element)
+    }
+    def onComplete(): Unit = {
+      println(this + "#onComplete")
+      probe.ref ! OnComplete
+    }
+    def onError(cause: Throwable): Unit = {
+      println(this + "#onError")
+      probe.ref ! OnError(cause)
+    }
 
     // Keeping equality
     // FIXME: This and PublisherProbe should not be a case class so that we don't need this equality reversal
