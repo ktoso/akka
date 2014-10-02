@@ -6,7 +6,7 @@ package akka.http.model
 
 import java.io.File
 import java.lang.{ Iterable ⇒ JIterable }
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.http.model.japi.JavaMapping.Implicits._
 import akka.http.util.FastFuture
@@ -26,7 +26,7 @@ import scala.language.implicitConversions
  */
 sealed trait HttpEntity extends japi.HttpEntity {
 
-  private val strict = new AtomicReference[Option[Future[HttpEntity.Strict]]]()
+  private val subscribed = new AtomicBoolean()
 
   /**
    * Determines whether this entity is known to be empty.
@@ -66,12 +66,9 @@ sealed trait HttpEntity extends japi.HttpEntity {
             s"HttpEntity.toStrict timed out after $timeout while still waiting for outstanding data")
       }
 
-    strict.get() match {
-      case Some(f) ⇒
-        f
-      case x ⇒
-        val f = Flow(dataBytes).timerTransform("toStrict", transformer).toFuture()
-        if (strict.compareAndSet(x, Some(f))) f else toStrict(timeout) // TODO this timeout may be different than the one which triggered the "first" toStrict.
+    subscribed.compareAndSet(false, true) match {
+      case true ⇒ Flow(dataBytes).timerTransform("toStrict", transformer).toFuture()
+      case _    ⇒ Future.failed(new Throwable("Already toStricted once!"))
     }
   }
 

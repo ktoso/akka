@@ -93,7 +93,7 @@ class HttpEntitySpec extends FreeSpec with MustMatchers with BeforeAndAfterAll {
         Await.result(first, 150.millis) must be("abcdefgh")
 
         val second = getResponseBody(entity)
-        Await.result(second, 150.millis) must be("abcdefgh")
+        Await.ready(second, 150.millis).value.get.isFailure must be(true)
       }
     }
   }
