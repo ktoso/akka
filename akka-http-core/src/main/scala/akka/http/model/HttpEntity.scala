@@ -4,25 +4,30 @@
 
 package akka.http.model
 
-import akka.http.util.FastFuture
-
-import language.implicitConversions
 import java.io.File
 import java.lang.{ Iterable ⇒ JIterable }
-import org.reactivestreams.Publisher
-import scala.concurrent.{ Future, ExecutionContext }
-import scala.concurrent.duration.FiniteDuration
-import scala.collection.immutable
-import akka.util.ByteString
-import akka.stream.{ TimerTransformer, FlowMaterializer }
-import akka.stream.scaladsl.Flow
+import java.util.concurrent.atomic.AtomicReference
+
+import akka.http.model.japi.JavaMapping.Implicits._
+import akka.http.util.FastFuture
 import akka.stream.impl.{ EmptyPublisher, SynchronousPublisherFromIterable }
-import japi.JavaMapping.Implicits._
+import akka.stream.scaladsl.Flow
+import akka.stream.{ FlowMaterializer, TimerTransformer }
+import akka.util.ByteString
+import org.reactivestreams.Publisher
+
+import scala.collection.immutable
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.language.implicitConversions
 
 /**
  * Models the entity (aka "body" or "content) of an HTTP message.
  */
 sealed trait HttpEntity extends japi.HttpEntity {
+
+  private val strict = new AtomicReference[Option[Future[HttpEntity.Strict]]]()
+
   /**
    * Determines whether this entity is known to be empty.
    */
@@ -60,7 +65,14 @@ sealed trait HttpEntity extends japi.HttpEntity {
           throw new java.util.concurrent.TimeoutException(
             s"HttpEntity.toStrict timed out after $timeout while still waiting for outstanding data")
       }
-    Flow(dataBytes).timerTransform("toStrict", transformer).toFuture()
+
+    strict.get() match {
+      case Some(f) ⇒
+        f
+      case x ⇒
+        val f = Flow(dataBytes).timerTransform("toStrict", transformer).toFuture()
+        if (strict.compareAndSet(x, Some(f))) f else toStrict(timeout) // TODO this timeout may be different than the one which triggered the "first" toStrict.
+    }
   }
 
   /**

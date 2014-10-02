@@ -5,19 +5,20 @@
 package akka.http.model
 
 import java.util.concurrent.TimeoutException
-import com.typesafe.config.{ ConfigFactory, Config }
-import org.reactivestreams.Publisher
-import scala.concurrent.{ Promise, Await }
-import scala.concurrent.duration._
-import org.scalatest.{ BeforeAndAfterAll, MustMatchers, FreeSpec }
-import org.scalatest.matchers.Matcher
-import akka.util.ByteString
+
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.Flow
+import akka.http.model.HttpEntity._
 import akka.stream.FlowMaterializer
 import akka.stream.impl.SynchronousPublisherFromIterable
-import akka.http.model.HttpEntity._
-import akka.http.util.FastFuture._
+import akka.stream.scaladsl.Flow
+import akka.util.ByteString
+import com.typesafe.config.{ Config, ConfigFactory }
+import org.reactivestreams.Publisher
+import org.scalatest.matchers.Matcher
+import org.scalatest.{ BeforeAndAfterAll, FreeSpec, MustMatchers }
+
+import scala.concurrent.duration._
+import scala.concurrent.{ Future, Await, Promise }
 
 class HttpEntitySpec extends FreeSpec with MustMatchers with BeforeAndAfterAll {
   val tpe: ContentType = ContentTypes.`application/octet-stream`
@@ -79,6 +80,20 @@ class HttpEntitySpec extends FreeSpec with MustMatchers with BeforeAndAfterAll {
         intercept[TimeoutException] {
           Await.result(Default(tpe, 42, stream).toStrict(100.millis), 150.millis)
         }.getMessage must be("HttpEntity.toStrict timed out after 100 milliseconds while still waiting for outstanding data")
+      }
+      "only once, otherwise error" in {
+        def getResponseBody(entity: ResponseEntity): Future[String] =
+          entity.toStrict(100.millis).map { e ⇒
+            e.data.decodeString(e.contentType.charset.nioCharset.toString)
+          }
+
+        val entity = Chunked(tpe, Flow(List(Chunk(abc), Chunk(de), Chunk(fgh), LastChunk).iterator).toPublisher())
+
+        val first = getResponseBody(entity)
+        Await.result(first, 150.millis) must be("abcdefgh")
+
+        val second = getResponseBody(entity)
+        Await.result(second, 150.millis) must be("abcdefgh")
       }
     }
   }
