@@ -3,11 +3,14 @@
  */
 package akka.stream.scaladsl2
 
+import akka.actor.Actor
+import akka.actor.Actor.Receive
+import akka.actor.ActorSystem
+import akka.actor.Cancellable
+import akka.stream.impl2.ActorBasedFlowMaterializer
 import org.reactivestreams.Subscriber
 
-import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.annotation.unchecked.uncheckedVariance
 
 /**
  * A `Sink` is a set of stream processing steps that has one open input and an attached output.
@@ -22,11 +25,38 @@ trait Sink[-In] {
     tap.connect(this).run().materializedTap(tap)
 
   /**
-   * Connect this `Sink` to a `Tap` and run it. The returned value is the materialized value
-   * of the `Tap`, e.g. the `Subscriber` of a [[SubscriberTap]].
+   * Connect this `Sink` to a `Tap` and run it.
    */
   def runWith(tap: SimpleTap[In])(implicit materializer: FlowMaterializer): Unit =
     tap.connect(this).run()
+}
+
+object X {
+  val x: Sink[String] = ???
+  x.runWith(new PublisherTap(null)) // ok
+  x.runWith(PublisherTap(null)) // ok
+  x.runWith(PublisherTap[String](null)) // ok
+
+  x.runWith(new SubscriberTap()) // ok
+  x.runWith(SubscriberTap()) // ok
+  x.runWith(SubscriberTap[String]()) // ok
+
+  val s = ActorSystem()
+  import concurrent.duration._
+  val schedule: Cancellable = s.scheduler.schedule(1.day, 1.day, null, null)
+  schedule.cancel()
+
+
+  val y: Source[String] = ???
+  y.runWith() // nope
+  y.runWith(new PublisherDrain()) // nope
+  y.runWith(PublisherDrain()) // nope
+  y.runWith(PublisherDrain[String]()) // ok
+
+  y.runWith(new SubscriberDrain(null)) // nope
+  y.runWith(SubscriberDrain(null)) // nope
+  y.runWith(SubscriberDrain[String](null)) // ok
+
 }
 
 object Sink {

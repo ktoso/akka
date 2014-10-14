@@ -5,6 +5,8 @@ package akka.stream.javadsl
 
 import akka.stream._
 import akka.stream.scaladsl2._
+import org.reactivestreams.Publisher
+import org.reactivestreams.Subscriber
 import scaladsl2.FlowMaterializer
 
 import scala.annotation.unchecked.uncheckedVariance
@@ -19,9 +21,8 @@ trait FlowOps[-In, +Out] {
   /**
    * Connect the `Tap` to this `Flow` and then connect it to the `Drain` and run it.
    *
-   * The returned tuple contains the materialized values of the `Tap` and `Drain`,
-   * e.g. the `Subscriber` of a [[SubscriberTap]] and `Publisher` of a [[PublisherDrain]].
-   *
+   * @return A Pair of the materialized values of the `Tap` and `Drain`,
+   *         e.g. the `Subscriber` of a [[SubscriberTap]] and `Publisher` of a [[PublisherDrain]].
    * @tparam T materialized type of given Tap
    * @tparam D materialized type of given Drain
    */
@@ -30,8 +31,7 @@ trait FlowOps[-In, +Out] {
   /**
    * Connect the `Tap` to this `Flow` and then connect it to the `Drain` and run it.
    *
-   * The returned value will contain the materialized value of the `DrainWithKey`, e.g. `Publisher` of a [[PublisherDrain]].
-   *
+   * @return The materialized value of the `Drain`, e.g. the `Publisher` of a [[PublisherDrain]]
    * @tparam D materialized type of given Drain
    */
   def runWith[D](tap: javadsl.SimpleTap[In], drain: javadsl.DrainWithKey[Out, D], materializer: FlowMaterializer): D
@@ -39,8 +39,7 @@ trait FlowOps[-In, +Out] {
   /**
    * Connect the `Tap` to this `Flow` and then connect it to the `Drain` and run it.
    *
-   * The returned value will contain the materialized value of the `TapWithKey`, e.g. `Subscriber` of a [[SubscriberTap]].
-   *
+   * @return The materialized value of the `Drain`, e.g. the `Subscriber` of a [[SubscriberTap]]
    * @tparam T materialized type of given Tap
    */
   def runWith[T](tap: javadsl.TapWithKey[In, T], drain: javadsl.SimpleDrain[Out], materializer: FlowMaterializer): T
@@ -291,17 +290,15 @@ trait SourceOps[+Out] {
   // RUN WITH //
 
   /**
-   * Connect the `Sink` to this `Source` and then connect it to the `Tap` and run it.
+   * Connect the `Drain` to this `Source` and run it.
    *
-   * The returned value the materialized values of the `Tap` and `Drain`, e.g. the `Subscriber` of a
-   * [[akka.stream.scaladsl2.SubscriberTap]] and and `Publisher` of a [[akka.stream.scaladsl2.PublisherDrain]].
-   *
+   * @return The materialized value of the `Drain`, e.g. the `Publisher` of a [[PublisherDrain]]
    * @tparam M materialized type of given Tap
    */
   def runWith[M](drain: javadsl.DrainWithKey[Out, M], materializer: FlowMaterializer): M
 
   /**
-   * Connect this `Source` to a `Tap` and run it.
+   * Connect this `Source` to a `Drain` and run it.
    */
   def runWith(drain: javadsl.SimpleDrain[Out], materializer: FlowMaterializer): Unit
 
@@ -545,16 +542,14 @@ trait SinkOps[-In] {
 
   /**
    * Connect the `Tap` to this `Flow` and then connect it to the `Tap` and run it.
-   * The returned tuple contains the materialized values of the `Tap` and `Drain`, e.g. the `Subscriber` of a
-   * [[akka.stream.scaladsl2.SubscriberTap]] and and `Publisher` of a [[akka.stream.scaladsl2.PublisherDrain]].
    *
+   * @return The materialized value of the `Tap`, e.g. the `Subscriber` of a [[SubscriberTap]]
    * @tparam T materialized type of given Tap
    */
   def runWith[T](tap: javadsl.TapWithKey[In, T], materializer: FlowMaterializer): T
 
   /**
-   * Connect this `Source` to a `Tap` and run it. The returned value is the materialized value
-   * of the `Drain`, e.g. the `Publisher` of a [[akka.stream.scaladsl2.PublisherDrain]].
+   * Connect this `Source` to a `Tap` and run it.
    */
   def runWith(tap: javadsl.SimpleTap[In], materializer: FlowMaterializer): Unit
 }

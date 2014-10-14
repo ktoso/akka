@@ -35,10 +35,10 @@ private[akka] abstract class SinkAdapter[-In] extends Sink[In] {
 
   // RUN WITH //
 
-  def runWith[T](tap: javadsl.TapWithKey[In, T], materializer: scaladsl2.FlowMaterializer): T =
+  override def runWith[T](tap: javadsl.TapWithKey[In, T], materializer: scaladsl2.FlowMaterializer): T =
     delegate.runWith(tap.asScala)(materializer).asInstanceOf[T]
 
-  def runWith(tap: javadsl.SimpleTap[In], materializer: scaladsl2.FlowMaterializer): Unit =
+  override def runWith(tap: javadsl.SimpleTap[In], materializer: scaladsl2.FlowMaterializer): Unit =
     delegate.runWith(tap.asScala)(materializer)
 
 }

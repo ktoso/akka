@@ -42,20 +42,6 @@ abstract class Source[+Out] extends javadsl.SourceOps[Out] {
   def connect(sink: javadsl.Sink[Out]): javadsl.RunnableFlow
 
   /**
-   * Connect this `Source` to a `Drain` and run it. The returned value is the materialized value
-   * of the `Drain`, e.g. the `Publisher` of a [[akka.stream.scaladsl2.PublisherDrain]].
-   *
-   * @tparam D materialized type of the given Drain
-   */
-  def runWith[D](drain: DrainWithKey[Out, D], materializer: FlowMaterializer): D
-
-  /**
-   * Connect this `Source` to a `Drain` and run it. The returned value is the materialized value
-   * of the `Drain`, e.g. the `Publisher` of a [[akka.stream.scaladsl2.PublisherDrain]].
-   */
-  def runWith(drain: SimpleDrain[Out], materializer: FlowMaterializer): Unit
-
-  /**
    * Shortcut for running this `Source` with a fold function.
    * The given function is invoked for every received element, giving it its previous
    * output (or the given `zero` value) and the element as input.

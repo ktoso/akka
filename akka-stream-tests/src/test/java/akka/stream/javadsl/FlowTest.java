@@ -12,7 +12,7 @@ import akka.stream.MaterializerSettings;
 import akka.stream.OverflowStrategy;
 import akka.stream.Transformer;
 import akka.stream.javadsl.japi.*;
-import akka.stream.scaladsl2.FlowMaterializer;
+import akka.stream.scaladsl2.*;
 import akka.stream.testkit.AkkaSpec;
 import akka.testkit.JavaTestKit;
 import org.junit.ClassRule;
@@ -591,4 +591,12 @@ public class FlowTest {
     probe.expectMsgEquals("C");
   }
 
+  // Compilation test
+  public void mustProvideRunWithOnAllDSLElements() throws Exception {
+    FlowMaterializer mat = null;
+    BlackholeDrain<Integer> simpleDrain = null;
+
+    Sink<Integer> sink = null;
+    sink.runWith(simpleDrain, mat);
+  }
 }

@@ -23,7 +23,7 @@ class FlowTransformSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.d
 
   "A Flow with transform operations" must {
     "produce one-to-one transformation as expected" in {
-      val p = Source(List(1, 2, 3)).runWith(PublisherDrain())
+      val p = Source(List(1, 2, 3)).runWith(PublisherDrain[Int]())
       val p2 = Source(p).
         transform("transform", () ⇒ new Transformer[Int, Int] {
           var tot = 0

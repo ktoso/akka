@@ -66,18 +66,18 @@ private[akka] class FlowAdapter[-In, +Out](delegate: scaladsl2.Flow[In, Out]) ex
 
   // RUN WITH //
 
-  def runWith[T, D](tap: javadsl.TapWithKey[In, T], drain: javadsl.DrainWithKey[Out, D], materializer: scaladsl2.FlowMaterializer): akka.japi.Pair[T, D] = {
+  override def runWith[T, D](tap: javadsl.TapWithKey[In, T], drain: javadsl.DrainWithKey[Out, D], materializer: scaladsl2.FlowMaterializer): akka.japi.Pair[T, D] = {
     val p = delegate.runWith(tap.asScala, drain.asScala)(materializer)
     akka.japi.Pair(p._1.asInstanceOf[T], p._2.asInstanceOf[D])
   }
 
-  def runWith[D](tap: javadsl.SimpleTap[In], drain: javadsl.DrainWithKey[Out, D], materializer: scaladsl2.FlowMaterializer): D =
+  override def runWith[D](tap: javadsl.SimpleTap[In], drain: javadsl.DrainWithKey[Out, D], materializer: scaladsl2.FlowMaterializer): D =
     delegate.runWith(tap.asScala, drain.asScala)(materializer).asInstanceOf[D]
 
-  def runWith[T](tap: javadsl.TapWithKey[In, T], drain: javadsl.SimpleDrain[Out], materializer: scaladsl2.FlowMaterializer): T =
+  override def runWith[T](tap: javadsl.TapWithKey[In, T], drain: javadsl.SimpleDrain[Out], materializer: scaladsl2.FlowMaterializer): T =
     delegate.runWith(tap.asScala, drain.asScala)(materializer).asInstanceOf[T]
 
-  def runWith(tap: javadsl.SimpleTap[In], drain: javadsl.SimpleDrain[Out], materializer: scaladsl2.FlowMaterializer): Unit =
+  override def runWith(tap: javadsl.SimpleTap[In], drain: javadsl.SimpleDrain[Out], materializer: scaladsl2.FlowMaterializer): Unit =
     delegate.runWith(tap.asScala, drain.asScala)(materializer)
 
   // COMMON OPS //

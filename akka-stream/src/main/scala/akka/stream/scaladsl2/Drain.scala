@@ -116,7 +116,8 @@ object PublisherDrain {
 class PublisherDrain[In] extends DrainWithKey[In] {
   type MaterializedType = Publisher[In]
 
-  def attach(flowPublisher: Publisher[In], materializer: ActorBasedFlowMaterializer, flowName: String): Publisher[In] = flowPublisher
+  def attach(flowPublisher: Publisher[In], materializer: ActorBasedFlowMaterializer, flowName: String): Publisher[In] =
+    flowPublisher
 
   override def toString: String = "PublisherDrain"
 }

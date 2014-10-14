@@ -3,13 +3,16 @@
  */
 package akka.stream.scaladsl2
 
-import scala.language.existentials
-import scalax.collection.edge.{ LkBase, LkDiEdge }
-import scalax.collection.mutable.Graph
-import scalax.collection.immutable.{ Graph ⇒ ImmutableGraph }
-import org.reactivestreams.Subscriber
-import org.reactivestreams.Publisher
 import akka.stream.impl2.Ast
+import org.reactivestreams.Publisher
+import org.reactivestreams.Subscriber
+
+import concurrent.Future
+import scala.language.existentials
+import scalax.collection.edge.LkBase
+import scalax.collection.edge.LkDiEdge
+import scalax.collection.immutable.{ Graph ⇒ ImmutableGraph }
+import scalax.collection.mutable.Graph
 
 /**
  * Fan-in and fan-out vertices in the [[FlowGraph]] implements

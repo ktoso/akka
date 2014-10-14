@@ -35,8 +35,14 @@ trait Source[+Out] extends FlowOps[Out] {
    * Connect this `Source` to a `Drain` and run it. The returned value is the materialized value
    * of the `Drain`, e.g. the `Publisher` of a [[PublisherDrain]].
    */
-  def runWith(drain: DrainWithKey[Out])(implicit materializer: FlowMaterializer): drain.MaterializedType =
+    def runWith(drain: DrainWithKey[Out])(implicit materializer: FlowMaterializer): drain.MaterializedType =
     connect(drain).run().materializedDrain(drain)
+
+  /**
+   * Connect this `Source` to a `Drain` and run it.
+   */
+  def runWith(drain: SimpleDrain[Out])(implicit materializer: FlowMaterializer): Unit =
+    connect(drain).run()
 
   /**
    * Shortcut for running this `Source` with a fold function.

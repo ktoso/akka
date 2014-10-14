@@ -49,8 +49,6 @@ private[stream] final case class SinkPipe[-In](output: Drain[_], ops: List[AstNo
   private[stream] def withTap(in: Tap[In]): RunnablePipe = RunnablePipe(in, output, ops)
 
   private[stream] def prependPipe[T](pipe: Pipe[T, In]): SinkPipe[T] = SinkPipe(output, ops ::: pipe.ops)
-  override def runWith(tap: SimpleTap[In])(implicit materializer: FlowMaterializer): Unit =
-    tap.connect(this).run()
 
 }
 
