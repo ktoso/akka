@@ -30,12 +30,13 @@ public final class UnitPFBuilder<I> extends AbstractPFBuilder<I, BoxedUnit> {
    * @param apply  an action to apply to the argument if the type matches
    * @return       a builder with the case statement added
    */
-  public <P> UnitPFBuilder<I> match(final Class<P> type,
-                                    final FI.UnitApply<P> apply) {
+  public <P> UnitPFBuilder<I> match(final Class<? extends P> type,
+                                    final FI.UnitApply<? extends P> apply) {
     addStatement(new UnitCaseStatement<I, P>(
       new FI.Predicate() {
         @Override
         public boolean defined(Object o) {
+          System.out.println("asInstance : " + o);
           return type.isInstance(o);
         }
       }, apply));
@@ -50,7 +51,7 @@ public final class UnitPFBuilder<I> extends AbstractPFBuilder<I, BoxedUnit> {
    * @param apply      an action to apply to the argument if the type matches and the predicate returns true
    * @return           a builder with the case statement added
    */
-  public <P> UnitPFBuilder<I> match(final Class<P> type,
+  public <P> UnitPFBuilder<I> match(final Class<? extends P> type,
                                     final FI.TypedPredicate<P> predicate,
                                     final FI.UnitApply<P> apply) {
     addStatement(new UnitCaseStatement<I, P>(

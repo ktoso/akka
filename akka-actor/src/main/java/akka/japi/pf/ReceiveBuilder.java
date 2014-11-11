@@ -42,7 +42,7 @@ public class ReceiveBuilder {
    * @param apply  an action to apply to the argument if the type matches
    * @return       a builder with the case statement added
    */
-  public static <P> UnitPFBuilder<Object> match(final Class<P> type, FI.UnitApply<P> apply) {
+  public static <P> UnitPFBuilder<Object> match(final Class<? extends P> type, FI.UnitApply<? extends P> apply) {
     return UnitMatch.match(type, apply);
   }
 
@@ -54,7 +54,7 @@ public class ReceiveBuilder {
    * @param apply      an action to apply to the argument if the type matches and the predicate returns true
    * @return           a builder with the case statement added
    */
-  public static <P> UnitPFBuilder<Object> match(final Class<P> type,
+  public static <P> UnitPFBuilder<Object> match(final Class<? extends P> type,
                                                 FI.TypedPredicate<P> predicate,
                                                 FI.UnitApply<P> apply) {
     return UnitMatch.match(type, predicate, apply);

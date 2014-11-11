@@ -29,7 +29,7 @@ public class UnitMatch<I> extends AbstractMatch<I, BoxedUnit> {
    * @return a builder with the case statement added
    * @see UnitPFBuilder#match(Class, FI.UnitApply)
    */
-  public static final <F, P> UnitPFBuilder<F> match(final Class<P> type, FI.UnitApply<P> apply) {
+  public static <F, P> UnitPFBuilder<F> match(final Class<? extends P> type, FI.UnitApply<? extends P> apply) {
     return new UnitPFBuilder<F>().match(type, apply);
   }
 
@@ -43,7 +43,7 @@ public class UnitMatch<I> extends AbstractMatch<I, BoxedUnit> {
    * @return a builder with the case statement added
    * @see UnitPFBuilder#match(Class, FI.TypedPredicate, FI.UnitApply)
    */
-  public static <F, P> UnitPFBuilder<F> match(final Class<P> type,
+  public static <F, P> UnitPFBuilder<F> match(final Class<? extends P> type,
                                               final FI.TypedPredicate<P> predicate,
                                               final FI.UnitApply<P> apply) {
     return new UnitPFBuilder<F>().match(type, predicate, apply);

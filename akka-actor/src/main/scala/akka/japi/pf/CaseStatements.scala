@@ -18,10 +18,10 @@ private[pf] class CaseStatement[F, P, T](predicate: Predicate, apply: Apply[P, T
   override def apply(o: F) = apply.apply(o.asInstanceOf[P])
 }
 
-private[pf] class UnitCaseStatement[F, P](predicate: Predicate, apply: UnitApply[P])
+private[pf] class UnitCaseStatement[F,P](predicate: Predicate, apply: UnitApply[_ <: P])
   extends PartialFunction[F, Unit] {
 
   override def isDefinedAt(o: F) = predicate.defined(o)
 
-  override def apply(o: F) = apply.apply(o.asInstanceOf[P])
+  override def apply(o: F) = apply.apply(o.asInstanceOf[P])  //todo here need to capture type
 }
