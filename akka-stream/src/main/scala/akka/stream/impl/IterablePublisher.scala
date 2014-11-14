@@ -138,7 +138,11 @@ private[akka] class IterablePublisherWorker(iterator: Iterator[Any], subscriber:
   def receive = {
     case RequestMore(elements) ⇒
       pendingDemand += elements
-      push()
+      if (pendingDemand < 0) {
+        subscriber.onError(new IllegalStateException(s"Demand overflow!!! (${pendingDemand} + ${elements} == ovewrflow (${pendingDemand + elements}}))  See 3.17"))
+        context.parent ! Finished
+        softShutdown()
+      } else push()
     case PushMore ⇒
       push()
     case Cancel ⇒
