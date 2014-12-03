@@ -18,6 +18,9 @@ object ReflectSpec {
     def this(a: A) { this(a, null) }
     def this(b: B) { this(null, b) }
   }
+
+  final case class ValueClazz(a: Int) extends AnyVal
+  class TakesValueClazz(a: ValueClazz)
 }
 
 class ReflectSpec extends WordSpec with Matchers {
@@ -44,6 +47,14 @@ class ReflectSpec extends WordSpec with Matchers {
       Reflect.findConstructor(classOf[MultipleOne], immutable.Seq(new A))
       Reflect.findConstructor(classOf[MultipleOne], immutable.Seq(new B))
       Reflect.findConstructor(classOf[MultipleOne], immutable.Seq(new A, new B))
+    }
+    "deal with value class in constructor parameter" in {
+      classOf[Any].isInstance(new A) should be(true)
+      classOf[AnyRef].isInstance(new A) should be(true)
+      classOf[AnyVal].isInstance(new A) should be(true)
+
+      Reflect.findConstructor(classOf[TakesValueClazz], immutable.Seq(42))
+      Reflect.findConstructor(classOf[TakesValueClazz], immutable.Seq(ValueClazz(42)))
     }
     "throw when multiple matching constructors" in {
       intercept[IllegalArgumentException] {

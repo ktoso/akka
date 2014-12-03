@@ -71,6 +71,13 @@ private[akka] object Reflect {
     }
   }
 
+  def checkForPossibleValueClass(found: Class[_], required: Any): Boolean =
+    classOf[AnyVal].isInstance(required) && {
+      println("required = " + required + ", found = " + found)
+      // For descendants of AnyVal, we're sure that there is only one constructor with one parameter
+      required.getClass.getConstructors.headOption.exists(x ⇒ !x.getParameterTypes.isEmpty && x.getParameterTypes.head == found)
+    }
+
   /**
    * INTERNAL API
    * Implements a primitive form of overload resolution a.k.a. finding the
@@ -93,7 +100,7 @@ private[akka] object Reflect {
               (parameterTypes.iterator zip args.iterator forall {
                 case (found, required) ⇒
                   found.isInstance(required) || BoxedType(found).isInstance(required) ||
-                    (required == null && !found.isPrimitive)
+                    (required == null && !found.isPrimitive) || checkForPossibleValueClass(found, required)
               })
           }
         if (candidates.hasNext) {
