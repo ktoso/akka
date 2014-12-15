@@ -413,14 +413,14 @@ object AkkaBuild extends Build {
     base = file("akka-samples/akka-sample-main-java"),
     dependencies = Seq(actor),
     settings = sampleSettings
-  )
+  ).setSbtFiles()
   
   lazy val mainSampleScala = Project(
     id = "akka-sample-main-scala",
     base = file("akka-samples/akka-sample-main-scala"),
     dependencies = Seq(actor),
     settings = sampleSettings
-  )
+  ).setSbtFiles()
 
   /* FIXME helloKernelSample is not included due to conflicting dependency to
            bouncycastle openpgp from sbt-native-packager and sbt-pgp
