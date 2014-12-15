@@ -52,7 +52,7 @@ class TwitterStreamQuickstartDocSpec extends AkkaSpec {
   trait Example1 {
     trait X {
       //#materializer-setup
-      implicit val syste = ActorSystem("reactive-tweets")
+      implicit val system = ActorSystem("reactive-tweets-system")
       //#materializer-setup
     }
     //#materializer-setup
