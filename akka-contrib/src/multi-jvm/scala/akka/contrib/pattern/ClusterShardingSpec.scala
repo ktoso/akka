@@ -3,16 +3,14 @@
  */
 package akka.contrib.pattern
 
+import akka.contrib.pattern.ShardRegion.Passivate
+
 import language.postfixOps
 import scala.concurrent.duration._
 import com.typesafe.config.ConfigFactory
-import akka.actor.ActorIdentity
-import akka.actor.Identify
-import akka.actor.PoisonPill
-import akka.actor.Props
+import akka.actor._
 import akka.cluster.Cluster
-import akka.persistence.PersistentActor
-import akka.persistence.Persistence
+import akka.persistence.{ AtLeastOnceDelivery, PersistentActor, Persistence }
 import akka.persistence.journal.leveldb.SharedLeveldbJournal
 import akka.persistence.journal.leveldb.SharedLeveldbStore
 import akka.remote.testconductor.RoleName
@@ -23,8 +21,6 @@ import akka.testkit._
 import akka.testkit.TestEvent.Mute
 import java.io.File
 import org.apache.commons.io.FileUtils
-import akka.actor.ReceiveTimeout
-import akka.actor.ActorRef
 
 object ClusterShardingSpec extends MultiNodeConfig {
   val controller = role("controller")
@@ -62,6 +58,9 @@ object ClusterShardingSpec extends MultiNodeConfig {
   nodeConfig(sixth) {
     ConfigFactory.parseString("""akka.cluster.roles = ["frontend"]""")
   }
+
+  case class Msg(s: String)
+  case class Ack(id: Long)
 
   //#counter-actor
   case object Increment
@@ -101,9 +100,11 @@ object ClusterShardingSpec extends MultiNodeConfig {
     override def receiveCommand: Receive = {
       case Increment      ⇒ persist(CounterChanged(+1))(updateState)
       case Decrement      ⇒ persist(CounterChanged(-1))(updateState)
-      case Get(_)         ⇒ sender() ! count
+      case Get(n)         ⇒ sender() ! count
       case ReceiveTimeout ⇒ context.parent ! Passivate(stopMessage = Stop)
-      case Stop           ⇒ context.stop(self)
+      case Stop ⇒
+        println("--- PASSIVATION DONE --- ")
+        context.stop(self)
     }
   }
   //#counter-actor
@@ -274,6 +275,78 @@ class ClusterShardingSpec extends MultiNodeSpec(ClusterShardingSpec) with STMult
       enterBarrier("after-4")
     }
 
+    "passivate properly when Actor uses AtLeastOnceDelivery" in within(50.seconds) {
+      runOn(first) {
+        val counter = ClusterSharding(system).start(
+          typeName = "PassivateCounter",
+          entryProps = Some(Props(new Counter with AtLeastOnceDelivery {
+            override def redeliverInterval = 20.millis
+
+            override def receiveCommand = super.receiveCommand orElse {
+              case Msg(msg) ⇒
+                println("will deliver msg = " + msg)
+                deliver(sender().path, id ⇒ id)
+              case Ack(id) ⇒
+                println("confirmation of id = " + id)
+                confirmDelivery(id)
+            }
+          })),
+          idExtractor = idExtractor,
+          shardResolver = shardResolver)
+
+        counter ! EntryEnvelope(999, Msg("hi"))
+        val id = expectMsgType[Long]
+        counter ! EntryEnvelope(999, Ack(id))
+
+        counter ! Get(999)
+        expectMsg(0)
+
+        val watcher: TestProbe = TestProbe()
+        watcher.watch(lastSender)
+
+        counter ! EntryEnvelope(999, ReceiveTimeout) // will cause passivation
+        watcher.expectTerminated(lastSender, 1.second)
+      }
+
+      enterBarrier("after-4a")
+    }
+
+    "passivate properly when Actor uses AtLeastOnceDelivery and has undelivered messages" in within(50.seconds) {
+      runOn(first) {
+        val counter = ClusterSharding(system).start(
+          typeName = "PassivateCounter",
+          entryProps = Some(Props(new Counter with AtLeastOnceDelivery {
+            override def redeliverInterval = 20.millis
+
+            override def receiveCommand = super.receiveCommand orElse {
+              case Msg(msg) ⇒
+                println("will deliver msg = " + msg)
+                deliver(sender().path, id ⇒ id)
+              case Ack(id) ⇒
+                println("confirmation of id = " + id)
+                confirmDelivery(id)
+            }
+          })),
+          idExtractor = idExtractor,
+          shardResolver = shardResolver)
+
+        counter ! EntryEnvelope(999, Msg("hi"))
+        val id = expectMsgType[Long]
+        // counter ! EntryEnvelope(999, Ack(id)) // do NOT Ack this msg, this will keep redelivery ticks kicking
+
+        counter ! Get(999)
+        expectMsg(0)
+
+        val watcher: TestProbe = TestProbe()
+        watcher.watch(lastSender)
+
+        counter ! EntryEnvelope(999, ReceiveTimeout) // will cause passivation
+        watcher.expectTerminated(lastSender, 1.second)
+      }
+
+      enterBarrier("after-4b")
+    }
+
     "failover shards on crashed node" in within(30 seconds) {
       // mute logging of deadLetters during shutdown of systems
       if (!log.isDebugEnabled)
@@ -407,7 +480,7 @@ class ClusterShardingSpec extends MultiNodeSpec(ClusterShardingSpec) with STMult
           }
         }
 
-        // add more shards, which should later trigger rebalance to new node sixth 
+        // add more shards, which should later trigger rebalance to new node sixth
         for (n ← 5 to 10)
           region ! EntryEnvelope(n, Increment)
 
@@ -468,7 +541,7 @@ class ClusterShardingSpec extends MultiNodeSpec(ClusterShardingSpec) with STMult
         entryProps = Some(Props[Counter]),
         idExtractor = idExtractor,
         shardResolver = shardResolver)
-      //#counter-start  
+      //#counter-start
       ClusterSharding(system).start(
         typeName = "AnotherCounter",
         entryProps = Some(Props[Counter]),
@@ -523,4 +596,3 @@ class ClusterShardingSpec extends MultiNodeSpec(ClusterShardingSpec) with STMult
 
   }
 }
-
