@@ -3,11 +3,13 @@
  */
 package akka.stream.scaladsl
 
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.{ PoisonPill, Cancellable, Props, ActorRef }
 import akka.stream.impl._
 import akka.stream.impl.Ast.AstNode
+import akka.util.ByteString
 import org.reactivestreams.Publisher
 import org.reactivestreams.Subscriber
 
@@ -177,6 +179,20 @@ final case class TickSource[Out](initialDelay: FiniteDuration, interval: FiniteD
       }
       override def isCancelled: Boolean = cancelled.get()
     })
+  }
+}
+
+final case class FileSource(f: File, chunkSize: Int, readAhead: Int) extends SimpleActorFlowSource[ByteString] {
+  override def attach(flowSubscriber: Subscriber[ByteString], materializer: ActorBasedFlowMaterializer, flowName: String) = {
+    val pub = create(materializer, flowName)._1
+    pub.subscribe(flowSubscriber)
+  }
+
+  override def isActive: Boolean = true
+  override def create(materializer: ActorBasedFlowMaterializer, flowName: String) = {
+    val ref = materializer.actorOf(FilePublisher.props(f, chunkSize, readAhead), name = s"$flowName-0-file")
+
+    (akka.stream.actor.ActorPublisher[ByteString](ref), ())
   }
 }
 

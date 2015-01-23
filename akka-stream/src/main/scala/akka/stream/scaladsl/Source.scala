@@ -3,6 +3,8 @@
  */
 package akka.stream.scaladsl
 
+import java.io.File
+
 import scala.language.higherKinds
 
 import akka.actor.Props
@@ -138,6 +140,9 @@ object Source {
    */
   def apply[T](initialDelay: FiniteDuration, interval: FiniteDuration, tick: () ⇒ T): TickSource[T] =
     TickSource(initialDelay, interval, tick)
+
+  def apply(f: File, chunkSize: Int = 256, readAhead: Int = 4): FileSource =
+    FileSource(f, chunkSize, readAhead)
 
   /**
    * Creates a `Source` by using an empty [[FlowGraphBuilder]] on a block that expects a [[FlowGraphBuilder]] and

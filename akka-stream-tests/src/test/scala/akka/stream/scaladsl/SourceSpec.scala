@@ -3,12 +3,10 @@
  */
 package akka.stream.scaladsl
 
-import scala.concurrent.duration._
-import scala.util.control.NoStackTrace
-
 import akka.stream.FlowMaterializer
-import akka.stream.testkit.AkkaSpec
-import akka.stream.testkit.StreamTestKit
+import akka.stream.testkit.{ AkkaSpec, StreamTestKit }
+
+import scala.util.control.NoStackTrace
 
 class SourceSpec extends AkkaSpec {
 
@@ -104,7 +102,7 @@ class SourceSpec extends AkkaSpec {
       val sp = StreamTestKit.SubscriberProbe[Int]()
       val mks = ks.withKey(mk1).withKey(mk2)
       val mm = FlowGraph { implicit b ⇒
-        import FlowGraphImplicits._
+        import akka.stream.scaladsl.FlowGraphImplicits._
         val bcast = Broadcast[Int]
         mks ~> bcast ~> Sink(sp)
         bcast ~> Sink.ignore
