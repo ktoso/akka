@@ -4,13 +4,11 @@
 package akka.stream.scaladsl
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
 import scala.util.{ Success, Failure }
-import scala.util.control.NoStackTrace
 import akka.stream.ActorFlowMaterializer
-import akka.stream.testkit.AkkaSpec
-import akka.stream.testkit.StreamTestKit
-import akka.stream.impl.PublisherSource
+import akka.stream.testkit.{ AkkaSpec, StreamTestKit }
+
+import scala.util.control.NoStackTrace
 import akka.stream.testkit.StreamTestKit.PublisherProbe
 import akka.stream.testkit.StreamTestKit.SubscriberProbe
 

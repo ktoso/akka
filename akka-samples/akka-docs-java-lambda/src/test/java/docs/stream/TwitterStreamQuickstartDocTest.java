@@ -6,9 +6,16 @@ package docs.stream;
 import akka.actor.ActorSystem;
 import akka.dispatch.Foreach;
 import akka.japi.JavaPartialFunction;
-import akka.stream.*;
 import akka.stream.javadsl.*;
-import akka.testkit.JavaTestKit;
+import akka.stream.javadsl.Broadcast;
+import akka.stream.javadsl.Flow;
+import akka.stream.javadsl.FlowGraph;
+import akka.stream.javadsl.KeyedSink;
+import akka.stream.javadsl.MaterializedMap;
+import akka.stream.javadsl.Merge;
+import akka.stream.javadsl.RunnableFlow;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
 import docs.stream.TwitterStreamQuickstartDocTest.Model.Author;
 import docs.stream.TwitterStreamQuickstartDocTest.Model.Hashtag;
 import docs.stream.TwitterStreamQuickstartDocTest.Model.Tweet;
@@ -27,10 +34,7 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
-
-import static docs.stream.TwitterStreamQuickstartDocTest.Model.AKKA;
-import static docs.stream.TwitterStreamQuickstartDocTest.Model.tweets;
+import akka.testkit.JavaTestKit;
 
 @SuppressWarnings("unused")
 public class TwitterStreamQuickstartDocTest {
@@ -343,6 +347,17 @@ public class TwitterStreamQuickstartDocTest {
     final Future<Integer> eveningTweetsCount = counterRunnableFlow.run(mat);
     //#tweets-runnable-flow-materialized-twice
 
+  }
+
+  @org.junit.Test
+  public void should() throws Exception {
+    // given
+    Merge<Object> objectMerge = Merge.create();
+
+    // when
+
+    // then
+    throw new RuntimeException("Not implemented yet!");
   }
 
 }

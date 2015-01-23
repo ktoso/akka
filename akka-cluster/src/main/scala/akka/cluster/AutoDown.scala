@@ -3,14 +3,10 @@
  */
 package akka.cluster
 
-import akka.actor.Actor
-import scala.concurrent.duration.FiniteDuration
-import akka.actor.Props
+import akka.actor.{Actor, Address, Cancellable, Props, Scheduler}
 import akka.cluster.ClusterEvent._
-import akka.actor.Cancellable
-import scala.concurrent.duration.Duration
-import akka.actor.Address
-import akka.actor.Scheduler
+
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 /**
  * INTERNAL API
@@ -69,7 +65,7 @@ private[cluster] class AutoDown(autoDownUnreachableAfter: FiniteDuration)
  */
 private[cluster] abstract class AutoDownBase(autoDownUnreachableAfter: FiniteDuration) extends Actor {
 
-  import AutoDown._
+  import akka.cluster.AutoDown._
 
   def selfAddress: Address
 
@@ -145,4 +141,17 @@ private[cluster] abstract class AutoDownBase(autoDownUnreachableAfter: FiniteDur
     pendingUnreachable -= node
   }
 
+}
+
+abstract class StaticQuorumDownBase(quorumSize: Int) extends Actor {
+  require(quorumSize > 1, s"Quorum must be larger than 1, was: $quorumSize")
+
+  def selfAddress: UniqueAddress
+  
+  def down(node: UniqueAddress)
+  
+  override def receive = {
+    case UnreachableMember(m) ⇒
+    
+  }
 }

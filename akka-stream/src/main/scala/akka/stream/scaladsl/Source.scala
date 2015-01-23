@@ -257,6 +257,9 @@ object Source extends SourceApply {
   def apply[T](initialDelay: FiniteDuration, interval: FiniteDuration, tick: T): Source[T, Cancellable] =
     new Source(new TickSource(initialDelay, interval, tick, none, shape("TickSource")))
 
+  def apply(f: File, chunkSize: Int = 256, readAhead: Int = 4): FileSource =
+    FileSource(f, chunkSize, readAhead)
+
   /**
    * Creates a `Source` that is materialized to an [[akka.actor.ActorRef]] which points to an Actor
    * created according to the passed in [[akka.actor.Props]]. Actor created by the `props` should
