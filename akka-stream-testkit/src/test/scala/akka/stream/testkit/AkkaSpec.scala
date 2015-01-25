@@ -33,6 +33,19 @@ object AkkaSpec { // FIXME: remove once going back to project dependencies
           }
         }
       }
+
+       stream-file-io-dispatcher {
+         type = Dispatcher
+         executor = "thread-pool-executor"
+         thread-pool-executor {
+           core-pool-size-min = 2
+           core-pool-size-factor = 2.0
+           core-pool-size-max = 10
+         }
+         throughput = 100
+       }
+
+
                                                     """)
 
   def mapToConfig(map: Map[String, Any]): Config = {

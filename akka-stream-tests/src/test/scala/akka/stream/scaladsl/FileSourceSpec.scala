@@ -55,15 +55,15 @@ class FileSourceSpec extends AkkaSpec {
     }
 
     "count lines in real file" in {
-      val s = Source(new File("/Users/ktoso/fortunes.txt"))
+      val s = Source(new File("/Users/ktoso/code/deletions/deletions.csv-00000-of-00020"), chunkSize = 4096, readAhead = 2)
       val f = s.runWith(Sink.fold(0) {
         case (acc, l) ⇒ acc + l.count(_ == '\n')
       })
 
       import concurrent.duration._
-      val lineCount = Await.result(f, 30.seconds)
+      val lineCount = Await.result(f, 3.hours)
       info("Lines = " + lineCount)
-      lineCount should ===(480239)
+      lineCount should ===(3152500)
     }
   }
 

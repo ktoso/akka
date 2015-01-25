@@ -15,7 +15,7 @@ import scala.concurrent.Lock
 import scala.util.Success
 
 @State(Scope.Benchmark)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@OutputTimeUnit(TimeUnit.SECONDS)
 @BenchmarkMode(Array(Mode.Throughput))
 class FlowMapBenchmark {
 
