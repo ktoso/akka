@@ -16,7 +16,9 @@ private[akka] object FilePublisher {
   def props(f: File, chunkSize: Int, readAhead: Int) = {
     require(chunkSize > 0, s"chunkSize must be > 0 (was $chunkSize)")
     require(readAhead > 0, s"readAhead must be > 0 (was $readAhead)")
-    Props(classOf[FilePublisher], f, chunkSize, readAhead) // TODO: use a dedicated dispatcher for it
+    Props(classOf[FilePublisher], f, chunkSize, readAhead)
+      .withDispatcher("stream-file-io-dispatcher")
+    // TODO: use a dedicated dispatcher for it
   }
 
 }
