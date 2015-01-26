@@ -8,6 +8,7 @@ import akka.stream.scaladsl
 import scala.collection.immutable
 import java.util.{ List ⇒ JList }
 import akka.japi.Util.immutableIndexedSeq
+import akka.stream.impl.Ast.Defaults._
 import akka.stream.impl.FlexiRouteImpl.RouteLogicFactory
 
 object FlexiRoute {
@@ -298,24 +299,21 @@ object FlexiRoute {
  * must not hold mutable state, since it may be shared across several materialized ``FlowGraph``
  * instances.
  *
- * Note that a `FlexiRoute` with a specific name can only be used at one place (one vertex)
- * in the `FlowGraph`. If the `name` is not specified the `FlexiRoute` instance can only
- * be used at one place (one vertex) in the `FlowGraph`.
+ * Note that a `FlexiRoute` instance can only be used at one place in the `FlowGraph` (one vertex).
  *
- * @param name optional name of the junction in the [[FlowGraph]],
+ * @param attributes optional attributes for this vertex
  */
-abstract class FlexiRoute[In, Out](val name: Option[String]) {
+abstract class FlexiRoute[In, Out](val attributes: OperationAttributes) {
   import FlexiRoute._
   import scaladsl.FlowGraphInternal
   import akka.stream.impl.Ast
 
-  def this() = this(None)
-  def this(name: String) = this(Option(name))
+  def this() = this(OperationAttributes.none)
 
   private var outputCount = 0
 
   // hide the internal vertex things from subclass, and make it possible to create new instance
-  private class RouteVertex(vertexName: Option[String]) extends FlowGraphInternal.InternalVertex {
+  private class RouteVertex(override val attributes: scaladsl.OperationAttributes) extends FlowGraphInternal.InternalVertex {
     override def minimumInputCount = 1
     override def maximumInputCount = 1
     override def minimumOutputCount = 2
@@ -323,22 +321,20 @@ abstract class FlexiRoute[In, Out](val name: Option[String]) {
 
     override private[akka] val astNode = {
       val factory = new RouteLogicFactory[Any] {
-        override def name: Option[String] = vertexName
+        override def attributes: scaladsl.OperationAttributes = RouteVertex.this.attributes
         override def createRouteLogic(): scaladsl.FlexiRoute.RouteLogic[Any] =
           new Internal.RouteLogicWrapper(FlexiRoute.this.createRouteLogic().asInstanceOf[RouteLogic[Any, Any]])
       }
-      Ast.FlexiRouteNode(factory)
+      Ast.FlexiRouteNode(factory, flexiRoute and attributes)
     }
 
-    override def name = vertexName
-
-    final override def newInstance() = new RouteVertex(None)
+    final override def newInstance() = new RouteVertex(attributes.withoutName)
   }
 
   /**
    * INTERNAL API
    */
-  private[akka] val vertex: FlowGraphInternal.InternalVertex = new RouteVertex(name)
+  private[akka] val vertex: FlowGraphInternal.InternalVertex = new RouteVertex(attributes.asScala)
 
   /**
    * Input port of the `FlexiRoute` junction. A [[Source]] can be connected to this output
@@ -371,9 +367,9 @@ abstract class FlexiRoute[In, Out](val name: Option[String]) {
    */
   def createRouteLogic(): RouteLogic[In, Out]
 
-  override def toString = name match {
+  override def toString = attributes.asScala.nameLifted match {
     case Some(n) ⇒ n
-    case None    ⇒ getClass.getSimpleName + "@" + Integer.toHexString(super.hashCode())
+    case None    ⇒ super.toString
   }
 
 }

@@ -1,4 +1,4 @@
-.. _scala-api:
+.. _stream-scala-api:
 
 Scala Documentation
 ===================
@@ -6,5 +6,5 @@ Scala Documentation
 .. toctree::
    :maxdepth: 2
 
-   experimental/index
-   scala/index-http
+   scala/stream-index
+   scala/http/index

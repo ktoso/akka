@@ -6,6 +6,7 @@ package docs.http
 
 import akka.actor.ActorSystem
 import akka.http.model._
+import akka.stream.scaladsl.Flow
 import akka.stream.testkit.AkkaSpec
 
 class HttpServerExampleSpec
@@ -20,12 +21,9 @@ class HttpServerExampleSpec
     implicit val system = ActorSystem()
     implicit val materializer = FlowMaterializer()
 
-    val Http.ServerSource(source, serverBindingKey) = Http(system).bind(interface = "localhost", port = 8080)
-    source.foreach {
-      case Http.IncomingConnection(remoteAddress, flow) ⇒
-        println("Accepted new connection from " + remoteAddress)
-
-      // handle connection here
+    val serverBinding = Http(system).bind(interface = "localhost", port = 8080)
+    serverBinding.connections.runForeach { connection => // foreach materializes the source
+      println("Accepted new connection from " + connection.remoteAddress)
     }
     //#bind-example
   }
@@ -37,30 +35,29 @@ class HttpServerExampleSpec
     implicit val system = ActorSystem()
     implicit val materializer = FlowMaterializer()
 
-    val Http.ServerSource(source, serverBindingKey) = Http(system).bind(interface = "localhost", port = 8080)
+    val serverBinding = Http(system).bind(interface = "localhost", port = 8080)
 
     //#full-server-example
     import akka.http.model.HttpMethods._
     import akka.stream.scaladsl.Flow
 
-    val requestHandler: HttpRequest ⇒ HttpResponse = {
-      case HttpRequest(GET, Uri.Path("/"), _, _, _) ⇒
+    val requestHandler: HttpRequest => HttpResponse = {
+      case HttpRequest(GET, Uri.Path("/"), _, _, _) =>
         HttpResponse(
           entity = HttpEntity(MediaTypes.`text/html`,
             "<html><body>Hello world!</body></html>"))
 
-      case HttpRequest(GET, Uri.Path("/ping"), _, _, _)  ⇒ HttpResponse(entity = "PONG!")
-      case HttpRequest(GET, Uri.Path("/crash"), _, _, _) ⇒ sys.error("BOOM!")
-      case _: HttpRequest                                ⇒ HttpResponse(404, entity = "Unknown resource!")
+      case HttpRequest(GET, Uri.Path("/ping"), _, _, _)  => HttpResponse(entity = "PONG!")
+      case HttpRequest(GET, Uri.Path("/crash"), _, _, _) => sys.error("BOOM!")
+      case _: HttpRequest                                => HttpResponse(404, entity = "Unknown resource!")
     }
 
-    // ...
+    serverBinding.connections runForeach { connection =>
+      println("Accepted new connection from " + connection.remoteAddress)
 
-    source.foreach {
-      case Http.IncomingConnection(remoteAddress, flow) ⇒
-        println("Accepted new connection from " + remoteAddress)
-
-        flow.join(Flow[HttpRequest].map(requestHandler)).run()
+      connection handleWithSyncHandler requestHandler
+      // this is equivalent to
+      // connection handleWith { Flow[HttpRequest] map requestHandler }
     }
     //#full-server-example
   }

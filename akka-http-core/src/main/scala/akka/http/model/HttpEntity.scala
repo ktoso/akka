@@ -12,6 +12,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.collection.immutable
 import scala.util.control.NonFatal
 import akka.util.ByteString
+import akka.stream.scaladsl.OperationAttributes._
 import akka.stream.FlowMaterializer
 import akka.stream.scaladsl._
 import akka.stream.TimerTransformer
@@ -43,7 +44,7 @@ sealed trait HttpEntity extends japi.HttpEntity {
    * Collects all possible parts and returns a potentially future Strict entity for easier processing.
    * The Future is failed with an TimeoutException if the stream isn't completed after the given timeout.
    */
-  def toStrict(timeout: FiniteDuration)(implicit ec: ExecutionContext, fm: FlowMaterializer): Future[HttpEntity.Strict] = {
+  def toStrict(timeout: FiniteDuration)(implicit fm: FlowMaterializer): Future[HttpEntity.Strict] = {
     def transformer() =
       new TimerTransformer[ByteString, HttpEntity.Strict] {
         var bytes = ByteString.newBuilder
@@ -63,7 +64,7 @@ sealed trait HttpEntity extends japi.HttpEntity {
       }
 
     // TODO timerTransform is meant to be replaced / rewritten, it's currently private[akka]; See https://github.com/akka/akka/issues/16393
-    dataBytes.timerTransform("toStrict", transformer).runWith(Sink.head)
+    dataBytes.section(name("toStrict"))(_.timerTransform(transformer)).runWith(Sink.head)
   }
 
   /**
@@ -167,7 +168,7 @@ object HttpEntity {
 
     def dataBytes: Source[ByteString] = Source(data :: Nil)
 
-    override def toStrict(timeout: FiniteDuration)(implicit ec: ExecutionContext, fm: FlowMaterializer) =
+    override def toStrict(timeout: FiniteDuration)(implicit fm: FlowMaterializer) =
       FastFuture.successful(this)
 
     override def transformDataBytes(transformer: Flow[ByteString, ByteString]): MessageEntity =
@@ -175,7 +176,7 @@ object HttpEntity {
         case Success(Some(newData)) ⇒
           copy(data = newData)
         case Success(None) ⇒
-          Chunked.fromData(contentType, Source.singleton(data).via(transformer))
+          Chunked.fromData(contentType, Source.single(data).via(transformer))
         case Failure(ex) ⇒
           Chunked(contentType, Source.failed(ex))
       }
@@ -187,7 +188,7 @@ object HttpEntity {
             throw new IllegalStateException(s"Transformer didn't produce as much bytes (${newData.length}:'${newData.utf8String}') as claimed ($newContentLength)")
           copy(data = newData)
         case Success(None) ⇒
-          Default(contentType, newContentLength, Source.singleton(data).via(transformer))
+          Default(contentType, newContentLength, Source.single(data).via(transformer))
         case Failure(ex) ⇒
           Default(contentType, newContentLength, Source.failed(ex))
       }

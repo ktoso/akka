@@ -46,7 +46,7 @@ private object RenderSupport {
 
   def renderByteStrings(r: ByteStringRendering, entityBytes: ⇒ Source[ByteString],
                         skipEntity: Boolean = false): Source[ByteString] = {
-    val messageStart = Source.singleton(r.get)
+    val messageStart = Source.single(r.get)
     val messageBytes =
       if (!skipEntity) messageStart ++ entityBytes
       else CancelSecond(messageStart, entityBytes)
@@ -75,13 +75,13 @@ private object RenderSupport {
     override def onPush(elem: ByteString, ctx: Context[ByteString]): Directive = {
       sent += elem.length
       if (sent > length)
-        throw new InvalidContentLengthException(s"HTTP message had declared Content-Length $length but entity data stream amounts to more bytes")
+        throw InvalidContentLengthException(s"HTTP message had declared Content-Length $length but entity data stream amounts to more bytes")
       ctx.push(elem)
     }
 
     override def onUpstreamFinish(ctx: Context[ByteString]): TerminationDirective = {
       if (sent < length)
-        throw new InvalidContentLengthException(s"HTTP message had declared Content-Length $length but entity data stream amounts to ${length - sent} bytes less")
+        throw InvalidContentLengthException(s"HTTP message had declared Content-Length $length but entity data stream amounts to ${length - sent} bytes less")
       ctx.finish()
     }
 

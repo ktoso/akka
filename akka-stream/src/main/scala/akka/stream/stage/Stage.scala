@@ -268,7 +268,8 @@ abstract class StatefulStage[In, Out] extends PushPullStage[In, Out] {
       if (iter.hasNext) {
         emitting = true
         become(emittingState(iter, andThen = Become(nextState.asInstanceOf[StageState[Any, Any]])))
-      }
+      } else
+        become(nextState)
       ctx.push(elem)
     }
   }
@@ -366,7 +367,8 @@ sealed trait Directive
 sealed trait UpstreamDirective extends Directive
 sealed trait DownstreamDirective extends Directive
 sealed trait TerminationDirective extends Directive
-final class FreeDirective extends UpstreamDirective with DownstreamDirective with TerminationDirective
+// never instantiated
+sealed abstract class FreeDirective private () extends UpstreamDirective with DownstreamDirective with TerminationDirective
 
 /**
  * Passed to the callback methods of [[PushPullStage]] and [[StatefulStage]].

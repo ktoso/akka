@@ -15,7 +15,7 @@ trait PredefinedFromEntityUnmarshallers extends MultipartUnmarshallers {
   implicit def byteStringUnmarshaller(implicit fm: FlowMaterializer): FromEntityUnmarshaller[ByteString] =
     Unmarshaller {
       case HttpEntity.Strict(_, data) ⇒ FastFuture.successful(data)
-      case entity                     ⇒ entity.dataBytes.fold(ByteString.empty)(_ ++ _)
+      case entity                     ⇒ entity.dataBytes.runFold(ByteString.empty)(_ ++ _)
     }
 
   implicit def byteArrayUnmarshaller(implicit fm: FlowMaterializer,
@@ -49,8 +49,8 @@ trait PredefinedFromEntityUnmarshallers extends MultipartUnmarshallers {
         val query = Uri.Query(string, nioCharset)
         FormData(query)
       } catch {
-        case ex: IllegalUriException ⇒
-          throw new IllegalArgumentException(ex.info.formatPretty.replace("Query,", "form content,"))
+        case IllegalUriException(info) ⇒
+          throw new IllegalArgumentException(info.formatPretty.replace("Query,", "form content,"))
       }
     }
 }

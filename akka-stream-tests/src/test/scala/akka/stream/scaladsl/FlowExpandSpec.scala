@@ -16,7 +16,6 @@ class FlowExpandSpec extends AkkaSpec {
 
   val settings = MaterializerSettings(system)
     .withInputBuffer(initialSize = 2, maxSize = 2)
-    .withFanOutBuffer(initialSize = 2, maxSize = 2)
 
   implicit val materializer = FlowMaterializer(settings)
 
@@ -92,7 +91,7 @@ class FlowExpandSpec extends AkkaSpec {
       val future = Source(1 to 100)
         .map { i ⇒ if (ThreadLocalRandom.current().nextBoolean()) Thread.sleep(10); i }
         .expand(seed = i ⇒ i)(extrapolate = i ⇒ (i, i))
-        .fold(Set.empty[Int])(_ + _)
+        .runFold(Set.empty[Int])(_ + _)
 
       Await.result(future, 10.seconds) should contain theSameElementsAs ((1 to 100).toSet)
     }

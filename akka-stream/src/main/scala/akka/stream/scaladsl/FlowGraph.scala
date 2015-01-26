@@ -9,6 +9,8 @@ import akka.stream.FlowMaterializer
 import akka.stream.impl.Ast
 import akka.stream.impl.Ast.FanInAstNode
 import akka.stream.impl.{ DirectedGraphBuilder, Edge }
+import akka.stream.impl.Ast.Defaults._
+import akka.stream.scaladsl.OperationAttributes._
 import org.reactivestreams._
 
 import scala.language.existentials
@@ -55,15 +57,12 @@ private[akka] sealed trait Junction[T] extends JunctionInPort[T] with JunctionOu
 }
 
 private[akka] object Identity {
-  private val id = new AtomicInteger(1)
-  def getId: Int = id.getAndIncrement
+  private val id = new AtomicInteger(1) // FIXME This looks extremely shady, why an Int, and why here?
+  def getId: Int = id.getAndIncrement // FIXME this should be `createId()`
 }
 
-private[akka] final class Identity[T]() extends FlowGraphInternal.InternalVertex with Junction[T] {
+private[akka] final class Identity[T](override val attributes: OperationAttributes = OperationAttributes.none) extends FlowGraphInternal.InternalVertex with Junction[T] {
   import Identity._
-
-  // This vertex can not have a name or else there can only be one instance in the whole graph
-  def name: Option[String] = None
 
   override private[akka] val vertex = this
   override val minimumInputCount: Int = 1
@@ -71,26 +70,23 @@ private[akka] final class Identity[T]() extends FlowGraphInternal.InternalVertex
   override val minimumOutputCount: Int = 1
   override val maximumOutputCount: Int = 1
 
-  override private[akka] val astNode = Ast.IdentityAstNode(getId)
+  override private[akka] val astNode = Ast.IdentityAstNode(identityJunction and OperationAttributes.name(s"id$getId"))
 
-  final override private[scaladsl] def newInstance() = new Identity[T]()
+  final override private[scaladsl] def newInstance() = new Identity[T](attributes.withoutName)
 }
 
 object Merge {
   /**
-   * Create a new anonymous `Merge` vertex with the specified output type.
-   * Note that a `Merge` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.
+   * Create a new `Merge` vertex with the specified output type and attributes.
+   *
+   * @param attributes optional attributes for this vertex
    */
-  def apply[T]: Merge[T] = new Merge[T](None)
+  def apply[T](attributes: OperationAttributes): Merge[T] = new Merge[T](attributes)
+
   /**
-   * Create a named `Merge` vertex with the specified output type.
-   * Note that a `Merge` with a specific name can only be used at one place (one vertex)
-   * in the `FlowGraph`. Calling this method several times with the same name
-   * returns instances that are `equal`.
+   * Create a new `Merge` vertex with the specified output type.
    */
-  def apply[T](name: String): Merge[T] = new Merge[T](Some(name))
+  def apply[T]: Merge[T] = apply(OperationAttributes.none)
 }
 
 /**
@@ -99,17 +95,22 @@ object Merge {
  *
  * When building the [[FlowGraph]] you must connect one or more input sources
  * and one output sink to the `Merge` vertex.
+ *
+ * Note that a junction instance describes exactly one place (vertex) in the `FlowGraph`
+ * that multiple flows can be attached to; if you want to have multiple independent
+ * junctions within the same `FlowGraph` then you will have to create multiple such
+ * instances.
  */
-final class Merge[T](override val name: Option[String]) extends FlowGraphInternal.InternalVertex with Junction[T] {
+final class Merge[T](override val attributes: OperationAttributes) extends FlowGraphInternal.InternalVertex with Junction[T] {
   override private[akka] val vertex = this
   override val minimumInputCount: Int = 2
   override val maximumInputCount: Int = Int.MaxValue
   override val minimumOutputCount: Int = 1
   override val maximumOutputCount: Int = 1
 
-  override private[akka] def astNode = Ast.Merge
+  override private[akka] def astNode = Ast.Merge(merge and attributes)
 
-  final override private[scaladsl] def newInstance() = new Merge[T](None)
+  final override private[scaladsl] def newInstance() = new Merge[T](attributes.withoutName)
 }
 
 object MergePreferred {
@@ -119,19 +120,16 @@ object MergePreferred {
   val PreferredPort = Int.MinValue
 
   /**
-   * Create a new anonymous `MergePreferred` vertex with the specified output type.
-   * Note that a `MergePreferred` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.
+   * Create a new `MergePreferred` vertex with the specified output type and attributes.
+   *
+   * @param attributes optional attributes for this vertex
    */
-  def apply[T]: MergePreferred[T] = new MergePreferred[T](None)
+  def apply[T](attributes: OperationAttributes): MergePreferred[T] = new MergePreferred[T](attributes)
+
   /**
-   * Create a named `MergePreferred` vertex with the specified output type.
-   * Note that a `MergePreferred` with a specific name can only be used at one place (one vertex)
-   * in the `FlowGraph`. Calling this method several times with the same name
-   * returns instances that are `equal`.
+   * Create a new `MergePreferred` vertex with the specified output type.
    */
-  def apply[T](name: String): MergePreferred[T] = new MergePreferred[T](Some(name))
+  def apply[T]: MergePreferred[T] = apply(OperationAttributes.none)
 
   class Preferred[A] private[akka] (private[akka] val vertex: MergePreferred[A]) extends JunctionInPort[A] {
     override private[akka] def port = PreferredPort
@@ -145,8 +143,13 @@ object MergePreferred {
  *
  * When building the [[FlowGraph]] you must connect one or more input sources
  * and one output sink to the `Merge` vertex.
+ *
+ * Note that a junction instance describes exactly one place (vertex) in the `FlowGraph`
+ * that multiple flows can be attached to; if you want to have multiple independent
+ * junctions within the same `FlowGraph` then you will have to create multiple such
+ * instances.
  */
-final class MergePreferred[T](override val name: Option[String]) extends FlowGraphInternal.InternalVertex with Junction[T] {
+final class MergePreferred[T](override val attributes: OperationAttributes) extends FlowGraphInternal.InternalVertex with Junction[T] {
 
   val preferred = new MergePreferred.Preferred(this)
 
@@ -156,179 +159,161 @@ final class MergePreferred[T](override val name: Option[String]) extends FlowGra
   override val minimumOutputCount: Int = 1
   override val maximumOutputCount: Int = 1
 
-  override private[akka] def astNode = Ast.MergePreferred
+  override private[akka] def astNode = Ast.MergePreferred(mergePreferred and attributes)
 
-  final override private[scaladsl] def newInstance() = new MergePreferred[T](None)
+  final override private[scaladsl] def newInstance() = new MergePreferred[T](attributes.withoutName)
 }
 
 object Broadcast {
   /**
-   * Create a new anonymous `Broadcast` vertex with the specified input type.
-   * Note that a `Broadcast` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.
+   * Create a new `Broadcast` vertex with the specified input type and attributes.
+   *
+   * @param attributes optional attributes for this vertex
    */
-  def apply[T]: Broadcast[T] = new Broadcast[T](None)
+  def apply[T](attributes: OperationAttributes): Broadcast[T] = new Broadcast[T](attributes)
+
   /**
-   * Create a named `Broadcast` vertex with the specified input type.
-   * Note that a `Broadcast` with a specific name can only be used at one place (one vertex)
-   * in the `FlowGraph`. Calling this method several times with the same name
-   * returns instances that are `equal`.
+   * Create a new `Broadcast` vertex with the specified input type.
    */
-  def apply[T](name: String): Broadcast[T] = new Broadcast[T](Some(name))
+  def apply[T]: Broadcast[T] = apply(OperationAttributes.none)
+
 }
 
 /**
  * Fan-out the stream to several streams. Each element is produced to
  * the other streams. It will not shutdown until the subscriptions for at least
  * two downstream subscribers have been established.
+ *
+ * Note that a junction instance describes exactly one place (vertex) in the `FlowGraph`
+ * that multiple flows can be attached to; if you want to have multiple independent
+ * junctions within the same `FlowGraph` then you will have to create multiple such
+ * instances.
  */
-final class Broadcast[T](override val name: Option[String]) extends FlowGraphInternal.InternalVertex with Junction[T] {
+final class Broadcast[T](override val attributes: OperationAttributes) extends FlowGraphInternal.InternalVertex with Junction[T] {
   override private[akka] def vertex = this
   override def minimumInputCount: Int = 1
   override def maximumInputCount: Int = 1
   override def minimumOutputCount: Int = 2
   override def maximumOutputCount: Int = Int.MaxValue
 
-  override private[akka] def astNode = Ast.Broadcast
+  override private[akka] def astNode = Ast.Broadcast(broadcast and attributes)
 
-  final override private[scaladsl] def newInstance() = new Broadcast[T](None)
+  final override private[scaladsl] def newInstance() = new Broadcast[T](attributes.withoutName)
 }
 
 object Balance {
-  /**
-   * Create a new anonymous `Balance` vertex with the specified input type.
-   * Note that a `Balance` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.
-   */
-  def apply[T]: Balance[T] = new Balance[T](None, waitForAllDownstreams = false)
-  /**
-   * Create a named `Balance` vertex with the specified input type.
-   * Note that a `Balance` with a specific name can only be used at one place (one vertex)
-   * in the `FlowGraph`. Calling this method several times with the same name
-   * returns instances that are `equal`.
-   *
-   * If you use `waitForAllDownstreams = true` it will not start emitting
-   * elements to downstream outputs until all of them have requested at least one element.
-   */
-  def apply[T](name: String, waitForAllDownstreams: Boolean = false): Balance[T] = new Balance[T](Some(name), waitForAllDownstreams)
 
   /**
-   * Create a new anonymous `Balance` vertex with the specified input type.
-   * Note that a `Balance` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.
+   * Create a new `Balance` vertex with the specified input type and optional attributes.
    *
-   * If you use `waitForAllDownstreams = true` it will not start emitting
-   * elements to downstream outputs until all of them have requested at least one element.
+   * @param waitForAllDownstreams if you use `waitForAllDownstreams = true` it will not start emitting
+   *   elements to downstream outputs until all of them have requested at least one element,
+   *   default value is `false`
+   * @param attributes optional attributes for this vertex
    */
-  def apply[T](waitForAllDownstreams: Boolean): Balance[T] = new Balance[T](None, waitForAllDownstreams)
+  def apply[T](waitForAllDownstreams: Boolean = false, attributes: OperationAttributes = OperationAttributes.none): Balance[T] =
+    new Balance[T](waitForAllDownstreams, attributes)
+
+  /**
+   * Create a new `Balance` vertex with the specified input type.
+   */
+  def apply[T]: Balance[T] = apply()
 }
 
 /**
  * Fan-out the stream to several streams. Each element is produced to
  * one of the other streams. It will not shutdown until the subscriptions for at least
  * two downstream subscribers have been established.
+ *
+ * Note that a junction instance describes exactly one place (vertex) in the `FlowGraph`
+ * that multiple flows can be attached to; if you want to have multiple independent
+ * junctions within the same `FlowGraph` then you will have to create multiple such
+ * instances.
  */
-final class Balance[T](override val name: Option[String], val waitForAllDownstreams: Boolean) extends FlowGraphInternal.InternalVertex with Junction[T] {
+final class Balance[T](val waitForAllDownstreams: Boolean, override val attributes: OperationAttributes) extends FlowGraphInternal.InternalVertex with Junction[T] {
   override private[akka] def vertex = this
   override def minimumInputCount: Int = 1
   override def maximumInputCount: Int = 1
   override def minimumOutputCount: Int = 2
   override def maximumOutputCount: Int = Int.MaxValue
 
-  override private[akka] val astNode = Ast.Balance(waitForAllDownstreams)
+  override private[akka] val astNode = Ast.Balance(waitForAllDownstreams, balance and attributes)
 
-  final override private[scaladsl] def newInstance() = new Balance[T](None, waitForAllDownstreams)
+  final override private[scaladsl] def newInstance() = new Balance[T](waitForAllDownstreams, attributes.withoutName)
 }
 
 object Zip {
-  /**
-   * Create a new anonymous `Zip` vertex with the specified input types.
-   * Note that a `Zip` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.*
-   */
-  def apply[A, B]: Zip[A, B] = new Zip[A, B](None)
 
   /**
-   * Create a named `Zip` vertex with the specified input types.
-   * Note that a `Zip` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.*
+   * Create a new `ZipWith` vertex with the specified input types and zipping-function
+   * which creates `Tuple2`s.
+   *
+   * @param attributes optional attributes for this vertex
    */
-  def apply[A, B](name: String): Zip[A, B] = new Zip[A, B](Some(name))
+  def apply[A, B](attributes: OperationAttributes): Zip2With[A, B, (A, B)] =
+    new Zip2With(_toTuple.asInstanceOf[(A, B) ⇒ (A, B)], attributes)
 
-  class Left[A, B] private[akka] (private[akka] val vertex: Zip[A, B]) extends JunctionInPort[A] {
-    override private[akka] def port = 0
-    type NextT = (A, B)
-    override private[akka] def next = vertex.out
-  }
-  class Right[A, B] private[akka] (private[akka] val vertex: Zip[A, B]) extends JunctionInPort[B] {
-    override private[akka] def port = 1
-    type NextT = (A, B)
-    override private[akka] def next = vertex.out
-  }
-  class Out[A, B] private[akka] (private[akka] val vertex: Zip[A, B]) extends JunctionOutPort[(A, B)]
+  /**
+   * Create a new `ZipWith` vertex with the specified input types and zipping-function
+   * which creates `Tuple2`s.
+   */
+  def apply[A, B]: Zip2With[A, B, (A, B)] = apply(OperationAttributes.none)
+
+  private[this] final val _toTuple: (Any, Any) ⇒ (Any, Any) = (a, b) ⇒ (a, b)
 }
 
-/**
- * Takes two streams and outputs an output stream formed from the two input streams
- * by combining corresponding elements in pairs. If one of the two streams is
- * longer than the other, its remaining elements are ignored.
- */
-private[akka] class Zip[A, B](override val name: Option[String]) extends FlowGraphInternal.InternalVertex {
-  import akka.stream.impl.Zip.AsScalaTuple2
+/** INTERNAL API - shared base between 2 inputs ZipWith as well as boilerplate plugin generated ZipWith classes */
+private[akka] abstract class ZipWithBase[C] extends FlowGraphInternal.InternalVertex {
 
-  val left = new Zip.Left(this)
-  val right = new Zip.Right(this)
-  val out = new Zip.Out(this)
+  def attributes: OperationAttributes
 
-  override def minimumInputCount: Int = 2
-  override def maximumInputCount: Int = 2
-  override def minimumOutputCount: Int = 1
-  override def maximumOutputCount: Int = 1
+  /** MUST be implemented as an FunctionN value */
+  def f: Any
+  require(f.getClass.getName.contains("Function") || f.getClass.getName.contains("anonfun"),
+    "ZipWiths `f` field MUST be implemented using a FunctionN value, was: " + f.getClass) // TODO remove this check?
 
-  override private[akka] def astNode: FanInAstNode = Ast.Zip(AsScalaTuple2)
+  val out = new ZipWith.Out[C](this)
 
-  final override private[scaladsl] def newInstance() = new Zip[A, B](name = None)
+  final override def minimumOutputCount: Int = 1
+  final override def maximumOutputCount: Int = 1
 }
 
 object Unzip {
   /**
-   * Create a new anonymous `Unzip` vertex with the specified output types.
-   * Note that a `Unzip` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.*
+   * Create a new `Unzip` vertex with the specified output types and attributes.
+   *
+   * @param attributes optional attributes for this vertex
    */
-  def apply[A, B]: Unzip[A, B] = new Unzip[A, B](None)
+  def apply[A, B](attributes: OperationAttributes): Unzip[A, B] = new Unzip[A, B](attributes)
 
   /**
-   * Create a named `Unzip` vertex with the specified output types.
-   * Note that a `Unzip` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.*
+   * Create a new `Unzip` vertex with the specified output types.
    */
-  def apply[A, B](name: String): Unzip[A, B] = new Unzip[A, B](Some(name))
+  def apply[A, B]: Unzip[A, B] = apply(OperationAttributes.none)
 
-  class In[A, B] private[akka] (private[akka] val vertex: Unzip[A, B]) extends JunctionInPort[(A, B)] {
+  final class In[A, B] private[akka] (private[akka] val vertex: Unzip[A, B]) extends JunctionInPort[(A, B)] {
     override type NextT = Nothing
-    override private[akka] def next = NoNext
+    private[akka] override def next = NoNext
   }
 
-  class Left[A, B] private[akka] (private[akka] val vertex: Unzip[A, B]) extends JunctionOutPort[A] {
-    override private[akka] def port = 0
+  final class Left[A, B] private[akka] (private[akka] val vertex: Unzip[A, B]) extends JunctionOutPort[A] {
+    private[akka] override def port = 0
   }
-  class Right[A, B] private[akka] (private[akka] val vertex: Unzip[A, B]) extends JunctionOutPort[B] {
-    override private[akka] def port = 1
+
+  final class Right[A, B] private[akka] (private[akka] val vertex: Unzip[A, B]) extends JunctionOutPort[B] {
+    private[akka] override def port = 1
   }
 }
 
 /**
  * Takes a stream of pair elements and splits each pair to two output streams.
+ *
+ * Note that a junction instance describes exactly one place (vertex) in the `FlowGraph`
+ * that multiple flows can be attached to; if you want to have multiple independent
+ * junctions within the same `FlowGraph` then you will have to create multiple such
+ * instances.
  */
-final class Unzip[A, B](override val name: Option[String]) extends FlowGraphInternal.InternalVertex {
+final class Unzip[A, B](override val attributes: OperationAttributes) extends FlowGraphInternal.InternalVertex {
   val in = new Unzip.In(this)
   val left = new Unzip.Left(this)
   val right = new Unzip.Right(this)
@@ -338,34 +323,31 @@ final class Unzip[A, B](override val name: Option[String]) extends FlowGraphInte
   override def minimumOutputCount: Int = 2
   override def maximumOutputCount: Int = 2
 
-  override private[akka] def astNode = Ast.Unzip
+  override private[akka] def astNode = Ast.Unzip(unzip and attributes)
 
-  final override private[scaladsl] def newInstance() = new Unzip[A, B](name = None)
+  final override private[scaladsl] def newInstance() = new Unzip[A, B](attributes.withoutName)
 }
 
 object Concat {
   /**
-   * Create a new anonymous `Concat` vertex with the specified input types.
-   * Note that a `Concat` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.*
+   * Create a new `Concat` vertex with the specified input types and attributes.
+   *
+   * @param attributes optional attributes for this vertex
    */
-  def apply[T]: Concat[T] = new Concat[T](None)
+  def apply[T](attributes: OperationAttributes): Concat[T] = new Concat[T](attributes)
 
   /**
-   * Create a named `Concat` vertex with the specified input types.
-   * Note that a `Concat` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.*
+   * Create a new `Concat` vertex with the specified input types.
    */
-  def apply[T](name: String): Concat[T] = new Concat[T](Some(name))
+  def apply[T]: Concat[T] = apply(OperationAttributes.none)
 
-  class First[T] private[akka] (val vertex: Concat[T]) extends JunctionInPort[T] {
+  final class First[T] private[akka] (val vertex: Concat[T]) extends JunctionInPort[T] {
     override val port = 0
     type NextT = T
     override def next = vertex.out
   }
-  class Second[T] private[akka] (val vertex: Concat[T]) extends JunctionInPort[T] {
+
+  final class Second[T] private[akka] (val vertex: Concat[T]) extends JunctionInPort[T] {
     override val port = 1
     type NextT = T
     override def next = vertex.out
@@ -377,8 +359,13 @@ object Concat {
  * Takes two streams and outputs an output stream formed from the two input streams
  * by consuming one stream first emitting all of its elements, then consuming the
  * second stream emitting all of its elements.
+ *
+ * Note that a junction instance describes exactly one place (vertex) in the `FlowGraph`
+ * that multiple flows can be attached to; if you want to have multiple independent
+ * junctions within the same `FlowGraph` then you will have to create multiple such
+ * instances.
  */
-final class Concat[T](override val name: Option[String]) extends FlowGraphInternal.InternalVertex {
+final class Concat[T](override val attributes: OperationAttributes) extends FlowGraphInternal.InternalVertex {
   val first = new Concat.First(this)
   val second = new Concat.Second(this)
   val out = new Concat.Out(this)
@@ -388,33 +375,24 @@ final class Concat[T](override val name: Option[String]) extends FlowGraphIntern
   override def minimumOutputCount: Int = 1
   override def maximumOutputCount: Int = 1
 
-  override private[akka] def astNode = Ast.Concat
+  override private[akka] def astNode = Ast.Concat(concat and attributes)
 
-  final override private[scaladsl] def newInstance() = new Concat[T](name = None)
+  final override private[scaladsl] def newInstance() = new Concat[T](attributes.withoutName)
 }
 
 object UndefinedSink {
   /**
-   * Create a new anonymous `UndefinedSink` vertex with the specified input type.
-   * Note that a `UndefinedSink` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.
+   * Create a new `UndefinedSink` vertex with the specified input type.
    */
-  def apply[T]: UndefinedSink[T] = new UndefinedSink[T](None)
-  /**
-   * Create a named `UndefinedSink` vertex with the specified input type.
-   * Note that a `UndefinedSink` with a specific name can only be used at one place (one vertex)
-   * in the `FlowGraph`. Calling this method several times with the same name
-   * returns instances that are `equal`.
-   */
-  def apply[T](name: String): UndefinedSink[T] = new UndefinedSink[T](Some(name))
+  def apply[T]: UndefinedSink[T] = new UndefinedSink[T](OperationAttributes.none)
+
 }
 /**
  * It is possible to define a [[PartialFlowGraph]] with output pipes that are not connected
  * yet by using this placeholder instead of the real [[Sink]]. Later the placeholder can
  * be replaced with [[FlowGraphBuilder#attachSink]].
  */
-final class UndefinedSink[-T](override val name: Option[String]) extends FlowGraphInternal.InternalVertex {
+final class UndefinedSink[-T](override val attributes: OperationAttributes) extends FlowGraphInternal.InternalVertex {
 
   override def minimumInputCount: Int = 1
   override def maximumInputCount: Int = 1
@@ -423,31 +401,22 @@ final class UndefinedSink[-T](override val name: Option[String]) extends FlowGra
 
   override private[akka] def astNode = throw new UnsupportedOperationException("Undefined sinks cannot be materialized")
 
-  final override private[scaladsl] def newInstance() = new UndefinedSink[T](name = None)
+  final override private[scaladsl] def newInstance() = new UndefinedSink[T](attributes.withoutName)
 }
 
 object UndefinedSource {
   /**
-   * Create a new anonymous `UndefinedSource` vertex with the specified input type.
-   * Note that a `UndefinedSource` instance can only be used at one place (one vertex)
-   * in the `FlowGraph`. This method creates a new instance every time it
-   * is called and those instances are not `equal`.
+   * Create a new `UndefinedSource` vertex with the specified output type.
    */
-  def apply[T]: UndefinedSource[T] = new UndefinedSource[T](None)
-  /**
-   * Create a named `UndefinedSource` vertex with the specified output type.
-   * Note that a `UndefinedSource` with a specific name can only be used at one place (one vertex)
-   * in the `FlowGraph`. Calling this method several times with the same name
-   * returns instances that are `equal`.
-   */
-  def apply[T](name: String): UndefinedSource[T] = new UndefinedSource[T](Some(name))
+  def apply[T]: UndefinedSource[T] = new UndefinedSource[T](OperationAttributes.none)
+
 }
 /**
  * It is possible to define a [[PartialFlowGraph]] with input pipes that are not connected
  * yet by using this placeholder instead of the real [[Source]]. Later the placeholder can
  * be replaced with [[FlowGraphBuilder#attachSource]].
  */
-final class UndefinedSource[+T](override val name: Option[String]) extends FlowGraphInternal.InternalVertex {
+final class UndefinedSource[+T](override val attributes: OperationAttributes) extends FlowGraphInternal.InternalVertex {
   override def minimumInputCount: Int = 0
   override def maximumInputCount: Int = 0
   override def minimumOutputCount: Int = 1
@@ -455,7 +424,7 @@ final class UndefinedSource[+T](override val name: Option[String]) extends FlowG
 
   override private[akka] def astNode = throw new UnsupportedOperationException("Undefined sources cannot be materialized")
 
-  final override private[scaladsl] def newInstance() = new UndefinedSource[T](name = None)
+  final override private[scaladsl] def newInstance() = new UndefinedSource[T](attributes.withoutName)
 }
 
 /**
@@ -469,11 +438,11 @@ private[akka] object FlowGraphInternal {
   def UnlabeledPort = -1
 
   sealed trait Vertex {
-    // must return a new instance that is uniquely identifiable (i.e. no name for hashCode or equality)
+    // must return a new instance that is uniquely identifiable
     private[scaladsl] def newInstance(): Vertex
   }
 
-  case class SourceVertex(source: Source[_]) extends Vertex {
+  final case class SourceVertex(source: Source[_]) extends Vertex {
     override def toString = source.toString
 
     /**
@@ -482,20 +451,20 @@ private[akka] object FlowGraphInternal {
      */
     final override def equals(other: Any): Boolean = other match {
       case v: SourceVertex ⇒ (source, v.source) match {
-        case (k1: KeyedSource[_], k2: KeyedSource[_]) ⇒ k1 == k2
-        case _                                        ⇒ super.equals(other)
+        case (k1: KeyedSource[_, _], k2: KeyedSource[_, _]) ⇒ k1 == k2
+        case _ ⇒ super.equals(other)
       }
       case _ ⇒ false
     }
     final override def hashCode: Int = source match {
-      case k: KeyedSource[_] ⇒ k.hashCode
-      case _                 ⇒ super.hashCode
+      case k: KeyedSource[_, _] ⇒ k.hashCode
+      case _                    ⇒ super.hashCode
     }
 
     final override private[scaladsl] def newInstance() = this.copy()
   }
 
-  case class SinkVertex(sink: Sink[_]) extends Vertex {
+  final case class SinkVertex(sink: Sink[_]) extends Vertex {
     override def toString = sink.toString
 
     /**
@@ -504,21 +473,21 @@ private[akka] object FlowGraphInternal {
      */
     final override def equals(other: Any): Boolean = other match {
       case v: SinkVertex ⇒ (sink, v.sink) match {
-        case (k1: KeyedSink[_], k2: KeyedSink[_]) ⇒ k1 == k2
-        case _                                    ⇒ super.equals(other)
+        case (k1: KeyedSink[_, _], k2: KeyedSink[_, _]) ⇒ k1 == k2
+        case _ ⇒ super.equals(other)
       }
       case _ ⇒ false
     }
     final override def hashCode: Int = sink match {
-      case k: KeyedSink[_] ⇒ k.hashCode
-      case _               ⇒ super.hashCode
+      case k: KeyedSink[_, _] ⇒ k.hashCode
+      case _                  ⇒ super.hashCode
     }
 
     final override private[scaladsl] def newInstance() = this.copy()
   }
 
   trait InternalVertex extends Vertex {
-    def name: Option[String]
+    def attributes: OperationAttributes
 
     def minimumInputCount: Int
     def maximumInputCount: Int
@@ -527,32 +496,23 @@ private[akka] object FlowGraphInternal {
 
     private[akka] def astNode: Ast.JunctionAstNode
 
-    final override def equals(obj: Any): Boolean =
-      obj match {
-        case other: InternalVertex ⇒
-          if (name.isDefined) (getClass == other.getClass && name == other.name) else (this eq other)
-        case _ ⇒ false
-      }
+    // these are unique keys, case class equality would break them
+    final override def equals(other: Any): Boolean = super.equals(other)
+    final override def hashCode: Int = super.hashCode
 
-    final override def hashCode: Int = name match {
-      case Some(n) ⇒ n.hashCode()
-      case None    ⇒ super.hashCode()
-    }
-
-    override def toString = name match {
+    override def toString = attributes.nameLifted match {
       case Some(n) ⇒ n
-      case None    ⇒ getClass.getSimpleName + "@" + Integer.toHexString(super.hashCode())
+      case None    ⇒ super.toString
     }
   }
 
   // flow not part of equals/hashCode
-  case class EdgeLabel(qualifier: Int)(
+  final case class EdgeLabel(qualifier: Int)(
     val pipe: Pipe[Any, Nothing],
     val inputPort: Int,
     val outputPort: Int) {
 
     override def toString: String = pipe.toString
-
   }
 
   /**
@@ -565,7 +525,7 @@ private[akka] object FlowGraphInternal {
    * be copied into another graph then the SourceVertex/SinkVertex would still point to the same instance
    * of the IdentityProcessor.
    */
-  class IdentityProcessor extends Processor[Any, Any] {
+  final class IdentityProcessor extends Processor[Any, Any] {
     import akka.stream.actor.ActorSubscriber.OnSubscribe
     import akka.stream.actor.ActorSubscriberMessage._
 
@@ -1039,8 +999,8 @@ class FlowGraphBuilder private[akka] (
         s"Use individual instances instead of the same one multiple times. Nodes are: ${graph.nodes}"
 
     vertex match {
-      case v: SourceVertex if v.source.isInstanceOf[KeyedSource[_]] ⇒ require(!graph.contains(v), warningMessage(v.source))
-      case v: SinkVertex if v.sink.isInstanceOf[KeyedSink[_]] ⇒ require(!graph.contains(v), warningMessage(v.sink))
+      case v: SourceVertex if v.source.isInstanceOf[KeyedSource[_, _]] ⇒ require(!graph.contains(v), warningMessage(v.source))
+      case v: SinkVertex if v.sink.isInstanceOf[KeyedSink[_, _]] ⇒ require(!graph.contains(v), warningMessage(v.sink))
       case _ ⇒ // ok
     }
   }
@@ -1138,7 +1098,7 @@ class FlowGraphBuilder private[akka] (
             node.outDegree <= v.maximumOutputCount,
             s"$v must have at most ${v.maximumOutputCount} outgoing edges")
           v.astNode match {
-            case Ast.MergePreferred ⇒
+            case Ast.MergePreferred(_) ⇒
               require(
                 node.incoming.count(_.label.inputPort == MergePreferred.PreferredPort) <= 1,
                 s"$v must have at most one preferred edge")
@@ -1349,7 +1309,7 @@ object PartialFlowGraph {
  * be `run` until those are attached.
  *
  * Build a `PartialFlowGraph` by starting with one of the `apply` methods in
- * in [[FlowGraph$ companion object]]. Syntactic sugar is provided by [[FlowGraphImplicits]].
+ * in [[PartialFlowGraph$ companion object]]. Syntactic sugar is provided by [[FlowGraphImplicits]].
  */
 class PartialFlowGraph private[akka] (private[akka] val graph: DirectedGraphBuilder[FlowGraphInternal.EdgeLabel, FlowGraphInternal.Vertex],
                                       private[scaladsl] override val cyclesAllowed: Boolean,

@@ -3,6 +3,8 @@
  */
 package akka.stream.impl
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import akka.actor.{ Actor, ActorRef, Cancellable, Props, SupervisorStrategy }
 import akka.stream.MaterializerSettings
 import org.reactivestreams.{ Subscriber, Subscription }
@@ -15,20 +17,19 @@ import scala.util.control.NonFatal
  * INTERNAL API
  */
 private[akka] object TickPublisher {
-  def props(initialDelay: FiniteDuration, interval: FiniteDuration, tick: () ⇒ Any, settings: MaterializerSettings): Props =
-    Props(new TickPublisher(initialDelay, interval, tick, settings)).withDispatcher(settings.dispatcher)
+  def props(initialDelay: FiniteDuration, interval: FiniteDuration, tick: () ⇒ Any,
+            settings: MaterializerSettings, cancelled: AtomicBoolean): Props =
+    Props(new TickPublisher(initialDelay, interval, tick, settings, cancelled)).withDispatcher(settings.dispatcher)
 
   object TickPublisherSubscription {
-    case class Cancel(subscriber: Subscriber[_ >: Any])
-    case class RequestMore(elements: Long, subscriber: Subscriber[_ >: Any])
+    case object Cancel
+    case class RequestMore(elements: Long)
   }
 
-  class TickPublisherSubscription(ref: ActorRef, subscriber: Subscriber[_ >: Any]) extends Subscription {
+  class TickPublisherSubscription(ref: ActorRef) extends Subscription {
     import akka.stream.impl.TickPublisher.TickPublisherSubscription._
-    def cancel(): Unit = ref ! Cancel(subscriber)
-    def request(elements: Long): Unit =
-      if (elements <= 0) throw new IllegalArgumentException(ReactiveStreamsCompliance.NumberOfElementsInRequestMustBePositiveMsg)
-      else ref ! RequestMore(elements, subscriber)
+    def cancel(): Unit = ref ! Cancel
+    def request(elements: Long): Unit = ref ! RequestMore(elements)
     override def toString = "TickPublisherSubscription"
   }
 
@@ -38,16 +39,19 @@ private[akka] object TickPublisher {
 /**
  * INTERNAL API
  *
- * Elements are produced from the tick closure periodically with the specified interval.
- * Each subscriber will receive the tick element if it has requested any elements,
- * otherwise the tick element is dropped for that subscriber.
+ * Elements are produced from the tick closure periodically with the specified interval. Supports only one subscriber.
+ * The subscriber will receive the tick element if it has requested any elements,
+ * otherwise the tick element is dropped.
  */
-private[akka] class TickPublisher(initialDelay: FiniteDuration, interval: FiniteDuration, tick: () ⇒ Any, settings: MaterializerSettings) extends Actor with SoftShutdown {
+private[akka] class TickPublisher(initialDelay: FiniteDuration, interval: FiniteDuration, tick: () ⇒ Any,
+                                  settings: MaterializerSettings, cancelled: AtomicBoolean) extends Actor with SoftShutdown {
   import akka.stream.impl.TickPublisher.TickPublisherSubscription._
   import akka.stream.impl.TickPublisher._
+  import ReactiveStreamsCompliance._
 
   var exposedPublisher: ActorPublisher[Any] = _
-  val demand = mutable.Map.empty[Subscriber[_ >: Any], Long]
+  private var subscriber: Subscriber[_ >: Any] = null
+  private var demand: Long = 0
 
   override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
@@ -68,58 +72,61 @@ private[akka] class TickPublisher(initialDelay: FiniteDuration, interval: Finite
       context.become(active)
   }
 
+  def handleError(error: Throwable): Unit = {
+    try {
+      if (!error.isInstanceOf[SpecViolation])
+        tryOnError(subscriber, error)
+    } finally {
+      subscriber = null
+      exposedPublisher.shutdown(Some(error)) // FIXME should this not be SupportsOnlyASingleSubscriber?
+      context.stop(self)
+    }
+  }
+
   def active: Receive = {
     case Tick ⇒
       try {
-        val tickElement = tick()
-        demand foreach {
-          case (subscriber, d) ⇒
-            if (d > 0) {
-              demand(subscriber) = d - 1
-              subscriber.onNext(tickElement)
-            }
+        val tickElement = tick() // FIXME should we call this even if we shouldn't send it?
+        if (demand > 0) {
+          demand -= 1
+          tryOnNext(subscriber, tickElement)
         }
       } catch {
-        case NonFatal(e) ⇒
-          // tick closure throwed => onError downstream
-          demand foreach { case (subscriber, _) ⇒ subscriber.onError(e) }
+        case NonFatal(e) ⇒ handleError(e)
       }
 
-    case RequestMore(elements, subscriber) ⇒
-      demand.get(subscriber) match {
-        case Some(d) ⇒ demand(subscriber) = d + elements
-        case None    ⇒ // canceled
+    case RequestMore(elements) ⇒
+      if (elements < 1) {
+        handleError(numberOfElementsInRequestMustBePositiveException)
+      } else {
+        demand += elements
+        if (demand < 0) // Long has overflown, reactive-streams specification rule 3.17
+          handleError(totalPendingDemandMustNotExceedLongMaxValueException)
       }
-    case Cancel(subscriber) ⇒ unregisterSubscriber(subscriber)
+
+    case Cancel ⇒
+      subscriber = null
+      context.stop(self)
 
     case SubscribePending ⇒
       exposedPublisher.takePendingSubscribers() foreach registerSubscriber
-
   }
 
-  def registerSubscriber(subscriber: Subscriber[_ >: Any]): Unit = {
-    if (demand.contains(subscriber))
-      subscriber.onError(new IllegalStateException(s"${getClass.getSimpleName} [$self, sub: $subscriber] ${ReactiveStreamsCompliance.CanNotSubscribeTheSameSubscriberMultipleTimes}"))
-    else {
-      val subscription = new TickPublisherSubscription(self, subscriber)
-      demand(subscriber) = 0
-      subscriber.onSubscribe(subscription)
-    }
-  }
-
-  private def unregisterSubscriber(subscriber: Subscriber[_ >: Any]): Unit = {
-    demand -= subscriber
-    if (demand.isEmpty) {
-      exposedPublisher.shutdown(ActorPublisher.NormalShutdownReason)
-      softShutdown()
-    }
+  def registerSubscriber(s: Subscriber[_ >: Any]): Unit = subscriber match {
+    case null ⇒
+      val subscription = new TickPublisherSubscription(self)
+      subscriber = s
+      tryOnSubscribe(s, subscription)
+    case _ ⇒
+      rejectAdditionalSubscriber(s, exposedPublisher)
   }
 
   override def postStop(): Unit = {
     tickTask.foreach(_.cancel)
+    cancelled.set(true)
+    if (subscriber ne null) tryOnComplete(subscriber)
     if (exposedPublisher ne null)
       exposedPublisher.shutdown(ActorPublisher.NormalShutdownReason)
   }
-
 }
 

@@ -53,6 +53,7 @@ private[scaladsl] case class GraphFlow[-In, CIn, COut, +Out](
 
   private[scaladsl] def prepend(pipe: SourcePipe[In]): GraphSource[COut, Out] = {
     val b = new FlowGraphBuilder()
+    b.allowCycles() // FIXME: remove after #16571 is cleared
     val (nIn, nOut) = remap(b)
     b.attachSource(nIn, pipe.appendPipe(inPipe))
     GraphSource(b.partialBuild(), nOut, outPipe)
@@ -75,6 +76,7 @@ private[scaladsl] case class GraphFlow[-In, CIn, COut, +Out](
     case pipe: Pipe[Out, T] ⇒ copy(outPipe = outPipe.appendPipe(pipe))
     case gFlow: GraphFlow[Out, _, _, T] ⇒
       val (newGraph, nOut) = FlowGraphBuilder(graph) { b ⇒
+        b.allowCycles() // FIXME: remove after #16571 is cleared
         val (oIn, oOut) = gFlow.remap(b)
         b.connect(out, outPipe.via(gFlow.inPipe), oIn)
         (b.partialBuild(), oOut)
@@ -116,9 +118,11 @@ private[scaladsl] case class GraphFlow[-In, CIn, COut, +Out](
   }
 
   // FIXME #16379 This key will be materalized to early
-  override def withKey(key: Key): Flow[In, Out] = this.copy(outPipe = outPipe.withKey(key))
+  override def withKey(key: Key[_]): Flow[In, Out] = this.copy(outPipe = outPipe.withKey(key))
 
   override private[scaladsl] def andThen[T](op: AstNode): Repr[T] = copy(outPipe = outPipe.andThen(op))
+
+  def withAttributes(attr: OperationAttributes): Repr[Out] = copy(outPipe = outPipe.withAttributes(attr))
 }
 
 private[scaladsl] case class GraphSource[COut, +Out](graph: PartialFlowGraph, out: UndefinedSink[COut], outPipe: Pipe[COut, Out]) extends Source[Out] {
@@ -139,6 +143,7 @@ private[scaladsl] case class GraphSource[COut, +Out](graph: PartialFlowGraph, ou
     case pipe: Pipe[Out, T] ⇒ copy(outPipe = outPipe.appendPipe(pipe))
     case gFlow: GraphFlow[Out, _, _, T] ⇒
       val (newGraph, nOut) = FlowGraphBuilder(graph) { b ⇒
+        b.allowCycles() // FIXME: remove after #16571 is cleared
         val (oIn, oOut) = gFlow.remap(b)
         b.connect(out, outPipe.via(gFlow.inPipe), oIn)
         (b.partialBuild(), oOut)
@@ -161,9 +166,11 @@ private[scaladsl] case class GraphSource[COut, +Out](graph: PartialFlowGraph, ou
   }
 
   // FIXME #16379 This key will be materalized to early
-  override def withKey(key: Key): Source[Out] = this.copy(outPipe = outPipe.withKey(key))
+  override def withKey(key: Key[_]): Source[Out] = this.copy(outPipe = outPipe.withKey(key))
 
   override private[scaladsl] def andThen[T](op: AstNode): Repr[T] = copy(outPipe = outPipe.andThen(op))
+
+  def withAttributes(attr: OperationAttributes): Repr[Out] = copy(outPipe = outPipe.withAttributes(attr))
 }
 
 private[scaladsl] case class GraphSink[-In, CIn](inPipe: Pipe[In, CIn], in: UndefinedSource[CIn], graph: PartialFlowGraph) extends Sink[In] {

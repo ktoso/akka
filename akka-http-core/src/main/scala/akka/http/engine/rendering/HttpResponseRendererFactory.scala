@@ -7,6 +7,7 @@ package akka.http.engine.rendering
 import scala.annotation.tailrec
 import akka.event.LoggingAdapter
 import akka.util.ByteString
+import akka.stream.scaladsl.OperationAttributes._
 import akka.stream.scaladsl.Source
 import akka.stream.stage._
 import akka.http.model._
@@ -72,58 +73,58 @@ private[http] class HttpResponseRendererFactory(serverHeader: Option[headers.Ser
         entity.isChunked && (!entity.isKnownEmpty || ctx.requestMethod == HttpMethods.HEAD) && (ctx.requestProtocol == `HTTP/1.1`)
 
       @tailrec def renderHeaders(remaining: List[HttpHeader], alwaysClose: Boolean = false,
-                                 connHeader: Connection = null, serverHeaderSeen: Boolean = false,
-                                 transferEncodingSeen: Boolean = false): Unit =
+                                 connHeader: Connection = null, serverSeen: Boolean = false,
+                                 transferEncodingSeen: Boolean = false, dateSeen: Boolean = false): Unit =
         remaining match {
           case head :: tail ⇒ head match {
             case x: `Content-Length` ⇒
               suppressionWarning(log, x, "explicit `Content-Length` header is not allowed. Use the appropriate HttpEntity subtype.")
-              renderHeaders(tail, alwaysClose, connHeader, serverHeaderSeen, transferEncodingSeen)
+              renderHeaders(tail, alwaysClose, connHeader, serverSeen, transferEncodingSeen, dateSeen)
 
             case x: `Content-Type` ⇒
               suppressionWarning(log, x, "explicit `Content-Type` header is not allowed. Set `HttpResponse.entity.contentType` instead.")
-              renderHeaders(tail, alwaysClose, connHeader, serverHeaderSeen, transferEncodingSeen)
+              renderHeaders(tail, alwaysClose, connHeader, serverSeen, transferEncodingSeen, dateSeen)
 
-            case Date(_) ⇒
-              suppressionWarning(log, head)
-              renderHeaders(tail, alwaysClose, connHeader, serverHeaderSeen, transferEncodingSeen)
+            case x: Date ⇒
+              render(x)
+              renderHeaders(tail, alwaysClose, connHeader, serverSeen, transferEncodingSeen, dateSeen = true)
 
             case x: `Transfer-Encoding` ⇒
               x.withChunkedPeeled match {
                 case None ⇒
                   suppressionWarning(log, head)
-                  renderHeaders(tail, alwaysClose, connHeader, serverHeaderSeen, transferEncodingSeen)
+                  renderHeaders(tail, alwaysClose, connHeader, serverSeen, transferEncodingSeen, dateSeen)
                 case Some(te) ⇒
                   // if the user applied some custom transfer-encoding we need to keep the header
                   render(if (mustRenderTransferEncodingChunkedHeader) te.withChunked else te)
-                  renderHeaders(tail, alwaysClose, connHeader, serverHeaderSeen, transferEncodingSeen = true)
+                  renderHeaders(tail, alwaysClose, connHeader, serverSeen, transferEncodingSeen = true, dateSeen)
               }
 
-            case x: `Connection` ⇒
+            case x: Connection ⇒
               val connectionHeader = if (connHeader eq null) x else Connection(x.tokens ++ connHeader.tokens)
-              renderHeaders(tail, alwaysClose, connectionHeader, serverHeaderSeen, transferEncodingSeen)
+              renderHeaders(tail, alwaysClose, connectionHeader, serverSeen, transferEncodingSeen, dateSeen)
 
-            case x: `Server` ⇒
+            case x: Server ⇒
               render(x)
-              renderHeaders(tail, alwaysClose, connHeader, serverHeaderSeen = true, transferEncodingSeen)
+              renderHeaders(tail, alwaysClose, connHeader, serverSeen = true, transferEncodingSeen, dateSeen)
 
             case x: CustomHeader ⇒
               if (!x.suppressRendering) render(x)
-              renderHeaders(tail, alwaysClose, connHeader, serverHeaderSeen, transferEncodingSeen)
+              renderHeaders(tail, alwaysClose, connHeader, serverSeen, transferEncodingSeen, dateSeen)
 
             case x: RawHeader if (x is "content-type") || (x is "content-length") || (x is "transfer-encoding") ||
               (x is "date") || (x is "server") || (x is "connection") ⇒
               suppressionWarning(log, x, "illegal RawHeader")
-              renderHeaders(tail, alwaysClose, connHeader, serverHeaderSeen, transferEncodingSeen)
+              renderHeaders(tail, alwaysClose, connHeader, serverSeen, transferEncodingSeen, dateSeen)
 
             case x ⇒
               render(x)
-              renderHeaders(tail, alwaysClose, connHeader, serverHeaderSeen, transferEncodingSeen)
+              renderHeaders(tail, alwaysClose, connHeader, serverSeen, transferEncodingSeen, dateSeen)
           }
 
           case Nil ⇒
-            if (!serverHeaderSeen) renderDefaultServerHeader(r)
-            r ~~ dateHeader
+            if (!serverSeen) renderDefaultServerHeader(r)
+            if (!dateSeen) r ~~ dateHeader
             close = alwaysClose ||
               ctx.closeAfterResponseCompletion || // request wants to close
               (connHeader != null && connHeader.hasClose) // application wants to close
@@ -149,13 +150,13 @@ private[http] class HttpResponseRendererFactory(serverHeader: Option[headers.Ser
             renderEntityContentType(r, entity)
             renderContentLengthHeader(data.length) ~~ CrLf
             val entityBytes = if (noEntity) ByteString.empty else data
-            Source.singleton(r.get ++ entityBytes)
+            Source.single(r.get ++ entityBytes)
 
           case HttpEntity.Default(_, contentLength, data) ⇒
             renderHeaders(headers.toList)
             renderEntityContentType(r, entity)
             renderContentLengthHeader(contentLength) ~~ CrLf
-            byteStrings(data.transform("checkContentLength", () ⇒ new CheckContentLengthTransformer(contentLength)))
+            byteStrings(data.section(name("checkContentLength"))(_.transform(() ⇒ new CheckContentLengthTransformer(contentLength))))
 
           case HttpEntity.CloseDelimited(_, data) ⇒
             renderHeaders(headers.toList, alwaysClose = ctx.requestMethod != HttpMethods.HEAD)
@@ -168,7 +169,7 @@ private[http] class HttpResponseRendererFactory(serverHeader: Option[headers.Ser
             else {
               renderHeaders(headers.toList)
               renderEntityContentType(r, entity) ~~ CrLf
-              byteStrings(chunks.transform("renderChunks", () ⇒ new ChunkTransformer))
+              byteStrings(chunks.section(name("renderChunks"))(_.transform(() ⇒ new ChunkTransformer)))
             }
         }
 

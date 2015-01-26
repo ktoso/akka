@@ -405,6 +405,16 @@ object Uri {
     def isEmpty: Boolean
     def startsWithSlash: Boolean
     def startsWithSegment: Boolean
+    def endsWithSlash: Boolean = {
+      import Path.{ Empty ⇒ PEmpty, _ }
+      @tailrec def check(path: Path): Boolean = path match {
+        case PEmpty              ⇒ false
+        case Slash(PEmpty)       ⇒ true
+        case Slash(tail)         ⇒ check(tail)
+        case Segment(head, tail) ⇒ check(tail)
+      }
+      check(this)
+    }
     def head: Head
     def tail: Path
     def length: Int
@@ -723,8 +733,7 @@ object Uri {
     if (hasDotOrDotDotSegment(path)) process(path) else path
   }
 
-  private[http] def fail(summary: String, detail: String = "") =
-    throw new IllegalUriException(summary, detail)
+  private[http] def fail(summary: String, detail: String = "") = throw IllegalUriException(summary, detail)
 
   private[http] def create(scheme: String, userinfo: String, host: Host, port: Int, path: Path, query: Query,
                            fragment: Option[String]): Uri =

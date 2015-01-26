@@ -14,7 +14,6 @@ object ImplicitFlowMaterializerSpec {
 
     override def flowMaterializerSettings = MaterializerSettings(context.system)
       .withInputBuffer(initialSize = 2, maxSize = 16)
-      .withFanOutBuffer(initialSize = 1, maxSize = 16)
 
     val flow = Source(input).map(_.toUpperCase())
 
@@ -22,7 +21,7 @@ object ImplicitFlowMaterializerSpec {
       case "run" ⇒
         // run takes an implicit FlowMaterializer parameter, which is provided by ImplicitFlowMaterializer
         import context.dispatcher
-        flow.fold("")(_ + _) pipeTo sender()
+        flow.runFold("")(_ + _) pipeTo sender()
     }
   }
 }

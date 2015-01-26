@@ -124,8 +124,8 @@ object Source {
    * Create a `Source` with one element.
    * Every connected `Sink` of this stream will see an individual stream consisting of one element.
    */
-  def singleton[T](element: T): Source[T] =
-    new Source(scaladsl.Source.singleton(element))
+  def single[T](element: T): Source[T] =
+    new Source(scaladsl.Source.single(element))
 
   /**
    * Create a `Source` that immediately ends the stream with the `cause` error to every connected `Sink`.
@@ -136,7 +136,7 @@ object Source {
   /**
    * Creates a `Source` that is materialized as a [[org.reactivestreams.Subscriber]]
    */
-  def subscriber[T](): KeyedSource[Subscriber[T], T] =
+  def subscriber[T](): KeyedSource[T, Subscriber[T]] =
     new KeyedSource(scaladsl.Source.subscriber)
 
   /**
@@ -145,7 +145,7 @@ object Source {
    * source.
    */
   def concat[T](first: Source[T], second: Source[T]): Source[T] =
-    new KeyedSource(scaladsl.Source.concat(first.asScala, second.asScala))
+    new Source(scaladsl.Source.concat(first.asScala, second.asScala))
 }
 
 /**
@@ -199,7 +199,7 @@ class Source[+Out](delegate: scaladsl.Source[Out]) {
    * function evaluation when the input stream ends, or completed with `Failure`
    * if there is an error is signaled in the stream.
    */
-  def fold[U](zero: U, f: japi.Function2[U, Out, U], materializer: FlowMaterializer): Future[U] =
+  def runFold[U](zero: U, f: japi.Function2[U, Out, U], materializer: FlowMaterializer): Future[U] =
     runWith(Sink.fold(zero, f), materializer)
 
   /**
@@ -208,7 +208,7 @@ class Source[+Out](delegate: scaladsl.Source[Out]) {
    * source.
    */
   def concat[Out2 >: Out](second: Source[Out2]): Source[Out2] =
-    delegate.concat(second.asScala).asJava
+    Source.concat(this, second)
 
   /**
    * Shortcut for running this `Source` with a foreach procedure. The given procedure is invoked
@@ -217,7 +217,7 @@ class Source[+Out](delegate: scaladsl.Source[Out]) {
    * normal end of the stream, or completed with `Failure` if there is an error is signaled in
    * the stream.
    */
-  def foreach(f: japi.Procedure[Out], materializer: FlowMaterializer): Future[Unit] =
+  def runForeach(f: japi.Procedure[Out], materializer: FlowMaterializer): Future[Unit] =
     runWith(Sink.foreach(f), materializer)
 
   // COMMON OPS //
@@ -238,10 +238,10 @@ class Source[+Out](delegate: scaladsl.Source[Out]) {
 
   /**
    * Transform this stream by applying the given function to each of the elements
-   * as they pass through this processing step. The function returns a `Future` of the
-   * element that will be emitted downstream. As many futures as requested elements by
+   * as they pass through this processing step. The function returns a `Future` and the
+   * value of that future will be emitted downstreams. As many futures as requested elements by
    * downstream may run in parallel and may complete in any order, but the elements that
-   * are emitted downstream are in the same order as from upstream.
+   * are emitted downstream are in the same order as received from upstream.
    *
    * @see [[#mapAsyncUnordered]]
    */
@@ -250,11 +250,11 @@ class Source[+Out](delegate: scaladsl.Source[Out]) {
 
   /**
    * Transform this stream by applying the given function to each of the elements
-   * as they pass through this processing step. The function returns a `Future` of the
-   * element that will be emitted downstream. As many futures as requested elements by
+   * as they pass through this processing step. The function returns a `Future` and the
+   * value of that future will be emitted downstreams. As many futures as requested elements by
    * downstream may run in parallel and each processed element will be emitted dowstream
    * as soon as it is ready, i.e. it is possible that the elements are not emitted downstream
-   * in the same order as from upstream.
+   * in the same order as received from upstream.
    *
    * @see [[#mapAsync]]
    */
@@ -390,8 +390,8 @@ class Source[+Out](delegate: scaladsl.Source[Out]) {
    * This operator makes it possible to extend the `Flow` API when there is no specialized
    * operator that performs the transformation.
    */
-  def transform[U](name: String, mkStage: japi.Creator[Stage[Out, U]]): javadsl.Source[U] =
-    new Source(delegate.transform(name, () ⇒ mkStage.create()))
+  def transform[U](mkStage: japi.Creator[Stage[Out, U]]): javadsl.Source[U] =
+    new Source(delegate.transform(() ⇒ mkStage.create()))
 
   /**
    * Takes up to `n` elements from the stream and returns a pair containing a strict sequence of the taken element
@@ -445,6 +445,16 @@ class Source[+Out](delegate: scaladsl.Source[Out]) {
    */
   def withKey[T](key: javadsl.Key[T]): javadsl.Source[Out] =
     new Source(delegate.withKey(key.asScala))
+
+  /**
+   * Applies given [[OperationAttributes]] to a given section.
+   */
+  def section[O](attributes: OperationAttributes, section: japi.Function[javadsl.Source[Out], javadsl.Source[O]]): javadsl.Source[O] =
+    new Source(delegate.section(attributes.asScala) {
+      val scalaToJava = (source: scaladsl.Source[Out]) ⇒ new javadsl.Source[Out](source)
+      val javaToScala = (source: javadsl.Source[O]) ⇒ source.asScala
+      scalaToJava andThen section.apply andThen javaToScala
+    })
 }
 
 /**
@@ -453,6 +463,6 @@ class Source[+Out](delegate: scaladsl.Source[Out]) {
  * A `Source` that will create an object during materialization that the user will need
  * to retrieve in order to access aspects of this source (could be a Subscriber, a Future/Promise, etc.).
  */
-final class KeyedSource[+Out, T](delegate: scaladsl.Source[Out]) extends Source[Out](delegate) {
-  override def asScala: scaladsl.KeyedActorFlowSource[Out] = super.asScala.asInstanceOf[scaladsl.KeyedActorFlowSource[Out]]
+final class KeyedSource[+Out, M](delegate: scaladsl.KeyedSource[Out, M]) extends Source[Out](delegate) with KeyedMaterializable[M] {
+  override def asScala: scaladsl.KeyedSource[Out, M] = super.asScala.asInstanceOf[scaladsl.KeyedSource[Out, M]]
 }

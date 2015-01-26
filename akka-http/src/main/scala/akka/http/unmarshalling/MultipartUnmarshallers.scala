@@ -79,18 +79,18 @@ trait MultipartUnmarshallers {
                         case x                    ⇒ throw new IllegalStateException("Unexpected entity type from strict BodyPartParser: " + x)
                       }
                       builder += createStrictBodyPart(entity, headers)
-                    case ParseError(errorInfo) ⇒ throw new ParsingException(errorInfo)
+                    case ParseError(errorInfo) ⇒ throw ParsingException(errorInfo)
                     case x                     ⇒ throw new IllegalStateException(s"Unexpected BodyPartParser result $x in strict case")
                   }
                   createStrict(mediaType, builder.result())
                 case _ ⇒
                   val bodyParts = entity.dataBytes
-                    .transform("bodyPart", () ⇒ parser)
+                    .transform(() ⇒ parser)
                     .splitWhen(_.isInstanceOf[BodyPartStart])
                     .headAndTail
                     .collect {
                       case (BodyPartStart(headers, createEntity), entityParts) ⇒ createBodyPart(createEntity(entityParts), headers)
-                      case (ParseError(errorInfo), _)                          ⇒ throw new ParsingException(errorInfo)
+                      case (ParseError(errorInfo), _)                          ⇒ throw ParsingException(errorInfo)
                     }
                   createStreamed(entity.contentType.mediaType.asInstanceOf[MultipartMediaType], bodyParts)
               }

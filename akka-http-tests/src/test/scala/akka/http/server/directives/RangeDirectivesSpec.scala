@@ -5,16 +5,15 @@
 package akka.http.server
 package directives
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
 import akka.http.model.StatusCodes._
 import akka.http.model._
 import akka.http.model.headers._
 import akka.http.util._
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{ Sink, Source }
 import akka.util.ByteString
 import org.scalatest.{ Inside, Inspectors }
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
 
 class RangeDirectivesSpec extends RoutingSpec with Inspectors with Inside {
   lazy val wrs =
@@ -71,7 +70,7 @@ class RangeDirectivesSpec extends RoutingSpec with Inspectors with Inside {
     }
 
     "be transparent to non-200 responses" in {
-      Get() ~> addHeader(Range(ByteRange(1, 2))) ~> sealRoute(wrs(reject())) ~> check {
+      Get() ~> addHeader(Range(ByteRange(1, 2))) ~> Route.seal(wrs(reject())) ~> check {
         status == NotFound
         headers.exists { case `Content-Range`(_, _) ⇒ true; case _ ⇒ false } shouldEqual false
       }
@@ -100,7 +99,7 @@ class RangeDirectivesSpec extends RoutingSpec with Inspectors with Inside {
         wrs { complete("Some random and not super short entity.") }
       } ~> check {
         header[`Content-Range`] should be(None)
-        val parts = Await.result(responseAs[Multipart.ByteRanges].parts.collectAll, 1.second)
+        val parts = Await.result(responseAs[Multipart.ByteRanges].parts.grouped(1000).runWith(Sink.head), 1.second)
         parts.size shouldEqual 2
         inside(parts(0)) {
           case Multipart.ByteRanges.BodyPart(range, entity, unit, headers) ⇒
@@ -119,13 +118,13 @@ class RangeDirectivesSpec extends RoutingSpec with Inspectors with Inside {
 
     "return a 'multipart/byteranges' for a ranged request with multiple ranges if entity data source isn't reusable" in {
       val content = "Some random and not super short entity."
-      def entityData() = StreamUtils.oneTimeSource(Source.singleton(ByteString(content)))
+      def entityData() = StreamUtils.oneTimeSource(Source.single(ByteString(content)))
 
       Get() ~> addHeader(Range(ByteRange(5, 10), ByteRange(0, 1), ByteRange(1, 2))) ~> {
         wrs { complete(HttpEntity.Default(MediaTypes.`text/plain`, content.length, entityData())) }
       } ~> check {
         header[`Content-Range`] should be(None)
-        val parts = Await.result(responseAs[Multipart.ByteRanges].parts.collectAll, 1.second)
+        val parts = Await.result(responseAs[Multipart.ByteRanges].parts.grouped(1000).runWith(Sink.head), 1.second)
         parts.size shouldEqual 2
       }
     }

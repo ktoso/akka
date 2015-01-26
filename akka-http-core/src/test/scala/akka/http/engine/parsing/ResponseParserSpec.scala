@@ -10,6 +10,7 @@ import scala.concurrent.duration._
 import org.scalatest.{ BeforeAndAfterAll, FreeSpec, Matchers }
 import org.scalatest.matchers.Matcher
 import akka.stream.scaladsl._
+import akka.stream.scaladsl.OperationAttributes._
 import akka.stream.FlattenStrategy
 import akka.stream.FlowMaterializer
 import akka.util.ByteString
@@ -104,7 +105,7 @@ class ResponseParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
           |Content-Type: text/plain; charset=UTF-8
           |
           |Sh""", "ake your BOODY!HTTP/1.") should generalMultiParseTo(
-          Right(HttpResponse(InternalServerError, List(Connection("close"), `User-Agent`("curl/7.19.7 xyz")),
+          Right(HttpResponse(InternalServerError, List(`User-Agent`("curl/7.19.7 xyz"), Connection("close")),
             "Shake your BOODY!")))
         closeAfterResponseCompletion shouldEqual Seq(true)
       }
@@ -129,7 +130,7 @@ class ResponseParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
           |Server: spray-can
           |
           |"""
-      val baseResponse = HttpResponse(headers = List(Server("spray-can"), Connection("lalelu")))
+      val baseResponse = HttpResponse(headers = List(Connection("lalelu"), Server("spray-can")))
 
       "response start" in new Test {
         Seq(start, "rest") should generalMultiParseTo(
@@ -180,7 +181,7 @@ class ResponseParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
             |
             |HT""") should generalMultiParseTo(
             Right(baseResponse.withEntity(Chunked(`application/pdf`,
-              source(LastChunk("nice=true", List(RawHeader("Bar", "xyz"), RawHeader("Foo", "pip apo"))))))),
+              source(LastChunk("nice=true", List(RawHeader("Foo", "pip apo"), RawHeader("Bar", "xyz"))))))),
             Left(MessageStartError(400: StatusCode, ErrorInfo("Illegal HTTP message start"))))
         closeAfterResponseCompletion shouldEqual Seq(false)
       }
@@ -260,7 +261,7 @@ class ResponseParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
           val future =
             Source(input.toList)
               .map(ByteString.apply)
-              .transform("parser", () ⇒ newParser(requestMethod))
+              .section(name("parser"))(_.transform(() ⇒ newParserStage(requestMethod)))
               .splitWhen(x ⇒ x.isInstanceOf[MessageStart] || x.isInstanceOf[EntityStreamError])
               .headAndTail
               .collect {
@@ -278,14 +279,16 @@ class ResponseParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
               }
               .flatten(FlattenStrategy.concat)
               .map(strictEqualify)
-              .grouped(1000).runWith(Sink.head)
+              .grouped(100000).runWith(Sink.head)
           Await.result(future, 500.millis)
         }
 
     def parserSettings: ParserSettings = ParserSettings(system)
-    def newParser(requestMethod: HttpMethod = GET) = {
-      val parser = new HttpResponseParser(parserSettings, HttpHeaderParser(parserSettings)(), () ⇒ requestMethod)
-      parser
+
+    def newParserStage(requestMethod: HttpMethod = GET) = {
+      val parser = new HttpResponseParser(parserSettings, HttpHeaderParser(parserSettings)())
+      parser.setRequestMethodForNextResponse(requestMethod)
+      parser.stage
     }
 
     private def compactEntity(entity: ResponseEntity): Future[ResponseEntity] =
@@ -295,7 +298,7 @@ class ResponseParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
       }
 
     private def compactEntityChunks(data: Source[ChunkStreamPart]): Future[Source[ChunkStreamPart]] =
-      data.grouped(1000).runWith(Sink.head)
+      data.grouped(100000).runWith(Sink.head)
         .fast.map(source(_: _*))
         .fast.recover { case _: NoSuchElementException ⇒ source() }
 

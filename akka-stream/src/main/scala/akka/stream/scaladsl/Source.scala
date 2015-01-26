@@ -17,8 +17,7 @@ import akka.stream.FlowMaterializer
  * A `Source` is a set of stream processing steps that has one open output and an attached input.
  * Can be used as a `Publisher`
  */
-trait Source[+Out] extends FlowOps[Out] {
-  type MaterializedType
+trait Source[+Out] extends FlowOps[Out] with Materializable {
   override type Repr[+O] <: Source[O]
 
   /**
@@ -46,7 +45,7 @@ trait Source[+Out] extends FlowOps[Out] {
    * function evaluation when the input stream ends, or completed with `Failure`
    * if there is an error is signaled in the stream.
    */
-  def fold[U](zero: U)(f: (U, Out) ⇒ U)(implicit materializer: FlowMaterializer): Future[U] = runWith(FoldSink(zero)(f)) // FIXME why is fold always an end step?
+  def runFold[U](zero: U)(f: (U, Out) ⇒ U)(implicit materializer: FlowMaterializer): Future[U] = runWith(FoldSink(zero)(f)) // FIXME why is fold always an end step?
 
   /**
    * Shortcut for running this `Source` with a foreach procedure. The given procedure is invoked
@@ -55,7 +54,7 @@ trait Source[+Out] extends FlowOps[Out] {
    * normal end of the stream, or completed with `Failure` if there is an error is signaled in
    * the stream.
    */
-  def foreach(f: Out ⇒ Unit)(implicit materializer: FlowMaterializer): Future[Unit] = runWith(ForeachSink(f))
+  def runForeach(f: Out ⇒ Unit)(implicit materializer: FlowMaterializer): Future[Unit] = runWith(ForeachSink(f))
 
   /**
    * Concatenates a second source so that the first element
@@ -78,7 +77,14 @@ trait Source[+Out] extends FlowOps[Out] {
    * The key can only use other keys if they have been added to the source
    * before this key. This also includes the keyed source if applicable.
    */
-  def withKey(key: Key): Source[Out]
+  def withKey(key: Key[_]): Source[Out]
+
+  /**
+   * Applies given [[OperationAttributes]] to a given section.
+   */
+  def section[T](attributes: OperationAttributes)(section: Source[Out] ⇒ Source[T]): Source[T] =
+    section(this.withAttributes(attributes)).withAttributes(OperationAttributes.none)
+
 }
 
 object Source {
@@ -130,7 +136,7 @@ object Source {
    * element is produced it will not receive that tick element later. It will
    * receive new tick elements as soon as it has requested more elements.
    */
-  def apply[T](initialDelay: FiniteDuration, interval: FiniteDuration, tick: () ⇒ T): Source[T] = // FIXME why is tick () => T and not T?
+  def apply[T](initialDelay: FiniteDuration, interval: FiniteDuration, tick: () ⇒ T): TickSource[T] =
     TickSource(initialDelay, interval, tick)
 
   /**
@@ -163,7 +169,7 @@ object Source {
    * Create a `Source` with one element.
    * Every connected `Sink` of this stream will see an individual stream consisting of one element.
    */
-  def singleton[T](element: T): Source[T] = apply(SynchronousIterablePublisher(List(element), "singleton")) // FIXME optimize
+  def single[T](element: T): Source[T] = apply(SynchronousIterablePublisher(List(element), "single")) // FIXME optimize
 
   /**
    * A `Source` with no elements, i.e. an empty stream that is completed immediately for every connected `Sink`.
@@ -181,7 +187,16 @@ object Source {
    * emitted by the second source is emitted after the last element of the first
    * source.
    */
-  def concat[T](source1: Source[T], source2: Source[T]): Source[T] = ConcatSource(source1, source2)
+  def concat[T](source1: Source[T], source2: Source[T]): Source[T] = {
+    val output = UndefinedSink[T]
+    val concat = Concat[T]
+    Source() { b ⇒
+      b.addEdge(source1, Pipe.empty[T], concat.first)
+        .addEdge(source2, Pipe.empty[T], concat.second)
+        .addEdge(concat.out, Pipe.empty[T], output)
+      output
+    }
+  }
 
   /**
    * Creates a `Source` that is materialized as a [[org.reactivestreams.Subscriber]]
@@ -194,4 +209,4 @@ object Source {
  * to retrieve in order to access aspects of this source (could be a Subscriber, a
  * Future/Promise, etc.).
  */
-trait KeyedSource[+Out] extends Source[Out]
+trait KeyedSource[+Out, M] extends Source[Out] with KeyedMaterializable[M]

@@ -3,21 +3,15 @@
  */
 package akka.stream.io
 
-import java.io.Closeable
 import akka.actor.{ Actor, ActorRef, Props }
 import akka.io.{ IO, Tcp }
-import akka.stream.scaladsl.Flow
 import akka.stream.testkit.StreamTestKit
 import akka.stream.{ FlowMaterializer, MaterializerSettings }
 import akka.testkit.{ TestKitBase, TestProbe }
 import akka.util.ByteString
 import java.net.InetSocketAddress
-import java.nio.channels.ServerSocketChannel
-import org.reactivestreams.Processor
 import scala.collection.immutable.Queue
-import scala.concurrent.{ Await, Future }
-import scala.concurrent.duration.Duration
-import akka.stream.scaladsl.Source
+import akka.stream.testkit.TestUtils.temporaryServerAddress
 
 object TcpHelper {
   case class ClientWrite(bytes: ByteString)
@@ -103,14 +97,6 @@ object TcpHelper {
 
   }
 
-  // FIXME: get it from TestUtil
-  def temporaryServerAddress: InetSocketAddress = {
-    val serverSocket = ServerSocketChannel.open().socket()
-    serverSocket.bind(new InetSocketAddress("127.0.0.1", 0))
-    val address = new InetSocketAddress("127.0.0.1", serverSocket.getLocalPort)
-    serverSocket.close()
-    address
-  }
 }
 
 trait TcpHelper { this: TestKitBase ⇒
@@ -118,11 +104,10 @@ trait TcpHelper { this: TestKitBase ⇒
 
   val settings = MaterializerSettings(system)
     .withInputBuffer(initialSize = 4, maxSize = 4)
-    .withFanOutBuffer(initialSize = 2, maxSize = 2)
 
   implicit val materializer = FlowMaterializer(settings)
 
-  class Server(val address: InetSocketAddress = temporaryServerAddress) {
+  class Server(val address: InetSocketAddress = temporaryServerAddress()) {
     val serverProbe = TestProbe()
     val serverRef = system.actorOf(testServerProps(address, serverProbe.ref))
     serverProbe.expectMsgType[Tcp.Bound]

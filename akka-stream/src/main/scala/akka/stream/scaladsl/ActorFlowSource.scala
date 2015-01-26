@@ -3,7 +3,9 @@
  */
 package akka.stream.scaladsl
 
-import akka.actor.{ Props, ActorRef }
+import java.util.concurrent.atomic.AtomicBoolean
+
+import akka.actor.{ PoisonPill, Cancellable, Props, ActorRef }
 import akka.stream.impl._
 import akka.stream.impl.Ast.AstNode
 import org.reactivestreams.Publisher
@@ -56,10 +58,12 @@ sealed trait ActorFlowSource[+Out] extends Source[Out] {
 
   override def to(sink: Sink[Out]): RunnableFlow = Pipe.empty[Out].withSource(this).to(sink)
 
-  override def withKey(key: Key): Source[Out] = Pipe.empty[Out].withSource(this).withKey(key)
+  override def withKey(key: Key[_]): Source[Out] = Pipe.empty[Out].withSource(this).withKey(key)
 
   /** INTERNAL API */
   override private[scaladsl] def andThen[U](op: AstNode) = SourcePipe(this, List(op), Nil) //FIXME raw addition of AstNodes
+
+  def withAttributes(attr: OperationAttributes) = SourcePipe(this, Nil, Nil, attr)
 }
 
 /**
@@ -74,15 +78,13 @@ trait SimpleActorFlowSource[+Out] extends ActorFlowSource[Out] { // FIXME Tightl
  * to retrieve in order to access aspects of this source (could be a Subscriber, a
  * Future/Promise, etc.).
  */
-trait KeyedActorFlowSource[+Out] extends ActorFlowSource[Out] with KeyedSource[Out]
+trait KeyedActorFlowSource[+Out, M] extends ActorFlowSource[Out] with KeyedSource[Out, M]
 
 /**
  * Holds a `Subscriber` representing the input side of the flow.
  * The `Subscriber` can later be connected to an upstream `Publisher`.
  */
-final case class SubscriberSource[Out]() extends KeyedActorFlowSource[Out] { // FIXME Why does this have anything to do with Actors?
-  override type MaterializedType = Subscriber[Out]
-
+final case class SubscriberSource[Out]() extends KeyedActorFlowSource[Out, Subscriber[Out]] { // FIXME Why does this have anything to do with Actors?
   override def attach(flowSubscriber: Subscriber[Out], materializer: ActorBasedFlowMaterializer, flowName: String): Subscriber[Out] =
     flowSubscriber
 
@@ -155,41 +157,34 @@ final case class FutureSource[Out](future: Future[Out]) extends SimpleActorFlowS
  * element is produced it will not receive that tick element later. It will
  * receive new tick elements as soon as it has requested more elements.
  */
-final case class TickSource[Out](initialDelay: FiniteDuration, interval: FiniteDuration, tick: () ⇒ Out) extends SimpleActorFlowSource[Out] { // FIXME Why does this have anything to do with Actors?
-  override def attach(flowSubscriber: Subscriber[Out], materializer: ActorBasedFlowMaterializer, flowName: String) =
-    create(materializer, flowName)._1.subscribe(flowSubscriber)
-  override def isActive: Boolean = true
-  override def create(materializer: ActorBasedFlowMaterializer, flowName: String) =
-    (ActorPublisher[Out](materializer.actorOf(TickPublisher.props(initialDelay, interval, tick, materializer.settings),
-      name = s"$flowName-0-tick")), ())
-}
-
-/**
- * This Source takes two Sources and concatenates them together by draining the elements coming from the first Source
- * completely, then draining the elements arriving from the second Source. If the first Source is infinite then the
- * second Source will be never drained.
- */
-final case class ConcatSource[Out](source1: Source[Out], source2: Source[Out]) extends SimpleActorFlowSource[Out] { // FIXME Why does this have anything to do with Actors?
-
+final case class TickSource[Out](initialDelay: FiniteDuration, interval: FiniteDuration, tick: () ⇒ Out) extends KeyedActorFlowSource[Out, Cancellable] { // FIXME Why does this have anything to do with Actors?
   override def attach(flowSubscriber: Subscriber[Out], materializer: ActorBasedFlowMaterializer, flowName: String) = {
-    val concatter = Concat[Out]
-    val concatGraph = FlowGraph { builder ⇒
-      builder
-        .addEdge(source1, Pipe.empty[Out], concatter.first)
-        .addEdge(source2, Pipe.empty[Out], concatter.second)
-        .addEdge(concatter.out, Sink(flowSubscriber))
-    }.run()(materializer)
+    val (pub, cancellable) = create(materializer, flowName)
+    pub.subscribe(flowSubscriber)
+    cancellable
   }
 
-  override def isActive: Boolean = false
+  override def isActive: Boolean = true
+  override def create(materializer: ActorBasedFlowMaterializer, flowName: String) = {
+    val cancelled = new AtomicBoolean(false)
+    val ref =
+      materializer.actorOf(TickPublisher.props(initialDelay, interval, tick, materializer.settings, cancelled),
+        name = s"$flowName-0-tick")
+    (ActorPublisher[Out](ref), new Cancellable {
+      override def cancel(): Boolean = {
+        if (!isCancelled) ref ! PoisonPill
+        true
+      }
+      override def isCancelled: Boolean = cancelled.get()
+    })
+  }
 }
 
 /**
  * Creates and wraps an actor into [[org.reactivestreams.Publisher]] from the given `props`,
  * which should be [[akka.actor.Props]] for an [[akka.stream.actor.ActorPublisher]].
  */
-final case class PropsSource[Out](props: Props) extends KeyedActorFlowSource[Out] {
-  override type MaterializedType = ActorRef
+final case class PropsSource[Out](props: Props) extends KeyedActorFlowSource[Out, ActorRef] {
 
   override def attach(flowSubscriber: Subscriber[Out], materializer: ActorBasedFlowMaterializer, flowName: String) = {
     val (publisher, publisherRef) = create(materializer, flowName)

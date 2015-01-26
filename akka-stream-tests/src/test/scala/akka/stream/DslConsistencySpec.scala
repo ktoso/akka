@@ -19,7 +19,7 @@ class DslConsistencySpec extends WordSpec with Matchers {
   val sSinkClass = classOf[akka.stream.scaladsl.Sink[_]]
   val jSinkClass = classOf[akka.stream.javadsl.Sink[_]]
 
-  val sKeyClass = classOf[akka.stream.scaladsl.Key]
+  val sKeyClass = classOf[akka.stream.scaladsl.Key[_]]
   val jKeyClass = classOf[akka.stream.javadsl.Key[_]]
 
   val sMaterializedMapClass = classOf[akka.stream.scaladsl.MaterializedMap]
@@ -33,7 +33,7 @@ class DslConsistencySpec extends WordSpec with Matchers {
 
   val ignore =
     Set("equals", "hashCode", "notify", "notifyAll", "wait", "toString", "getClass") ++
-      Set("create", "apply", "ops", "appendJava", "andThen") ++
+      Set("create", "apply", "ops", "appendJava", "andThen", "withAttributes") ++
       Set("asScala", "asJava")
 
   val allowMissing: Map[Class[_], Set[String]] = Map(

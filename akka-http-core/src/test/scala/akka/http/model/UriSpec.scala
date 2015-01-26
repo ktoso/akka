@@ -143,7 +143,7 @@ class UriSpec extends WordSpec with Matchers {
     "not accept illegal IPv6 literals" in {
       // 5 char quad
       the[IllegalUriException] thrownBy Host("[::12345]") shouldBe {
-        new IllegalUriException("Illegal URI host: Invalid input '5', expected !HEXDIG, ':' or ']' (line 1, column 8)",
+        IllegalUriException("Illegal URI host: Invalid input '5', expected !HEXDIG, ':' or ']' (line 1, column 8)",
           "[::12345]\n" +
             "       ^")
       }
@@ -241,6 +241,15 @@ class UriSpec extends WordSpec with Matchers {
       Path("/abc/def") startsWith Path("/abc/def") shouldBe true
       Path("/abc/def") startsWith Path("/abc/def/") shouldBe false
     }
+    "support the `endsWithSlash` predicate" in {
+      Empty.endsWithSlash shouldBe false
+      Path./.endsWithSlash shouldBe true
+      Path("abc").endsWithSlash shouldBe false
+      Path("abc/").endsWithSlash shouldBe true
+      Path("/abc").endsWithSlash shouldBe false
+      Path("/abc/def").endsWithSlash shouldBe false
+      Path("/abc/def/").endsWithSlash shouldBe true
+    }
     "support the `dropChars` modifier" in {
       Path./.dropChars(0) shouldEqual Path./
       Path./.dropChars(1) shouldEqual Empty
@@ -303,16 +312,16 @@ class UriSpec extends WordSpec with Matchers {
       Query("k" -> "v") shouldEqual ("k" -> "v") +: Empty
     }
     "encode special separators in query parameter names" in {
-      Query("a=b" -> "c").toString() === "a%3Db=c"
-      Query("a&b" -> "c").toString() === "a%26b=c"
-      Query("a+b" -> "c").toString() === "a%2Bb=c"
-      Query("a;b" -> "c").toString() === "a%3Bb=c"
+      Query("a=b" -> "c").toString() shouldEqual "a%3Db=c"
+      Query("a&b" -> "c").toString() shouldEqual "a%26b=c"
+      Query("a+b" -> "c").toString() shouldEqual "a%2Bb=c"
+      Query("a;b" -> "c").toString() shouldEqual "a%3Bb=c"
     }
     "encode special separators in query parameter values" in {
-      Query("a" -> "b=c").toString() === "a=b%3Dc"
-      Query("a" -> "b&c").toString() === "a=b%26c"
-      Query("a" -> "b+c").toString() === "a=b%2Bc"
-      Query("a" -> "b;c").toString() === "a=b%3Bc"
+      Query("a" -> "b=c").toString() shouldEqual "a=b%3Dc"
+      Query("a" -> "b&c").toString() shouldEqual "a=b%26c"
+      Query("a" -> "b+c").toString() shouldEqual "a=b%2Bc"
+      Query("a" -> "b;c").toString() shouldEqual "a=b%3Bc"
     }
   }
 
@@ -443,42 +452,42 @@ class UriSpec extends WordSpec with Matchers {
     "produce proper error messages for illegal URIs" in {
       // illegal scheme
       the[IllegalUriException] thrownBy Uri("foö:/a") shouldBe {
-        new IllegalUriException("Illegal URI reference: Invalid input 'ö', expected scheme-char, ':', path-segment-char, '%', '/', '?', '#' or 'EOI' (line 1, column 3)",
+        IllegalUriException("Illegal URI reference: Invalid input 'ö', expected scheme-char, ':', path-segment-char, '%', '/', '?', '#' or 'EOI' (line 1, column 3)",
           "foö:/a\n" +
             "  ^")
       }
 
       // illegal userinfo
       the[IllegalUriException] thrownBy Uri("http://user:ö@host") shouldBe {
-        new IllegalUriException("Illegal URI reference: Invalid input 'ö', expected userinfo-char, '%', '@' or DIGIT (line 1, column 13)",
+        IllegalUriException("Illegal URI reference: Invalid input 'ö', expected userinfo-char, '%', '@' or DIGIT (line 1, column 13)",
           "http://user:ö@host\n" +
             "            ^")
       }
 
       // illegal percent-encoding
       the[IllegalUriException] thrownBy Uri("http://use%2G@host") shouldBe {
-        new IllegalUriException("Illegal URI reference: Invalid input 'G', expected HEXDIG (line 1, column 13)",
+        IllegalUriException("Illegal URI reference: Invalid input 'G', expected HEXDIG (line 1, column 13)",
           "http://use%2G@host\n" +
             "            ^")
       }
 
       // illegal path
       the[IllegalUriException] thrownBy Uri("http://www.example.com/name with spaces/") shouldBe {
-        new IllegalUriException("Illegal URI reference: Invalid input ' ', expected path-segment-char, '%', '/', '?', '#' or 'EOI' (line 1, column 28)",
+        IllegalUriException("Illegal URI reference: Invalid input ' ', expected path-segment-char, '%', '/', '?', '#' or 'EOI' (line 1, column 28)",
           "http://www.example.com/name with spaces/\n" +
             "                           ^")
       }
 
       // illegal path with control character
       the[IllegalUriException] thrownBy Uri("http:///with\newline") shouldBe {
-        new IllegalUriException("Illegal URI reference: Invalid input '\\n', expected path-segment-char, '%', '/', '?', '#' or 'EOI' (line 1, column 13)",
+        IllegalUriException("Illegal URI reference: Invalid input '\\n', expected path-segment-char, '%', '/', '?', '#' or 'EOI' (line 1, column 13)",
           "http:///with\n" +
             "            ^")
       }
 
       // illegal query
       the[IllegalUriException] thrownBy Uri("?a=b=c") shouldBe {
-        new IllegalUriException("Illegal URI reference: Invalid input '=', expected '+', query-char, '%', '&', '#' or 'EOI' (line 1, column 5)",
+        IllegalUriException("Illegal URI reference: Invalid input '=', expected '+', query-char, '%', '&', '#' or 'EOI' (line 1, column 5)",
           "?a=b=c\n" +
             "    ^")
       }

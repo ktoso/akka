@@ -16,7 +16,7 @@ class SourceSpec extends AkkaSpec {
 
   "Singleton Source" must {
     "produce element" in {
-      val p = Source.singleton(1).runWith(Sink.publisher)
+      val p = Source.single(1).runWith(Sink.publisher)
       val c = StreamTestKit.SubscriberProbe[Int]()
       p.subscribe(c)
       val sub = c.expectSubscription()
@@ -26,7 +26,7 @@ class SourceSpec extends AkkaSpec {
     }
 
     "produce elements to later subscriber" in {
-      val p = Source.singleton(1).runWith(Sink.publisher)
+      val p = Source.single(1).runWith(Sink.publisher)
       val c1 = StreamTestKit.SubscriberProbe[Int]()
       val c2 = StreamTestKit.SubscriberProbe[Int]()
       p.subscribe(c1)
@@ -74,12 +74,10 @@ class SourceSpec extends AkkaSpec {
   "Source with additional keys" must {
     "materialize keys properly" in {
       val ks = Source.subscriber[Int]
-      val mk1 = new Key {
-        override type MaterializedType = String
+      val mk1 = new Key[String] {
         override def materialize(map: MaterializedMap) = map.get(ks).toString
       }
-      val mk2 = new Key {
-        override type MaterializedType = String
+      val mk2 = new Key[String] {
         override def materialize(map: MaterializedMap) = map.get(mk1).toUpperCase
       }
       val sp = StreamTestKit.SubscriberProbe[Int]()
@@ -87,7 +85,7 @@ class SourceSpec extends AkkaSpec {
       val s = mm.get(ks)
       mm.get(mk1) should be(s.toString)
       mm.get(mk2) should be(s.toString.toUpperCase)
-      val p = Source.singleton(1).runWith(Sink.publisher)
+      val p = Source.single(1).runWith(Sink.publisher)
       p.subscribe(s)
       val sub = sp.expectSubscription()
       sub.request(1)
@@ -97,12 +95,10 @@ class SourceSpec extends AkkaSpec {
 
     "materialize keys properly when used in a graph" in {
       val ks = Source.subscriber[Int]
-      val mk1 = new Key {
-        override type MaterializedType = String
+      val mk1 = new Key[String] {
         override def materialize(map: MaterializedMap) = map.get(ks).toString
       }
-      val mk2 = new Key {
-        override type MaterializedType = String
+      val mk2 = new Key[String] {
         override def materialize(map: MaterializedMap) = map.get(mk1).toUpperCase
       }
       val sp = StreamTestKit.SubscriberProbe[Int]()
@@ -116,7 +112,7 @@ class SourceSpec extends AkkaSpec {
       val s = mm.get(ks)
       mm.get(mk1) should be(s.toString)
       mm.get(mk2) should be(s.toString.toUpperCase)
-      val p = Source.singleton(1).runWith(Sink.publisher)
+      val p = Source.single(1).runWith(Sink.publisher)
       p.subscribe(s)
       val sub = sp.expectSubscription()
       sub.request(1)

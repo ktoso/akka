@@ -10,6 +10,7 @@ import scala.concurrent.duration._
 import org.scalatest.{ BeforeAndAfterAll, FreeSpec, Matchers }
 import org.scalatest.matchers.Matcher
 import akka.stream.scaladsl._
+import akka.stream.scaladsl.OperationAttributes._
 import akka.stream.FlattenStrategy
 import akka.stream.FlowMaterializer
 import akka.util.ByteString
@@ -75,7 +76,7 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
           |Content-length:    17
           |
           |Shake your BOODY!""" should parseTo {
-          HttpRequest(POST, "/resource/yes", List(Connection("keep-alive"), `User-Agent`("curl/7.19.7 xyz")),
+          HttpRequest(POST, "/resource/yes", List(`User-Agent`("curl/7.19.7 xyz"), Connection("keep-alive")),
             "Shake your BOODY!", `HTTP/1.0`)
         }
         closeAfterResponseCompletion shouldEqual Seq(false)
@@ -90,7 +91,7 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
           |Shake your BOODY!GET / HTTP/1.0
           |
           |""" should parseTo(
-          HttpRequest(POST, "/resource/yes", List(Connection("keep-alive"), `User-Agent`("curl/7.19.7 xyz")),
+          HttpRequest(POST, "/resource/yes", List(`User-Agent`("curl/7.19.7 xyz"), Connection("keep-alive")),
             "Shake your BOODY!".getBytes, `HTTP/1.0`),
           HttpRequest(protocol = `HTTP/1.0`))
         closeAfterResponseCompletion shouldEqual Seq(false, true)
@@ -106,8 +107,8 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
           | fancy
           |
           |""" should parseTo {
-          HttpRequest(DELETE, "/abc", List(Connection("close", "fancy"), Accept(MediaRanges.`*/*`),
-            `User-Agent`("curl/7.19.7 abc xyz")), protocol = `HTTP/1.0`)
+          HttpRequest(DELETE, "/abc", List(`User-Agent`("curl/7.19.7 abc xyz"), Accept(MediaRanges.`*/*`),
+            Connection("close", "fancy")), protocol = `HTTP/1.0`)
         }
         closeAfterResponseCompletion shouldEqual Seq(true)
       }
@@ -119,8 +120,9 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
             |Host: x
             |
             |ABCDPATCH"""
-        }.toCharArray.map(_.toString).toSeq should rawMultiParseTo(
-          HttpRequest(PUT, "/resource/yes", List(Host("x")), "ABCD".getBytes))
+        }.toCharArray.map(_.toString).toSeq should generalRawMultiParseTo(
+          Right(HttpRequest(PUT, "/resource/yes", List(Host("x")), "ABCD".getBytes)),
+          Left(MessageStartError(400, ErrorInfo("Illegal HTTP message start"))))
         closeAfterResponseCompletion shouldEqual Seq(false)
       }
 
@@ -164,7 +166,7 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
             |Host: ping
             |
             |"""
-        val baseRequest = HttpRequest(PATCH, "/data", List(Host("ping"), Connection("lalelu")))
+        val baseRequest = HttpRequest(PATCH, "/data", List(Connection("lalelu"), Host("ping")))
 
         "request start" in new Test {
           Seq(start, "rest") should generalMultiParseTo(
@@ -216,7 +218,7 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
               |
               |""") should generalMultiParseTo(
               Right(baseRequest.withEntity(Chunked(`application/pdf`,
-                source(LastChunk("nice=true", List(RawHeader("Bar", "xyz"), RawHeader("Foo", "pip apo"))))))))
+                source(LastChunk("nice=true", List(RawHeader("Foo", "pip apo"), RawHeader("Bar", "xyz"))))))))
           closeAfterResponseCompletion shouldEqual Seq(false)
         }
 
@@ -231,7 +233,7 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
           val parser = newParser
           val result = multiParse(newParser)(Seq(prep(start + manyChunks)))
           val HttpEntity.Chunked(_, chunks) = result.head.right.get.req.entity
-          val strictChunks = chunks.collectAll.awaitResult(awaitAtMost)
+          val strictChunks = chunks.grouped(100000).runWith(Sink.head).awaitResult(awaitAtMost)
           strictChunks.size shouldEqual numChunks
         }
       }
@@ -275,7 +277,7 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
             |Host: ping
             |
             |"""
-        val baseRequest = HttpRequest(PATCH, "/data", List(Host("ping"), Connection("lalelu")),
+        val baseRequest = HttpRequest(PATCH, "/data", List(Connection("lalelu"), Host("ping")),
           HttpEntity.Chunked(`application/octet-stream`, source()))
 
         "an illegal char after chunk size" in new Test {
@@ -441,7 +443,7 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
     def multiParse(parser: HttpRequestParser)(input: Seq[String]): Seq[Either[RequestOutput, StrictEqualHttpRequest]] =
       Source(input.toList)
         .map(ByteString.apply)
-        .transform("parser", () ⇒ parser)
+        .section(name("parser"))(_.transform(() ⇒ parser.stage))
         .splitWhen(x ⇒ x.isInstanceOf[MessageStart] || x.isInstanceOf[EntityStreamError])
         .headAndTail
         .collect {
@@ -460,7 +462,7 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
         }
         .flatten(FlattenStrategy.concat)
         .map(strictEqualify)
-        .collectAll
+        .grouped(100000).runWith(Sink.head)
         .awaitResult(awaitAtMost)
 
     protected def parserSettings: ParserSettings = ParserSettings(system)
@@ -473,7 +475,7 @@ class RequestParserSpec extends FreeSpec with Matchers with BeforeAndAfterAll {
       }
 
     private def compactEntityChunks(data: Source[ChunkStreamPart]): Future[Seq[ChunkStreamPart]] =
-      data.collectAll
+      data.grouped(100000).runWith(Sink.head)
         .fast.recover { case _: NoSuchElementException ⇒ Nil }
 
     def prep(response: String) = response.stripMarginWithNewline("\r\n")

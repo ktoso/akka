@@ -1,9 +1,10 @@
-.. _java-api:
+.. _stream-java-api:
 
 Java Documentation
-==================
+===================
 
 .. toctree::
    :maxdepth: 2
 
-   experimental/index
+   java/stream-index
+   java/http/index

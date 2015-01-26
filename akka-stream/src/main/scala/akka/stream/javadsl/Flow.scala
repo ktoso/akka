@@ -111,7 +111,7 @@ class Flow[-In, +Out](delegate: scaladsl.Flow[In, Out]) {
    * @tparam T materialized type of given KeyedSink
    */
   def runWith[T](source: javadsl.Source[In], sink: javadsl.KeyedSink[Out, T], materializer: FlowMaterializer): T =
-    delegate.runWith(source.asScala, sink.asScala)(materializer).asInstanceOf[T]
+    delegate.runWith(source.asScala, sink.asScala)(materializer)._2.asInstanceOf[T]
 
   /**
    * Connect the `KeyedSource` to this `Flow` and then connect it to the `Sink` and run it.
@@ -121,7 +121,7 @@ class Flow[-In, +Out](delegate: scaladsl.Flow[In, Out]) {
    * @tparam T materialized type of given KeyedSource
    */
   def runWith[T](source: javadsl.KeyedSource[In, T], sink: javadsl.Sink[Out], materializer: FlowMaterializer): T =
-    delegate.runWith(source.asScala, sink.asScala)(materializer).asInstanceOf[T]
+    delegate.runWith(source.asScala, sink.asScala)(materializer)._1.asInstanceOf[T]
 
   /**
    * Connect the `Source` to this `Flow` and then connect it to the `Sink` and run it.
@@ -147,10 +147,10 @@ class Flow[-In, +Out](delegate: scaladsl.Flow[In, Out]) {
 
   /**
    * Transform this stream by applying the given function to each of the elements
-   * as they pass through this processing step. The function returns a `Future` of the
-   * element that will be emitted downstream. As many futures as requested elements by
+   * as they pass through this processing step. The function returns a `Future` and the
+   * value of that future will be emitted downstreams. As many futures as requested elements by
    * downstream may run in parallel and may complete in any order, but the elements that
-   * are emitted downstream are in the same order as from upstream.
+   * are emitted downstream are in the same order as received from upstream.
    *
    * @see [[#mapAsyncUnordered]]
    */
@@ -159,11 +159,11 @@ class Flow[-In, +Out](delegate: scaladsl.Flow[In, Out]) {
 
   /**
    * Transform this stream by applying the given function to each of the elements
-   * as they pass through this processing step. The function returns a `Future` of the
-   * element that will be emitted downstream. As many futures as requested elements by
+   * as they pass through this processing step. The function returns a `Future` and the
+   * value of that future will be emitted downstreams. As many futures as requested elements by
    * downstream may run in parallel and each processed element will be emitted dowstream
    * as soon as it is ready, i.e. it is possible that the elements are not emitted downstream
-   * in the same order as from upstream.
+   * in the same order as received from upstream.
    *
    * @see [[#mapAsync]]
    */
@@ -301,8 +301,8 @@ class Flow[-In, +Out](delegate: scaladsl.Flow[In, Out]) {
    * This operator makes it possible to extend the `Flow` API when there is no specialized
    * operator that performs the transformation.
    */
-  def transform[U](name: String, mkStage: japi.Creator[Stage[Out, U]]): javadsl.Flow[In, U] =
-    new Flow(delegate.transform(name, () ⇒ mkStage.create()))
+  def transform[U](mkStage: japi.Creator[Stage[Out, U]]): javadsl.Flow[In, U] =
+    new Flow(delegate.transform(() ⇒ mkStage.create()))
 
   /**
    * Takes up to `n` elements from the stream and returns a pair containing a strict sequence of the taken element
@@ -363,6 +363,16 @@ class Flow[-In, +Out](delegate: scaladsl.Flow[In, Out]) {
    */
   def withKey[T](key: javadsl.Key[T]): Flow[In, Out] =
     new Flow(delegate.withKey(key.asScala))
+
+  /**
+   * Applies given [[OperationAttributes]] to a given section.
+   */
+  def section[I <: In, O](attributes: OperationAttributes, section: japi.Function[javadsl.Flow[In, Out], javadsl.Flow[I, O]]): javadsl.Flow[I, O] =
+    new Flow(delegate.section(attributes.asScala) {
+      val scalaToJava = (flow: scaladsl.Flow[In, Out]) ⇒ new javadsl.Flow[In, Out](flow)
+      val javaToScala = (flow: javadsl.Flow[I, O]) ⇒ flow.asScala
+      scalaToJava andThen section.apply andThen javaToScala
+    })
 }
 
 /**
@@ -371,11 +381,22 @@ class Flow[-In, +Out](delegate: scaladsl.Flow[In, Out]) {
  * Flow with attached input and output, can be executed.
  */
 trait RunnableFlow {
+  /**
+   * Run this flow and return the [[MaterializedMap]] containing the values for the [[KeyedMaterializable]] of the flow.
+   */
   def run(materializer: FlowMaterializer): javadsl.MaterializedMap
+
+  /**
+   * Run this flow and return the value of the [[KeyedMaterializable]].
+   */
+  def runWith[M](key: KeyedMaterializable[M], materializer: FlowMaterializer): M
 }
 
 /** INTERNAL API */
 private[akka] class RunnableFlowAdapter(runnable: scaladsl.RunnableFlow) extends RunnableFlow {
   override def run(materializer: FlowMaterializer): MaterializedMap =
     new MaterializedMap(runnable.run()(materializer))
+
+  def runWith[M](key: KeyedMaterializable[M], materializer: FlowMaterializer): M =
+    runnable.runWith(key.asScala)(materializer)
 }

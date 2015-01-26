@@ -40,11 +40,12 @@ protected[model] case class JavaUri(uri: model.Uri) extends Uri {
   def queryString(): String = uri.query.toString
 
   def parameterMap(): ju.Map[String, String] = uri.query.toMap.asJava
-  def parameters(): jl.Iterable[Uri.Parameter] = uri.query.map(t ⇒ Param(t._1, t._2): Uri.Parameter).toIterable.asJava
+  def parameters(): jl.Iterable[Param] =
+    uri.query.map { case (k, v) ⇒ new ju.AbstractMap.SimpleImmutableEntry(k, v): Param }.toIterable.asJava
   def containsParameter(key: String): Boolean = uri.query.get(key).isDefined
   def parameter(key: String): Option[String] = uri.query.get(key)
 
-  case class Param(key: String, value: String) extends Uri.Parameter
+  type Param = ju.Map.Entry[String, String]
 
   def fragment: Option[String] = uri.fragment
 
@@ -72,15 +73,8 @@ protected[model] case class JavaUri(uri: model.Uri) extends Uri {
     import model.Uri.Path
     import Path._
 
-    @tailrec def endsWithSlash(path: Path): Boolean = path match {
-      case Empty               ⇒ false
-      case Slash(Empty)        ⇒ true
-      case Slash(tail)         ⇒ endsWithSlash(tail)
-      case Segment(head, tail) ⇒ endsWithSlash(tail)
-    }
-
     val newPath =
-      if (endsWithSlash(u.path)) u.path ++ Path(segment)
+      if (u.path.endsWithSlash) u.path ++ Path(segment)
       else u.path ++ Path./(segment)
 
     u.withPath(newPath)

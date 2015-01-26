@@ -58,7 +58,7 @@ object Multipart {
 
   private def strictify[BP <: Multipart.BodyPart, BPS <: Multipart.BodyPart.Strict](parts: Source[BP])(f: BP ⇒ Future[BPS])(implicit ec: ExecutionContext, fm: FlowMaterializer): Future[Vector[BPS]] =
     // TODO: move to Vector `:+` when https://issues.scala-lang.org/browse/SI-8930 is fixed
-    parts.fold(new VectorBuilder[Future[BPS]]) {
+    parts.runFold(new VectorBuilder[Future[BPS]]) {
       case (builder, part) ⇒ builder += f(part)
     }.fast.flatMap(builder ⇒ FastFuture.sequence(builder.result()))
 
@@ -108,13 +108,13 @@ object Multipart {
         val params = dispositionParams
         params.get("name") match {
           case Some(name) ⇒ Success(f(name, params - "name", headers.filterNot(_ is "content-disposition")))
-          case None       ⇒ Failure(new IllegalHeaderException("multipart/form-data part must contain `Content-Disposition` header with `name` parameter"))
+          case None       ⇒ Failure(IllegalHeaderException("multipart/form-data part must contain `Content-Disposition` header with `name` parameter"))
         }
       }
       private[BodyPart] def tryCreateByteRangesBodyPart[T](f: (ContentRange, RangeUnit, immutable.Seq[HttpHeader]) ⇒ T): Try[T] =
         headers.collectFirst { case x: `Content-Range` ⇒ x } match {
           case Some(`Content-Range`(unit, range)) ⇒ Success(f(range, unit, headers.filterNot(_ is "content-range")))
-          case None                               ⇒ Failure(new IllegalHeaderException("multipart/byteranges part must contain `Content-Range` header"))
+          case None                               ⇒ Failure(IllegalHeaderException("multipart/byteranges part must contain `Content-Range` header"))
         }
     }
     object BodyPart {

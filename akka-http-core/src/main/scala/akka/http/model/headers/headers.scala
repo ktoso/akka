@@ -129,6 +129,7 @@ final case class Accept(mediaRanges: immutable.Seq[MediaRange]) extends japi.hea
   import Accept.mediaRangesRenderer
   def renderValue[R <: Rendering](r: R): r.type = r ~~ mediaRanges
   protected def companion = Accept
+  def acceptsAll = mediaRanges.exists(mr ⇒ mr.isWildcard && mr.qValue > 0f)
 
   /** Java API */
   def getMediaRanges: Iterable[japi.MediaRange] = mediaRanges.asJava
@@ -276,6 +277,13 @@ final case class `Access-Control-Request-Method`(method: HttpMethod) extends jap
   protected def companion = `Access-Control-Request-Method`
 }
 
+// http://tools.ietf.org/html/rfc7234#section-5.1
+object Age extends ModeledCompanion
+final case class Age(deltaSeconds: Long) extends japi.headers.Age with ModeledHeader {
+  def renderValue[R <: Rendering](r: R): r.type = r ~~ deltaSeconds
+  protected def companion = Age
+}
+
 // http://tools.ietf.org/html/rfc7231#section-7.4.1
 object Allow extends ModeledCompanion {
   def apply(methods: HttpMethod*): Allow = apply(immutable.Seq(methods: _*))
@@ -390,6 +398,13 @@ object ETag extends ModeledCompanion {
 final case class ETag(etag: EntityTag) extends japi.headers.ETag with ModeledHeader {
   def renderValue[R <: Rendering](r: R): r.type = r ~~ etag
   protected def companion = ETag
+}
+
+// http://tools.ietf.org/html/rfc7234#section-5.3
+object Expires extends ModeledCompanion
+final case class Expires(date: DateTime) extends japi.headers.Expires with ModeledHeader {
+  def renderValue[R <: Rendering](r: R): r.type = date.renderRfc1123DateTimeString(r)
+  protected def companion = Expires
 }
 
 // http://tools.ietf.org/html/rfc7232#section-3.1

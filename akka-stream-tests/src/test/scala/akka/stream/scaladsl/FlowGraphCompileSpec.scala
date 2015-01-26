@@ -3,8 +3,9 @@
  */
 package akka.stream.scaladsl
 
-import akka.stream.OverflowStrategy
+import akka.stream.scaladsl.OperationAttributes._
 import akka.stream.FlowMaterializer
+import akka.stream.OverflowStrategy
 import akka.stream.testkit.AkkaSpec
 import akka.stream.testkit.StreamTestKit.{ PublisherProbe, SubscriberProbe }
 import akka.stream.stage._
@@ -28,12 +29,12 @@ class FlowGraphCompileSpec extends AkkaSpec {
 
   val apples = () ⇒ Iterator.continually(new Apple)
 
-  val f1 = Flow[String].transform("f1", op[String, String])
-  val f2 = Flow[String].transform("f2", op[String, String])
-  val f3 = Flow[String].transform("f3", op[String, String])
-  val f4 = Flow[String].transform("f4", op[String, String])
-  val f5 = Flow[String].transform("f5", op[String, String])
-  val f6 = Flow[String].transform("f6", op[String, String])
+  val f1 = Flow[String].section(name("f1"))(_.transform(op[String, String]))
+  val f2 = Flow[String].section(name("f2"))(_.transform(op[String, String]))
+  val f3 = Flow[String].section(name("f3"))(_.transform(op[String, String]))
+  val f4 = Flow[String].section(name("f4"))(_.transform(op[String, String]))
+  val f5 = Flow[String].section(name("f5"))(_.transform(op[String, String]))
+  val f6 = Flow[String].section(name("f6"))(_.transform(op[String, String]))
 
   val in1 = Source(List("a", "b", "c"))
   val in2 = Source(List("d", "e", "f"))
@@ -164,7 +165,7 @@ class FlowGraphCompileSpec extends AkkaSpec {
         val out2 = Sink.publisher[String]
         val out9 = Sink.publisher[String]
         val out10 = Sink.publisher[String]
-        def f(s: String) = Flow[String].transform(s, op[String, String])
+        def f(s: String) = Flow[String].section(name(s))(_.transform(op[String, String]))
         import FlowGraphImplicits._
 
         in7 ~> f("a") ~> b7 ~> f("b") ~> m11 ~> f("c") ~> b11 ~> f("d") ~> out2
@@ -185,11 +186,11 @@ class FlowGraphCompileSpec extends AkkaSpec {
         val undefinedSink1 = UndefinedSink[String]
         b.
           addEdge(undefinedSource1, f1, merge).
-          addEdge(UndefinedSource[String]("src2"), f2, merge).
+          addEdge(undefinedSource2, f2, merge).
           addEdge(merge, f3, undefinedSink1)
 
         b.attachSource(undefinedSource1, in1)
-        b.attachSource(UndefinedSource[String]("src2"), in2)
+        b.attachSource(undefinedSource2, in2)
         b.attachSink(undefinedSink1, out1)
 
       }.run()
@@ -211,23 +212,25 @@ class FlowGraphCompileSpec extends AkkaSpec {
       partial1.undefinedSources should be(Set(undefinedSource1, undefinedSource2))
       partial1.undefinedSinks should be(Set(undefinedSink1))
 
+      val undefinedSink2 = UndefinedSink[String]
+
       val partial2 = PartialFlowGraph(partial1) { implicit b ⇒
         import FlowGraphImplicits._
         b.attachSource(undefinedSource1, in1)
         b.attachSource(undefinedSource2, in2)
-        bcast ~> f5 ~> UndefinedSink[String]("sink2")
+        bcast ~> f5 ~> undefinedSink2
       }
       partial2.undefinedSources should be(Set.empty)
-      partial2.undefinedSinks should be(Set(undefinedSink1, UndefinedSink[String]("sink2")))
+      partial2.undefinedSinks should be(Set(undefinedSink1, undefinedSink2))
 
       FlowGraph(partial2) { b ⇒
         b.attachSink(undefinedSink1, out1)
-        b.attachSink(UndefinedSink[String]("sink2"), out2)
+        b.attachSink(undefinedSink2, out2)
       }.run()
 
       FlowGraph(partial2) { b ⇒
         b.attachSink(undefinedSink1, f1.to(out1))
-        b.attachSink(UndefinedSink[String]("sink2"), f2.to(out2))
+        b.attachSink(undefinedSink2, f2.to(out2))
       }.run()
 
       FlowGraph(partial1) { implicit b ⇒

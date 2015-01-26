@@ -16,6 +16,7 @@ import akka.http.model._
 import akka.http.model.headers._
 import akka.http.util._
 import akka.stream.scaladsl._
+import akka.stream.scaladsl.OperationAttributes._
 import akka.stream.FlowMaterializer
 import akka.stream.impl.SynchronousIterablePublisher
 import HttpEntity._
@@ -56,7 +57,7 @@ class RequestRendererSpec extends FreeSpec with Matchers with BeforeAndAfterAll 
       "POST request, a few headers (incl. a custom Host header) and no body" in new TestSetup() {
         HttpRequest(POST, "/abc/xyz", List(
           RawHeader("X-Fancy", "naa"),
-          RawHeader("Age", "0"),
+          Age(0),
           Host("spray.io", 9999))) should renderTo {
           """POST /abc/xyz HTTP/1.1
             |X-Fancy: naa
@@ -252,8 +253,8 @@ class RequestRendererSpec extends FreeSpec with Matchers with BeforeAndAfterAll 
     def renderTo(expected: String): Matcher[HttpRequest] =
       equal(expected.stripMarginWithNewline("\r\n")).matcher[String] compose { request ⇒
         val renderer = newRenderer
-        val byteStringSource = Await.result(Source.singleton(RequestRenderingContext(request, serverAddress)).
-          transform("renderer", () ⇒ renderer).
+        val byteStringSource = Await.result(Source.single(RequestRenderingContext(request, serverAddress)).
+          section(name("renderer"))(_.transform(() ⇒ renderer)).
           runWith(Sink.head), 1.second)
         val future = byteStringSource.grouped(1000).runWith(Sink.head).map(_.reduceLeft(_ ++ _).utf8String)
         Await.result(future, 250.millis)
