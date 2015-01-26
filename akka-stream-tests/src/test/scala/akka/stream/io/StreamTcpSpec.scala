@@ -3,16 +3,15 @@
  */
 package akka.stream.io
 
+import akka.stream.scaladsl.{ Flow, _ }
+import akka.stream.testkit.AkkaSpec
+import akka.stream.testkit.TestUtils.temporaryServerAddress
+import akka.util.ByteString
+
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import akka.util.ByteString
-import akka.stream.scaladsl.Flow
-import akka.stream.testkit.AkkaSpec
-import akka.stream.scaladsl._
-import akka.stream.testkit.TestUtils.temporaryServerAddress
 
 class StreamTcpSpec extends AkkaSpec with TcpHelper {
-  import akka.stream.io.TcpHelper._
   var demand = 0L
 
   "Outgoing TCP stream" must {
@@ -56,7 +55,7 @@ class StreamTcpSpec extends AkkaSpec with TcpHelper {
       val resultFuture =
         Source(idle.publisherProbe)
           .via(StreamTcp().outgoingConnection(server.address).flow)
-          .fold(ByteString.empty)((acc, in) ⇒ acc ++ in)
+          .runFold(ByteString.empty)((acc, in) ⇒ acc ++ in)
       val serverConnection = server.waitAccept()
 
       for (in ← testInput) {
@@ -198,7 +197,7 @@ class StreamTcpSpec extends AkkaSpec with TcpHelper {
       val testInput = (0 to 255).map(ByteString(_))
       val expectedOutput = ByteString(Array.tabulate(256)(_.asInstanceOf[Byte]))
       val resultFuture =
-        Source(testInput).via(StreamTcp().outgoingConnection(serverAddress).flow).fold(ByteString.empty)((acc, in) ⇒ acc ++ in)
+        Source(testInput).via(StreamTcp().outgoingConnection(serverAddress).flow).runFold(ByteString.empty)((acc, in) ⇒ acc ++ in)
 
       Await.result(resultFuture, 3.seconds) should be(expectedOutput)
       Await.result(binding.unbind(echoServerMM), 3.seconds)
@@ -226,7 +225,7 @@ class StreamTcpSpec extends AkkaSpec with TcpHelper {
           .via(echoConnection)
           .via(echoConnection)
           .via(echoConnection)
-          .fold(ByteString.empty)((acc, in) ⇒ acc ++ in)
+          .runFold(ByteString.empty)((acc, in) ⇒ acc ++ in)
 
       Await.result(resultFuture, 5.seconds) should be(expectedOutput)
       Await.result(binding.unbind(echoServerMM), 3.seconds)
