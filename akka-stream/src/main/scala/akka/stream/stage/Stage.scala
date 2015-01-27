@@ -3,6 +3,8 @@
  */
 package akka.stream.stage
 
+import scala.ref.WeakReference
+
 /**
  * General interface for stream transformation.
  *
