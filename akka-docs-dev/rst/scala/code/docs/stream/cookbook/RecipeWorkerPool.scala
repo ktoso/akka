@@ -1,7 +1,6 @@
 package docs.stream.cookbook
 
 import akka.stream.scaladsl._
-import akka.testkit.TestProbe
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -11,7 +10,7 @@ class RecipeWorkerPool extends RecipeSpec {
   "Recipe for a pool of workers" must {
 
     "work" in {
-      val myJobs = Source(List("1", "2", "3", "4", "5"))
+      val data = Source(List("1", "2", "3", "4", "5"))
       type Result = String
 
       val worker = Flow[String].map(_ + " done")
