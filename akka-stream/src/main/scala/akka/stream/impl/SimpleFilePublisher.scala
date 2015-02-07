@@ -57,7 +57,7 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
 
       // read chunks
       while (availableChunks < readAhead && !eofEncountered)
-        readChunk()
+        loadChunk()
 
       // keep signalling
       if (totalDemand > 0) self ! Continue
@@ -88,7 +88,7 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
     } else if (eofEncountered) onComplete()
 
   /** BLOCKING I/O READ */
-  def readChunk() = {
+  def loadChunk() = {
     log.info("Loading chunk, into writePos {} ({} * {})...", writePos, writePos, chunkSize)
 
     val writeOffset = writePos * chunkSize

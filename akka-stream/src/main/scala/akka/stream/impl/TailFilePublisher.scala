@@ -6,7 +6,7 @@ package akka.stream.impl
 import java.nio.ByteBuffer
 import java.nio.channels.{ AsynchronousFileChannel, CompletionHandler }
 import java.nio.file.WatchEvent.Kind
-import java.nio.file.{ Path, StandardOpenOption, StandardWatchEventKinds, WatchEvent, WatchKey }
+import java.nio.file.{ StandardOpenOption, Path, StandardWatchEventKinds, WatchEvent, WatchKey }
 
 import akka.actor.{ ActorLogging, Props }
 import akka.stream.actor.ActorPublisherMessage.Request
@@ -63,12 +63,16 @@ private[akka] class TailFilePublisher(
 
   private[this] val bufferSize = chunkSize * readAhead
   require(bufferSize < Int.MaxValue, "bufferSize (chunkSize * readAhead) must be < Int.MaxValue!")
-  private[this] val buffer = ByteBuffer.allocate(bufferSize)
+  private[this] val buf = ByteBuffer.allocate(bufferSize)
 
+  private[this] var filePos = 0
   private[this] var writePos = 0
-  private[this] var readPos = 0
-  private[this] var eofReachedAtOffset = 0
+  private[this] var readPos = -1
+  private[this] var lastReadCompletedPos = 0
   private[this] var availableChunks = 0
+  private[this] var pendingReads = false
+
+  private[this] val chan = AsynchronousFileChannel.open(path, StandardOpenOption.READ)
 
   private[this] val watchService = path.getFileSystem.newWatchService()
 
@@ -100,10 +104,11 @@ private[akka] class TailFilePublisher(
 
     case SamplingTick ⇒
       val key = watchService.poll()
-
       handlePoll(key)
 
     case Emit(bs) ⇒
+      filePos += bs.size
+
       if (totalDemand > 0) onNext(bs)
       else ???
 
@@ -122,27 +127,51 @@ private[akka] class TailFilePublisher(
 
       while (i < size) {
         val e = evts.get(i)
-        log.warning("Got {}, count {}", e, e.count())
+        log.warning("Got {}, count {}, context: {}", e, e.count(), e.context().asInstanceOf[Path].toAbsolutePath)
 
-        import java.nio.file.StandardWatchEventKinds._
-        e.kind() match {
-          case OVERFLOW | ENTRY_MODIFY ⇒
-            log.warning("Modified: {}", e.context())
+        if (e.context().asInstanceOf[Path].getFileName == path.getFileName) { // TODO fix this
+          import java.nio.file.StandardWatchEventKinds._
+          e.kind() match {
+            case OVERFLOW | ENTRY_MODIFY ⇒
+              log.warning("Modified: {}", e.context())
 
-            val asyncChan = AsynchronousFileChannel.open(path, StandardOpenOption.READ)
-            asyncChan.read(buffer, writePos, readPos, CompletionHandler)
+              if (writePos < readPos) {
+                buf.limit(readPos - writePos)
+                chan.read(buf, writePos, writePos, CompletionHandler)
+              } else if (writePos > readPos) {
+                buf.limit(buf.capacity)
+                chan.read(buf, writePos, writePos, CompletionHandler)
+              } else
+                pendingReads = true
+
+          }
+
         }
 
         i += 1
       }
-    }
 
-    if (!key.reset()) onComplete()
+      if (!key.reset()) onComplete()
+    }
+  }
+
+  def pullFromFile(): Unit = {
+
+  }
+
+  def pushBuffer(): Unit =
+    while (totalDemand > 0 && availableChunks > 0)
+      onNext(takeChunk())
+
+  def takeChunk(): ByteString = {
+    val take = math.min(chunkSize, lastReadCompletedPos)
+    ByteString(buf).drop(readPos)
+
   }
 
   final val CompletionHandler = new CompletionHandler[Integer, Any] {
     override def completed(bytesRead: Integer, attachment: Any): Unit = {
-      val s = ByteString(buffer.array).drop(writePos).take(bytesRead)
+      val s = ByteString(buf.array).drop(writePos).take(bytesRead)
       log.warning("Got bytes: " + bytesRead + ": " + s.utf8String)
 
       self ! Emit(s)
@@ -160,7 +189,7 @@ private[akka] class TailFilePublisher(
 
   final def chunkOffset(pos: Int): Int = pos * chunkSize
 
-  final def eofEncountered: Boolean = eofReachedAtOffset != Int.MaxValue
+  final def eofEncountered: Boolean = lastReadCompletedPos != Int.MaxValue
 
   override def postStop(): Unit = {
     super.postStop()
