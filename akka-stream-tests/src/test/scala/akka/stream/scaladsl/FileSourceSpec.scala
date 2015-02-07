@@ -102,7 +102,7 @@ class FileSourceSpec extends AkkaSpec {
       requiresJdk7("tail a file for changes") {
         val f = File.createTempFile("file-source-tailing-spec", ".tmp")
 
-        val tailSource = Source.tail(f.toPath, settings, chunkSize = 128, readAhead = 1)
+        val tailSource = Source.tail(f.toPath, settings, chunkSize = 128, readAhead = 4)
         val fileLineByLine = tailSource.transform(() ⇒ parseLines("\n", 512))
 
         fileLineByLine.runWith(Sink.foreach { testActor ! _ })
@@ -117,28 +117,34 @@ class FileSourceSpec extends AkkaSpec {
 
           // collapse multiple writes into one bytestring
           writeLines(3)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
+          within(5.seconds) {
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+          }
 
           // single writes can be read one by one if only one write during interval
           writeLines(1)
-          expectMsgType[String] should ===(line)
-          writeLines(1)
-          expectMsgType[String] should ===(line)
+          within(5.seconds) {
+            expectMsgType[String] should ===(line)
+            writeLines(1)
+            expectMsgType[String] should ===(line)
+          }
 
           // large amount of writes should be split up in batchSized byteStrings
           writeLines(10)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
-          expectMsgType[String] should ===(line)
+          within(5.seconds) {
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+            expectMsgType[String] should ===(line)
+          }
 
         } finally
           try f.delete() finally writer.close()
