@@ -4,6 +4,7 @@
 package akka.stream.scaladsl
 
 import java.io.{ File, FileWriter }
+import java.util.Random
 
 import akka.stream.FlowMaterializer
 import akka.stream.testkit.{ AkkaSpec, StreamTestKit }
@@ -28,7 +29,23 @@ class FileSourceSpec extends AkkaSpec {
     f
   }
 
-  override protected def afterTermination(): Unit = testFile.delete()
+  val LinesCount = 2000 + new Random().nextInt(300)
+  val manyLines = {
+    info("manyLines.lines = " + LinesCount)
+
+    val f = File.createTempFile(s"file-source-spec-lines_$LinesCount", "tmp")
+    val w = new FileWriter(f)
+    (1 to LinesCount).foreach { l ⇒
+      w.append("a" * l).append("\n")
+    }
+    w.close()
+    f
+  }
+
+  override def afterTermination(): Unit = {
+    testFile.delete()
+    manyLines.delete()
+  }
 
   "File Source" must {
     "read lines with readAhead 2" in {
@@ -54,18 +71,31 @@ class FileSourceSpec extends AkkaSpec {
       c.expectComplete()
     }
 
-    "count lines in real file" in {
-      val s = Source(new File("/Users/ktoso/code/deletions/deletions.csv-00000-of-00020"), chunkSize = 4096, readAhead = 2)
-      val f = s.runWith(Sink.fold(0) {
-        case (acc, l) ⇒ acc + l.count(_ == '\n')
-      })
+    List(
+      Settings(chunkSize = 8, readAhead = 10),
+      Settings(chunkSize = 128, readAhead = 1),
+      Settings(chunkSize = 256, readAhead = 1),
+      Settings(chunkSize = 256, readAhead = 2),
+      Settings(chunkSize = 512, readAhead = 1),
+      Settings(chunkSize = 512, readAhead = 2),
+      Settings(chunkSize = 4096, readAhead = 1)) foreach { settings ⇒
+        import settings._
 
-      import concurrent.duration._
-      val lineCount = Await.result(f, 3.hours)
-      info("Lines = " + lineCount)
-      lineCount should ===(3152500)
-    }
+        s"count lines in real file (chunkSize = $chunkSize, readAhead = $readAhead)" in {
+          val s = Source(manyLines, chunkSize = 4096, readAhead = 2)
+          val f = s.runWith(Sink.fold(0) {
+            case (acc, l) ⇒ acc + l.utf8String.count(_ == '\n')
+          })
+
+          import concurrent.duration._
+          val lineCount = Await.result(f, 3.seconds)
+          lineCount should ===(LinesCount)
+        }
+      }
+
+    "tail a file" in pending
   }
 
+  final case class Settings(chunkSize: Int, readAhead: Int)
 }
 

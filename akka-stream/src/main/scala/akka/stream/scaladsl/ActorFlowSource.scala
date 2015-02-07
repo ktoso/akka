@@ -190,7 +190,7 @@ final case class FileSource(f: File, chunkSize: Int, readAhead: Int) extends Sim
 
   override def isActive: Boolean = true
   override def create(materializer: ActorBasedFlowMaterializer, flowName: String) = {
-    val ref = materializer.actorOf(FilePublisher.props(f, chunkSize, readAhead), name = s"$flowName-0-file")
+    val ref = materializer.actorOf(SimpleFilePublisher.props(f, chunkSize, readAhead), name = s"$flowName-0-file")
 
     (akka.stream.actor.ActorPublisher[ByteString](ref), ())
   }

@@ -12,18 +12,18 @@ import akka.util.ByteString
 
 import scala.annotation.tailrec
 
-private[akka] object FilePublisher {
+private[akka] object SimpleFilePublisher {
   def props(f: File, chunkSize: Int, readAhead: Int) = {
     require(chunkSize > 0, s"chunkSize must be > 0 (was $chunkSize)")
     require(readAhead > 0, s"readAhead must be > 0 (was $readAhead)")
-    Props(classOf[FilePublisher], f, chunkSize, readAhead)
+    Props(classOf[SimpleFilePublisher], f, chunkSize, readAhead)
       .withDispatcher("stream-file-io-dispatcher")
     // TODO: use a dedicated dispatcher for it
   }
 
 }
 
-private[akka] class FilePublisher(f: File, chunkSize: Int, readAhead: Int) extends akka.stream.actor.ActorPublisher[ByteString]
+private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int) extends akka.stream.actor.ActorPublisher[ByteString]
   with ActorLogging {
 
   private[this] val bufferSize = chunkSize * readAhead
@@ -41,7 +41,7 @@ private[akka] class FilePublisher(f: File, chunkSize: Int, readAhead: Int) exten
 
   def receive = {
     case ActorPublisherMessage.Request(elements) ⇒
-      log.info("Demand added " + elements + ", now at " + totalDemand)
+      log.warning("Demand added " + elements + ", now at " + totalDemand)
 
       loadAndSignal()
 
@@ -50,6 +50,8 @@ private[akka] class FilePublisher(f: File, chunkSize: Int, readAhead: Int) exten
 
   def loadAndSignal(): Unit =
     if (isActive) {
+      log.warning("load and signal...")
+
       // signal from available buffer right away
       signalOnNexts()
 
@@ -72,29 +74,29 @@ private[akka] class FilePublisher(f: File, chunkSize: Int, readAhead: Int) exten
       readPos = if (readPos + 1 >= readAhead) 0 else readPos + 1
 
       onNext(bytes)
-      //      log.info("Signalled chunk: [{}] (offset: {}), chunks still available: {}, demand: {}", bytes.utf8String, offset, availableChunks, totalDemand)
+      //      log.warning("Signalled chunk: [{}] (offset: {}), chunks still available: {}, demand: {}", bytes.utf8String, offset, availableChunks, totalDemand)
 
-      log.info(s"total demand = $totalDemand")
+      log.warning(s"total demand = $totalDemand")
       if (offset >= eofReachedAtOffset) {
         // end-of-file reached
-        //        log.info("Signalling last chunk [{}], completing now...", bytes.utf8String)
+        //        log.warning("Signalling last chunk [{}], completing now...", bytes.utf8String)
         onComplete()
       } else if (totalDemand > 0) {
-        log.info(s"More to signal, total demand = $totalDemand, available = $availableChunks")
+        log.warning(s"More to signal, total demand = $totalDemand, available = $availableChunks")
         signalOnNexts()
       }
-    }
+    } else if (eofEncountered) onComplete()
 
   /** BLOCKING I/O READ */
   def readChunk() = {
-    log.info("Loading chunk, into writePos {} ({} * {})...", writePos, writePos, chunkSize)
+    log.warning("Loading chunk, into writePos {} ({} * {})...", writePos, writePos, chunkSize)
 
     val writeOffset = writePos * chunkSize
 
     // blocking read
     val readBytes = {
       val i = stream.read(buffer.array, writeOffset, chunkSize)
-      log.info("Loaded " + i + " bytes")
+      log.warning("Loaded " + i + " bytes")
       i
     }
 
@@ -102,21 +104,21 @@ private[akka] class FilePublisher(f: File, chunkSize: Int, readAhead: Int) exten
       case -1 ⇒
         // had nothing to read into this chunk, will complete now
         eofReachedAtOffset = (if (writePos == 0) readAhead - 1 else writePos - 1) * chunkSize
-        log.info("No more bytes available to read (got `-1` from `read`), marking final bytes of file @ " + eofReachedAtOffset)
+        log.warning("No more bytes available to read (got `-1` from `read`), marking final bytes of file @ " + eofReachedAtOffset)
 
       case advanced if advanced < chunkSize ⇒
         // this was the last chunk, be ready to complete once it has been emited
         eofReachedAtOffset = writeOffset + advanced
-        log.info(s"Last chunk loaded, end of file marked at offset: $eofReachedAtOffset")
+        log.warning(s"Last chunk loaded, end of file marked at offset: $eofReachedAtOffset")
 
         availableChunks += 1
         writePos = if (writePos + 1 >= readAhead) 0 else writePos + 1
-      //        log.info("writePos advanced to {}, chunksAvailable: {}, buf: {}", writePos, availableChunks, ByteString(buffer.array).utf8String)
+      //        log.warning("writePos advanced to {}, chunksAvailable: {}, buf: {}", writePos, availableChunks, ByteString(buffer.array).utf8String)
 
       case _ ⇒
         availableChunks += 1
         writePos = if (writePos + 1 >= readAhead) 0 else writePos + 1
-      //        log.info("writePos advanced to {}, chunksAvailable: {}, buf: {}", writePos, availableChunks, ByteString(buffer.array).utf8String)
+      //        log.warning("writePos advanced to {}, chunksAvailable: {}, buf: {}", writePos, availableChunks, ByteString(buffer.array).utf8String)
 
       // valid read, continue
     }
