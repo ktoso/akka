@@ -11,7 +11,7 @@ import akka.stream.stage.{ TerminationDirective, Directive, Context, PushPullSta
 import scala.annotation.unchecked.uncheckedVariance
 import scala.language.higherKinds
 import akka.actor.Props
-import akka.stream.impl.{ EmptyPublisher, ErrorPublisher, SynchronousIterablePublisher }
+import akka.stream.impl.{ TailFilePublisher, EmptyPublisher, ErrorPublisher, SynchronousIterablePublisher }
 import org.reactivestreams.Publisher
 import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
@@ -257,8 +257,29 @@ object Source extends SourceApply {
   def apply[T](initialDelay: FiniteDuration, interval: FiniteDuration, tick: T): Source[T, Cancellable] =
     new Source(new TickSource(initialDelay, interval, tick, none, shape("TickSource")))
 
+  /**
+   * Sources an entire file as stream of [[akka.util.ByteString]].
+   * This source is JDK 6 compatible, though this means that "tailing a file" is not supported.
+   *
+   * Refer to [[Source#tail]] for a more advanced (JDK 7+ only).
+   */
   def apply(f: File, chunkSize: Int = 256, readAhead: Int = 4): FileSource =
     FileSource(f, chunkSize, readAhead)
+
+  /**
+   * '''JDK7+ ONLY'''
+   *
+   * Uses NIO [[java.nio.file.WatchService]] to watch the given file for changes (appends),
+   * and emits ByteStrings whenever content gets appended to the given file.
+   *
+   * Use the `samplingRate` to "debounce" multiple file writes triggering multiple events,
+   * instead accumulated [[akka.util.ByteString]] (sized up to `chunkSize`) will be emitted
+   * for each such "batch" of updates, lessening the need for many small reads.
+   *
+   * TODO readAhead probably doesnt make sense here?
+   */
+  def tail(f: Path, sampling: TailFilePublisher.SamplingSettings, chunkSize: Int = 256, readAhead: Int = 4): PathSource =
+    PathSource(f, sampling, chunkSize, readAhead)
 
   /**
    * Creates a `Source` that is materialized to an [[akka.actor.ActorRef]] which points to an Actor
