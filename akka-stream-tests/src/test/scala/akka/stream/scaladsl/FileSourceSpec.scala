@@ -7,6 +7,7 @@ import java.io.{ File, FileWriter }
 import java.util.Random
 
 import akka.stream.FlowMaterializer
+import akka.stream.impl.TailFilePublisher
 import akka.stream.testkit.{ AkkaSpec, StreamTestKit }
 import akka.util.ByteString
 
@@ -93,7 +94,49 @@ class FileSourceSpec extends AkkaSpec {
         }
       }
 
-    "tail a file" in pending
+    "Java 7+ only:" must {
+      import concurrent.duration._
+      val settings = TailFilePublisher.SamplingSettings(100.millis, TailFilePublisher.HighSamplingSensitivity)
+
+      requiresJdk7("tail a file for changes") {
+        val f = File.createTempFile("file-source-tailing-spec", "tmp")
+
+        val tailSource = Source.tail(f.toPath, settings, chunkSize = 128, readAhead = 1)
+        tailSource.runWith(Sink.foreach { testActor ! _ })
+
+        val writer = new FileWriter(f)
+        val line = "Whoa, mathematical!\n"
+        def writeLines(n: Int) = (1 to n) foreach { i ⇒ writer.append(line).flush() }
+
+        try {
+
+          expectNoMsg(300.millis)
+
+          // collapse multiple writes into one bytestring
+          writeLines(3)
+          expectMsgType[ByteString].utf8String should ===(line * 3)
+
+          // single writes can be read one by one if only one write during interval
+          writeLines(1)
+          expectMsgType[ByteString].utf8String should ===(line)
+          writeLines(1)
+          expectMsgType[ByteString].utf8String should ===(line)
+
+          // large amount of writes should be split up in batchSized byteStrings
+          writeLines(10)
+          expectMsgType[ByteString].utf8String should ===(line * 5)
+          expectMsgType[ByteString].utf8String should ===(line * 5)
+
+        } finally
+          try f.delete() finally writer.close()
+      }
+    }
+
+    def requiresJdk7(s: String)(block: ⇒ Unit) = {
+      val jv = System.getProperty("java.version")
+      if (jv.startsWith("1.6")) s in pending
+      else s"[JDK: $jv]: $s" in block
+    }
   }
 
   final case class Settings(chunkSize: Int, readAhead: Int)

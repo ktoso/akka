@@ -41,7 +41,7 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
 
   def receive = {
     case ActorPublisherMessage.Request(elements) ⇒
-      log.warning("Demand added " + elements + ", now at " + totalDemand)
+      log.info("Demand added " + elements + ", now at " + totalDemand)
 
       loadAndSignal()
 
@@ -50,7 +50,7 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
 
   def loadAndSignal(): Unit =
     if (isActive) {
-      log.warning("load and signal...")
+      log.info("load and signal...")
 
       // signal from available buffer right away
       signalOnNexts()
@@ -74,29 +74,29 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
       readPos = if (readPos + 1 >= readAhead) 0 else readPos + 1
 
       onNext(bytes)
-      //      log.warning("Signalled chunk: [{}] (offset: {}), chunks still available: {}, demand: {}", bytes.utf8String, offset, availableChunks, totalDemand)
+      //      log.info("Signalled chunk: [{}] (offset: {}), chunks still available: {}, demand: {}", bytes.utf8String, offset, availableChunks, totalDemand)
 
-      log.warning(s"total demand = $totalDemand")
+      log.info(s"total demand = $totalDemand")
       if (offset >= eofReachedAtOffset) {
         // end-of-file reached
-        //        log.warning("Signalling last chunk [{}], completing now...", bytes.utf8String)
+        //        log.info("Signalling last chunk [{}], completing now...", bytes.utf8String)
         onComplete()
       } else if (totalDemand > 0) {
-        log.warning(s"More to signal, total demand = $totalDemand, available = $availableChunks")
+        log.info(s"More to signal, total demand = $totalDemand, available = $availableChunks")
         signalOnNexts()
       }
     } else if (eofEncountered) onComplete()
 
   /** BLOCKING I/O READ */
   def readChunk() = {
-    log.warning("Loading chunk, into writePos {} ({} * {})...", writePos, writePos, chunkSize)
+    log.info("Loading chunk, into writePos {} ({} * {})...", writePos, writePos, chunkSize)
 
     val writeOffset = writePos * chunkSize
 
     // blocking read
     val readBytes = {
       val i = stream.read(buffer.array, writeOffset, chunkSize)
-      log.warning("Loaded " + i + " bytes")
+      log.info("Loaded " + i + " bytes")
       i
     }
 
@@ -104,21 +104,21 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
       case -1 ⇒
         // had nothing to read into this chunk, will complete now
         eofReachedAtOffset = (if (writePos == 0) readAhead - 1 else writePos - 1) * chunkSize
-        log.warning("No more bytes available to read (got `-1` from `read`), marking final bytes of file @ " + eofReachedAtOffset)
+        log.info("No more bytes available to read (got `-1` from `read`), marking final bytes of file @ " + eofReachedAtOffset)
 
       case advanced if advanced < chunkSize ⇒
         // this was the last chunk, be ready to complete once it has been emited
         eofReachedAtOffset = writeOffset + advanced
-        log.warning(s"Last chunk loaded, end of file marked at offset: $eofReachedAtOffset")
+        log.info(s"Last chunk loaded, end of file marked at offset: $eofReachedAtOffset")
 
         availableChunks += 1
         writePos = if (writePos + 1 >= readAhead) 0 else writePos + 1
-      //        log.warning("writePos advanced to {}, chunksAvailable: {}, buf: {}", writePos, availableChunks, ByteString(buffer.array).utf8String)
+      //        log.info("writePos advanced to {}, chunksAvailable: {}, buf: {}", writePos, availableChunks, ByteString(buffer.array).utf8String)
 
       case _ ⇒
         availableChunks += 1
         writePos = if (writePos + 1 >= readAhead) 0 else writePos + 1
-      //        log.warning("writePos advanced to {}, chunksAvailable: {}, buf: {}", writePos, availableChunks, ByteString(buffer.array).utf8String)
+      //        log.info("writePos advanced to {}, chunksAvailable: {}, buf: {}", writePos, availableChunks, ByteString(buffer.array).utf8String)
 
       // valid read, continue
     }

@@ -4,6 +4,7 @@
 package akka.stream.scaladsl
 
 import java.io.File
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.{ PoisonPill, Cancellable, Props, ActorRef }
@@ -193,6 +194,34 @@ final case class FileSource(f: File, chunkSize: Int, readAhead: Int) extends Sim
     val ref = materializer.actorOf(SimpleFilePublisher.props(f, chunkSize, readAhead), name = s"$flowName-0-file")
 
     (akka.stream.actor.ActorPublisher[ByteString](ref), ())
+  }
+}
+
+/** JDK7+ ONLY */
+final case class PathSource(p: Path, sampling: TailFilePublisher.SamplingSettings, chunkSize: Int, readAhead: Int)
+  extends KeyedActorFlowSource[ByteString, Cancellable] {
+
+  override def attach(flowSubscriber: Subscriber[ByteString], materializer: ActorBasedFlowMaterializer, flowName: String) = {
+    val p = create(materializer, flowName)
+    p._1.subscribe(flowSubscriber)
+    p._2
+  }
+
+  override def isActive: Boolean = true
+  override def create(materializer: ActorBasedFlowMaterializer, flowName: String) = {
+    val ref = materializer.actorOf(
+      TailFilePublisher.props(p, sampling, chunkSize, readAhead), name = s"$flowName-0-path-tail")
+
+    val cancel = new Cancellable {
+      override def isCancelled: Boolean = ref.isTerminated // TODO fixme
+
+      override def cancel(): Boolean = {
+        ref ! TailFilePublisher.Stop
+        true
+      }
+    }
+
+    (akka.stream.actor.ActorPublisher[ByteString](ref), cancel)
   }
 }
 
