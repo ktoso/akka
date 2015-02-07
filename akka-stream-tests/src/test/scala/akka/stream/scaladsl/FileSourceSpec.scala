@@ -11,6 +11,7 @@ import akka.stream.impl.TailFilePublisher
 import akka.stream.testkit.{ AkkaSpec, StreamTestKit }
 import akka.util.ByteString
 
+import scala.annotation.tailrec
 import scala.concurrent.Await
 
 class FileSourceSpec extends AkkaSpec {
@@ -99,14 +100,16 @@ class FileSourceSpec extends AkkaSpec {
       val settings = TailFilePublisher.SamplingSettings(100.millis, TailFilePublisher.HighSamplingSensitivity)
 
       requiresJdk7("tail a file for changes") {
-        val f = File.createTempFile("file-source-tailing-spec", "tmp")
+        val f = File.createTempFile("file-source-tailing-spec", ".tmp")
 
         val tailSource = Source.tail(f.toPath, settings, chunkSize = 128, readAhead = 1)
-        tailSource.runWith(Sink.foreach { testActor ! _ })
+        val fileLineByLine = tailSource.transform(() ⇒ parseLines("\n", 512))
+
+        fileLineByLine.runWith(Sink.foreach { testActor ! _ })
 
         val writer = new FileWriter(f)
-        val line = "Whoa, mathematical!\n"
-        def writeLines(n: Int) = (1 to n) foreach { i ⇒ writer.append(line).flush() }
+        val line = "Whoa, mathematical!"
+        def writeLines(n: Int) = (1 to n) foreach { i ⇒ writer.append(line + "\n").flush() }
 
         try {
 
@@ -114,18 +117,28 @@ class FileSourceSpec extends AkkaSpec {
 
           // collapse multiple writes into one bytestring
           writeLines(3)
-          expectMsgType[ByteString].utf8String should ===(line * 3)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
 
           // single writes can be read one by one if only one write during interval
           writeLines(1)
-          expectMsgType[ByteString].utf8String should ===(line)
+          expectMsgType[String] should ===(line)
           writeLines(1)
-          expectMsgType[ByteString].utf8String should ===(line)
+          expectMsgType[String] should ===(line)
 
           // large amount of writes should be split up in batchSized byteStrings
           writeLines(10)
-          expectMsgType[ByteString].utf8String should ===(line * 5)
-          expectMsgType[ByteString].utf8String should ===(line * 5)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
+          expectMsgType[String] should ===(line)
 
         } finally
           try f.delete() finally writer.close()
@@ -140,5 +153,56 @@ class FileSourceSpec extends AkkaSpec {
   }
 
   final case class Settings(chunkSize: Int, readAhead: Int)
+
+  import akka.stream.stage._
+
+  def parseLines(separator: String, maximumLineBytes: Int) =
+    new StatefulStage[ByteString, String] {
+      private val separatorBytes = ByteString(separator)
+      private val firstSeparatorByte = separatorBytes.head
+      private var buffer = ByteString.empty
+      private var nextPossibleMatch = 0
+
+      def initial = new State {
+        override def onPush(chunk: ByteString, ctx: Context[String]): Directive = {
+          buffer ++= chunk
+          if (buffer.size > maximumLineBytes)
+            ctx.fail(new IllegalStateException(s"Read ${buffer.size} bytes " +
+              s"which is more than $maximumLineBytes without seeing a line terminator"))
+          else emit(doParse(Vector.empty).iterator, ctx)
+        }
+
+        @tailrec
+        private def doParse(parsedLinesSoFar: Vector[String]): Vector[String] = {
+          val possibleMatchPos = buffer.indexOf(firstSeparatorByte, from = nextPossibleMatch)
+          if (possibleMatchPos == -1) {
+            // No matching character, we need to accumulate more bytes into the buffer
+            nextPossibleMatch = buffer.size
+            parsedLinesSoFar
+          } else {
+            if (possibleMatchPos + separatorBytes.size > buffer.size) {
+              // We have found a possible match (we found the first character of the terminator
+              // sequence) but we don't have yet enough bytes. We remember the position to
+              // retry from next time.
+              nextPossibleMatch = possibleMatchPos
+              parsedLinesSoFar
+            } else {
+              if (buffer.slice(possibleMatchPos, possibleMatchPos + separatorBytes.size)
+                == separatorBytes) {
+                // Found a match
+                val parsedLine = buffer.slice(0, possibleMatchPos).utf8String
+                buffer = buffer.drop(possibleMatchPos + separatorBytes.size)
+                nextPossibleMatch -= possibleMatchPos + separatorBytes.size
+                doParse(parsedLinesSoFar :+ parsedLine)
+              } else {
+                nextPossibleMatch += 1
+                doParse(parsedLinesSoFar)
+              }
+            }
+          }
+
+        }
+      }
+    }
 }
 
