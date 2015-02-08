@@ -76,16 +76,16 @@ class StreamFileBenchmark {
   }
 
   @GenerateMicroBenchmark
-  def getLines(): Int = {
+  def getLines: Int = {
     val source = scala.io.Source.fromFile(f)
-    val lines = source.getLines()
+    val lines = source.getLines() // defaultCharBufferSize is 8192
     val i = lines.map(_.length).sum
     source.close()
     i
   }
   
   @GenerateMicroBenchmark
-  def getLinesSource(): Int = {
+  def source_getLines: Int = {
     val source = scala.io.Source.fromFile(f)
     val m = Source(() ⇒ source.getLines()).runWith(sumFoldStringSink)(mat)
     m.map { i ⇒ abq.offer(i) }
@@ -94,8 +94,48 @@ class StreamFileBenchmark {
   }
   
   @GenerateMicroBenchmark
-  def blockingIO_mat_fold(): Int = {
-    val m = Source(f).runWith(sumFoldSink)(mat)
+  def source_blockingIo_chunk_512_ahead_4: Int = {
+    val m = Source(f, chunkSize = 512, readAhead = 4).runWith(sumFoldSink)(mat)
+    m.map { i ⇒ abq.offer(i) }
+    
+    abq.take()
+  }
+  
+  @GenerateMicroBenchmark
+  def source_blockingIo_chunk_512_ahead_8: Int = {
+    val m = Source(f, chunkSize = 512).runWith(sumFoldSink)(mat)
+    m.map { i ⇒ abq.offer(i) }
+    
+    abq.take()
+  }
+  
+  @GenerateMicroBenchmark
+  def source_blockingIo_chunk_512_ahead_16: Int = {
+    val m = Source(f, chunkSize = 512).runWith(sumFoldSink)(mat)
+    m.map { i ⇒ abq.offer(i) }
+    
+    abq.take()
+  }
+
+  @GenerateMicroBenchmark
+  def source_blockingIo_chunk_1024_ahead_8: Int = {
+    val m = Source(f, chunkSize = 512).runWith(sumFoldSink)(mat)
+    m.map { i ⇒ abq.offer(i) }
+    
+    abq.take()
+  }
+
+  @GenerateMicroBenchmark
+  def source_blockingIo_chunk_256_ahead_4: Int = {
+    val m = Source(f, chunkSize = 256, readAhead = 4).runWith(sumFoldSink)(mat)
+    m.map { i ⇒ abq.offer(i) }
+    
+    abq.take()
+  }
+  
+  @GenerateMicroBenchmark
+  def source_blockingIo_chunk_256_ahead_8: Int = {
+    val m = Source(f, chunkSize = 256, readAhead = 8).runWith(sumFoldSink)(mat)
     m.map { i ⇒ abq.offer(i) }
     
     abq.take()
