@@ -5,8 +5,10 @@ package akka.stream.impl
 
 import java.io.{ BufferedInputStream, File, FileInputStream }
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.{ ActorLogging, Props }
+import akka.io.BufferPool
 import akka.stream.actor.ActorPublisherMessage
 import akka.util.ByteString
 
@@ -20,20 +22,17 @@ private[akka] object SimpleFilePublisher {
       .withDispatcher("stream-file-io-dispatcher")
     // TODO: use a dedicated dispatcher for it
   }
-
 }
 
 private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int) extends akka.stream.actor.ActorPublisher[ByteString]
   with ActorLogging {
 
-  private[this] val bufferSize = chunkSize * readAhead
-  require(bufferSize < Int.MaxValue, "bufferSize (chunkSize * readAhead) must be < Int.MaxValue!")
-  private[this] val buffer = ByteBuffer.allocate(bufferSize)
+  private[this] val buffs = new ByteBufferPool(chunkSize, readAhead)
 
-  private[this] var writePos = 0
-  private[this] var readPos = 0
   private[this] var eofReachedAtOffset = Int.MaxValue
-  private[this] var availableChunks = 0
+
+  var readBytesTotal = 0L
+  var availableChunks: Vector[ByteString] = Vector.empty
 
   private[this] lazy val stream = new BufferedInputStream(new FileInputStream(f))
 
@@ -50,13 +49,11 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
 
   def loadAndSignal(): Unit =
     if (isActive) {
-      log.info("load and signal...")
-
       // signal from available buffer right away
       signalOnNexts()
 
       // read chunks
-      while (availableChunks < readAhead && !eofEncountered)
+      while (availableChunks.length < readAhead && !eofEncountered)
         loadChunk()
 
       // keep signalling
@@ -65,60 +62,39 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
     }
 
   @tailrec final def signalOnNexts(): Unit =
-    if (availableChunks > 0) {
-      val offset = chunkOffset(readPos)
+    if (availableChunks.nonEmpty) {
+      val ready = availableChunks.head
+      availableChunks = availableChunks.tail
 
-      val take = math.min(chunkSize, eofReachedAtOffset)
-      val bytes = ByteString(buffer.array).drop(offset).take(take)
-      availableChunks -= 1
-      readPos = if (readPos + 1 >= readAhead) 0 else readPos + 1
-
-      onNext(bytes)
+      onNext(ready)
       //      log.info("Signalled chunk: [{}] (offset: {}), chunks still available: {}, demand: {}", bytes.utf8String, offset, availableChunks, totalDemand)
 
-      log.info(s"total demand = $totalDemand")
-      if (offset >= eofReachedAtOffset) {
-        // end-of-file reached
-        //        log.info("Signalling last chunk [{}], completing now...", bytes.utf8String)
-        onComplete()
-      } else if (totalDemand > 0) {
-        log.info(s"More to signal, total demand = $totalDemand, available = $availableChunks")
+      if (totalDemand > 0) {
+        log.info(s"More to signal, total demand = $totalDemand, available = ${availableChunks.size}")
         signalOnNexts()
       }
     } else if (eofEncountered) onComplete()
 
   /** BLOCKING I/O READ */
   def loadChunk() = {
-    log.info("Loading chunk, into writePos {} ({} * {})...", writePos, writePos, chunkSize)
+    log.info("Loading chunk ({})...", chunkSize)
 
-    val writeOffset = writePos * chunkSize
+    val buf = buffs.acquire()
+    buf.clear()
 
     // blocking read
-    val readBytes = {
-      val i = stream.read(buffer.array, writeOffset, chunkSize)
-      log.info("Loaded " + i + " bytes")
-      i
-    }
+    val readBytes = stream.read(buf.array) // TODO can I use a direct one here, how? Needs array...
+    log.info(s"Loaded $readBytes bytes")
 
     readBytes match {
       case -1 ⇒
         // had nothing to read into this chunk, will complete now
-        eofReachedAtOffset = (if (writePos == 0) readAhead - 1 else writePos - 1) * chunkSize
+        eofReachedAtOffset = -1
         log.info("No more bytes available to read (got `-1` from `read`), marking final bytes of file @ " + eofReachedAtOffset)
 
-      case advanced if advanced < chunkSize ⇒
-        // this was the last chunk, be ready to complete once it has been emited
-        eofReachedAtOffset = writeOffset + advanced
-        log.info(s"Last chunk loaded, end of file marked at offset: $eofReachedAtOffset")
-
-        availableChunks += 1
-        writePos = if (writePos + 1 >= readAhead) 0 else writePos + 1
-      //        log.info("writePos advanced to {}, chunksAvailable: {}, buf: {}", writePos, availableChunks, ByteString(buffer.array).utf8String)
-
       case _ ⇒
-        availableChunks += 1
-        writePos = if (writePos + 1 >= readAhead) 0 else writePos + 1
-      //        log.info("writePos advanced to {}, chunksAvailable: {}, buf: {}", writePos, availableChunks, ByteString(buffer.array).utf8String)
+        availableChunks :+= ByteString(buf).take(readBytes)
+        buffs.release(buf)
 
       // valid read, continue
     }
@@ -134,3 +110,56 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
   }
 }
 
+// TODO FIX THIS IN AKKA INSTEAD OF COPY PASTE
+/**
+ * INTERNAL API
+ *
+ * A buffer pool which keeps a free list of direct buffers of a specified default
+ * size in a simple fixed size stack.
+ *
+ * If the stack is full a buffer offered back is not kept but will be let for
+ * being freed by normal garbage collection.
+ */
+private[akka] class ByteBufferPool(defaultBufferSize: Int, maxPoolEntries: Int) extends BufferPool {
+  private[this] val locked = new AtomicBoolean(false)
+  private[this] val pool: Array[ByteBuffer] = new Array[ByteBuffer](maxPoolEntries)
+  private[this] var buffersInPool: Int = 0
+
+  def acquire(): ByteBuffer =
+    takeBufferFromPool()
+
+  def release(buf: ByteBuffer): Unit =
+    offerBufferToPool(buf)
+
+  private def allocate(size: Int): ByteBuffer =
+    ByteBuffer.allocate(size)
+
+  @tailrec
+  private final def takeBufferFromPool(): ByteBuffer =
+    if (locked.compareAndSet(false, true)) {
+      val buffer =
+        try if (buffersInPool > 0) {
+          buffersInPool -= 1
+          pool(buffersInPool)
+        } else null
+        finally locked.set(false)
+
+      // allocate new and clear outside the lock
+      if (buffer == null)
+        allocate(defaultBufferSize)
+      else {
+        buffer.clear()
+        buffer
+      }
+    } else takeBufferFromPool() // spin while locked
+
+  @tailrec
+  private final def offerBufferToPool(buf: ByteBuffer): Unit =
+    if (locked.compareAndSet(false, true))
+      try if (buffersInPool < maxPoolEntries) {
+        pool(buffersInPool) = buf
+        buffersInPool += 1
+      } // else let the buffer be gc'd
+      finally locked.set(false)
+    else offerBufferToPool(buf) // spin while locked
+}
