@@ -3,20 +3,35 @@
  */
 package akka.stream.impl
 
-import java.io.{ BufferedInputStream, FileInputStream }
 import java.nio.ByteBuffer
+import java.nio.channels.{ AsynchronousFileChannel, CompletionHandler }
 import java.nio.file.WatchEvent.Kind
-import java.nio.file.{ Path, StandardWatchEventKinds, WatchEvent, WatchKey }
+import java.nio.file.{ Path, StandardOpenOption, StandardWatchEventKinds, WatchEvent, WatchKey }
+import java.util.concurrent.atomic.{ AtomicInteger, AtomicLong }
+import java.util.concurrent.{ ArrayBlockingQueue, BlockingQueue, ExecutorService, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit }
 
 import akka.actor.{ ActorLogging, Props }
+import akka.dispatch.{ MonitorableThreadFactory, ThreadPoolConfig }
+import akka.io.DirectByteBufferPool
 import akka.stream.actor.ActorPublisherMessage.Request
-import akka.stream.impl.TailFilePublisher.SamplingSettings
+import akka.stream.impl.TailFilePublisher.{ SamplingSettings, Stop }
 import akka.util.ByteString
+import com.typesafe.config.Config
 
-import scala.annotation.tailrec
+import scala.collection.JavaConverters._
+import scala.collection.SortedSet
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.forkjoin.ForkJoinPool
 
 private[akka] object TailFilePublisher {
+
+  def props(p: Path, sampling: SamplingSettings, chunkSize: Int, readAhead: Int) = {
+    require(chunkSize > 0, s"chunkSize must be > 0 (was $chunkSize)")
+    require(isPowerOfTwo(chunkSize), s"chunkSize must be power of 2 (was $chunkSize)")
+    require(readAhead > 0, s"readAhead must be > 0 (was $readAhead)")
+
+    Props(classOf[TailFilePublisher], p, sampling, chunkSize, readAhead)
+  }
 
   /**
    * TODO docs
@@ -39,15 +54,6 @@ private[akka] object TailFilePublisher {
     override def underlying = com.sun.nio.file.SensitivityWatchEventModifier.LOW
   }
 
-  def props(p: Path, sampling: SamplingSettings, chunkSize: Int, readAhead: Int) = {
-    require(chunkSize > 0, s"chunkSize must be > 0 (was $chunkSize)")
-    require(isPowerOfTwo(chunkSize), s"chunkSize must be power of 2 (was $chunkSize)")
-    require(readAhead > 0, s"readAhead must be > 0 (was $readAhead)")
-
-    Props(classOf[TailFilePublisher], p, sampling, chunkSize, readAhead)
-      .withDispatcher("stream-file-io-dispatcher") // TODO: use a dedicated dispatcher for it
-  }
-
   /**
    * PRIVATE API
    * For public API use the materialized cancellable of this Source
@@ -59,27 +65,18 @@ private[akka] object TailFilePublisher {
 
 /** JDK7+ ONLY */
 private[akka] class TailFilePublisher(
-  path: Path, sampling: SamplingSettings, chunkLength: Int, chunkSlots: Int)
+  path: Path, sampling: SamplingSettings, chunkLength: Int, poolEntries: Int)
   extends akka.stream.actor.ActorPublisher[ByteString] with ActorLogging {
 
-  private[this] val bufferSize = chunkLength * chunkSlots
-  require(bufferSize < Int.MaxValue, "bufferSize (chunkLength * readAhead) must be < Int.MaxValue!")
+  private[this] val buffs = new DirectByteBufferPool(chunkLength, poolEntries)
 
-  private[this] val buf = ByteBuffer.allocate(bufferSize)
-  log.warning("Allocated buffer: {}", buf.capacity())
+  private[this] val fileOffset = new AtomicLong(0)
 
-  private[this] var writePos = 0
-  private[this] var readPos = 0
-  private[this] var readCompletedAt = Int.MaxValue
-  private[this] var availableChunks = 0
+  private[this] val readsInFlight = new AtomicInteger(0)
 
-  private[this] val chunkSizes: Array[Int] = Array.ofDim(chunkSlots)
-
-  //  private[this] val chunkLenght: AtomicReference[Array[Int]] = new AtomicReference(Array(0 until readAhead): _*)
-
-  private[this] lazy val stream = new BufferedInputStream(new FileInputStream(path.toFile))
-
-  //  private[this] val chan = AsynchronousFileChannel.open(path, StandardOpenOption.READ)
+  private val config = context.system.settings.config.getConfig("akka.stream.file-io.executor")
+  private[this] val fileIoExecutor = new ThreadPoolConfigurator(config).pool
+  private[this] val chan = AsynchronousFileChannel.open(path, Set(StandardOpenOption.READ).asJava, fileIoExecutor)
 
   private[this] val watchService = path.getFileSystem.newWatchService()
 
@@ -95,6 +92,13 @@ private[akka] class TailFilePublisher(
   private val samplingCancellable = context.system.scheduler.schedule(sampling.interval, sampling.interval, self, SamplingTick)
 
   final case object Continue
+  final case class ChunkOffer(fromFileOffset: Long, bs: ByteString)
+  final case class ReadFailure(fromFileOffset: Long, thr: Throwable)
+
+  implicit val offerOrdering = new Ordering[ChunkOffer] {
+    override def compare(x: ChunkOffer, y: ChunkOffer): Int = x.fromFileOffset.compareTo(y.fromFileOffset)
+  }
+  private var chunkOffers: SortedSet[ChunkOffer] = SortedSet.empty
 
   /**
    * Used to "debounce" multiple write events coming in during one sampling interval.
@@ -105,8 +109,13 @@ private[akka] class TailFilePublisher(
   def receive = {
     case Request(n) ⇒
       log.warning("incoming demand: {}, totalDemand: {}", n, totalDemand)
-      // okey, we know
+      signalReadyChunks()
       loadAndSignal()
+
+    case offer @ ChunkOffer(offset, bs) ⇒
+      // TODO ordering issues, use filePos
+      if (totalDemand > 0) onNext(bs)
+      else chunkOffers += offer
 
     case SamplingTick ⇒
       val key = watchService.poll()
@@ -114,12 +123,27 @@ private[akka] class TailFilePublisher(
 
     case Continue ⇒
       loadAndSignal()
+
+    case Stop ⇒
+      onComplete()
+      context stop self
+  }
+
+  def signalReadyChunks(): Unit = {
+    var signalled = 0
+    val it = chunkOffers.iterator
+    while (it.hasNext && totalDemand > 0) {
+      val offer = it.next()
+      log.warning("Signalling chunk from offset {}, size {}", offer.fromFileOffset, offer.bs.size, offer.bs.utf8String)
+
+      onNext(offer.bs)
+      signalled += 1
+    }
+
+    chunkOffers = chunkOffers.drop(signalled)
   }
 
   def handlePoll(key: WatchKey): Unit = {
-    if (key ne null)
-      log.warning("key = {}", key)
-
     if (key ne null) {
       val evts = key.pollEvents()
       var i = 0
@@ -129,8 +153,8 @@ private[akka] class TailFilePublisher(
         val e = evts.get(i)
         log.warning("Got {}, count {}, kind: {}", e, e.count(), e.kind())
 
-        //        if (e.context().asInstanceOf[Path].getFileName == path.getFileName) { // TODO fix this
         import java.nio.file.StandardWatchEventKinds._
+        // TODO only react on the right event (check context())
         e.kind() match {
           case OVERFLOW | ENTRY_MODIFY ⇒
             loadAndSignal()
@@ -148,80 +172,61 @@ private[akka] class TailFilePublisher(
     if (isActive) {
       log.warning("load and signal...")
 
-      // signal from available buffer right away
-      signalOnNexts()
-
-      // read chunks
-      var keepReading = true
-      while (availableChunks < chunkSlots && keepReading)
-        keepReading = loadChunk()
-
-      // keep signalling
-      if (keepReading && totalDemand > 0) self ! Continue
-
-    }
-
-  @tailrec final def signalOnNexts(): Unit =
-    if (availableChunks > 0) {
-      val offset = chunkOffset(readPos)
-      val take = takeResetChunkSize(readPos)
-      val bytes = ByteString(buf.array).drop(offset).take(take)
-      availableChunks -= 1
-      readPos = if (readPos + 1 >= chunkSlots) 0 else readPos + 1
-
-      onNext(bytes)
-      log.warning("Signalled chunk: [{}] (offset: {}), chunks still available: {}, demand: {}", bytes.utf8String, offset, availableChunks, totalDemand)
-
-      log.warning(s"total demand = $totalDemand")
-      if (offset >= readCompletedAt) {
-        // end-of-file reached
-        //        log.warning("Signalling last chunk [{}], completing now...", bytes.utf8String)
-        onComplete()
-      } else if (totalDemand > 0) {
-        log.warning(s"More to signal, total demand = $totalDemand, available = $availableChunks")
-        signalOnNexts()
+      if (readsInFlight.get() == 0) {
+        log.warning("Initial read...")
+        asyncLoadChunk()
       }
-    } else if (eofEncountered) onComplete()
-
-  /** BLOCKING I/O READ */
-  def loadChunk(): Boolean = {
-    log.warning("Loading chunk, into writePos {} ({} * {})...", writePos, writePos, chunkLength)
-
-    val writeOffset = writePos * chunkLength
-
-    // blocking read
-    val readBytes = stream.read(buf.array, writeOffset, chunkLength)
-
-    readBytes match {
-      case -1 ⇒
-        // ignore "EOF" as we're tailing it, contents may come soon after
-        // nothing to read, stop reading
-        log.warning("Stop reading, EOF encountered, writePos = {}", writePos)
-        chunkSizes(writePos) = 0
-        false
-
-      case _ ⇒
-        availableChunks += 1
-        chunkSizes(writePos) = readBytes // mark how many bytes read for this chunk, can often be less than chunk size(!)
-        writePos = if (writePos + 1 >= chunkSlots) 0 else writePos + 1
-
-        // valid read, continue
-        true
     }
+
+  def asyncLoadChunk(): Unit = {
+    log.warning("Async load (in flight already: {})", readsInFlight.get())
+    val buf = aquire()
+    buf.clear()
+
+    val from = fileOffset.get() // TODO ??? because optimistic read-ahead this from must be incremented if we're peeking ahead
+    //    val from = fileOffset.get() + (chunkLength * readsInFlight.get)
+    log.warning("Loading chunk (fileOffset: {})...", from)
+
+    if (from <= chan.size())
+      chan.read(buf, from, buf, new CompletionHandler[Integer, ByteBuffer] {
+        override def completed(readBytes: Integer, bytes: ByteBuffer): Unit = {
+          if (readBytes > 0) {
+            fileOffset.addAndGet(readBytes.toInt)
+            log.warning("Read bytes: {}, offset now: {}", readBytes, fileOffset.get)
+
+            bytes.flip()
+            val offer = ChunkOffer(from, ByteString(bytes).take(readBytes))
+            log.warning("GOT: " + offer.bs.utf8String)
+
+            release(bytes)
+            asyncLoadChunk()
+
+            self ! offer
+          } else {
+            release(bytes)
+          }
+
+        }
+
+        override def failed(thr: Throwable, bytes: ByteBuffer): Unit = {
+          bytes.flip()
+          release(bytes)
+
+          self ! ReadFailure(from, thr)
+
+        }
+      })
   }
 
-  final def chunkOffset(pos: Int): Int = {
-    log.warning("pos * chunkSize = {}", pos * chunkLength)
-    pos * chunkLength
+  def aquire(): ByteBuffer = {
+    readsInFlight.incrementAndGet()
+    buffs.acquire()
   }
 
-  final def takeResetChunkSize(pos: Int): Int = {
-    val s = chunkSizes(pos)
-    chunkSizes(pos) = 0 // marks as "free"
-    s
+  def release(bytes: ByteBuffer): Unit = {
+    readsInFlight.decrementAndGet()
+    buffs.release(bytes)
   }
-
-  final def eofEncountered: Boolean = readCompletedAt != Int.MaxValue
 
   private def registerWatchService(p: Path, eventKinds: Array[WatchEvent.Kind[_]]): WatchKey = {
     val dir = if (p.toFile.isDirectory) p.toAbsolutePath else p.getParent.toAbsolutePath
@@ -231,8 +236,45 @@ private[akka] class TailFilePublisher(
 
   override def postStop(): Unit = {
     super.postStop()
-    try stream.close() finally samplingCancellable.cancel()
+    // TODO make sure all are released...?
     watchService.close()
+    samplingCancellable.cancel()
   }
 }
 
+/**
+ * https://raw.githubusercontent.com/drexin/akka-io-file/master/src/main/scala/akka/io/ThreadPoolConfigurator.scala
+ */
+class ThreadPoolConfigurator(config: Config) {
+  val pool: ExecutorService = config.getString("type") match {
+    case "fork-join-executor"   ⇒ createForkJoinExecutor(config.getConfig("fork-join-executor"))
+    case "thread-pool-executor" ⇒ createThreadPoolExecutor(config.getConfig("thread-pool-executor"))
+  }
+
+  private def createForkJoinExecutor(config: Config) =
+    new ForkJoinPool(
+      ThreadPoolConfig.scaledPoolSize(
+        config.getInt("parallelism-min"),
+        config.getDouble("parallelism-factor"),
+        config.getInt("parallelism-max")),
+      ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+      MonitorableThreadFactory.doNothing, true)
+
+  private def createThreadPoolExecutor(config: Config) = {
+    def createQueue(tpe: String, size: Int): BlockingQueue[Runnable] = tpe match {
+      case "array"       ⇒ new ArrayBlockingQueue[Runnable](size, false)
+      case "" | "linked" ⇒ new LinkedBlockingQueue[Runnable](size)
+      case x             ⇒ throw new IllegalArgumentException("[%s] is not a valid task-queue-type [array|linked]!" format x)
+    }
+
+    val corePoolSize = ThreadPoolConfig.scaledPoolSize(config.getInt("core-pool-size-min"), config.getDouble("core-pool-size-factor"), config.getInt("core-pool-size-max"))
+    val maxPoolSize = ThreadPoolConfig.scaledPoolSize(config.getInt("max-pool-size-min"), config.getDouble("max-pool-size-factor"), config.getInt("max-pool-size-max"))
+
+    new ThreadPoolExecutor(
+      corePoolSize,
+      maxPoolSize,
+      config.getDuration("keep-alive-time", TimeUnit.MILLISECONDS),
+      TimeUnit.MILLISECONDS,
+      createQueue(config.getString("task-queue-type"), config.getInt("task-queue-size")))
+  }
+}
