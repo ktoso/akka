@@ -5,7 +5,7 @@ package akka.stream.impl
 
 import java.io.{ File, FileInputStream }
 import java.nio.ByteBuffer
-import java.nio.channels.{FileChannel, CompletionHandler, AsynchronousFileChannel}
+import java.nio.channels.{ CompletionHandler, AsynchronousFileChannel }
 import java.nio.file.StandardOpenOption
 import java.util.concurrent.atomic.{ AtomicLong, AtomicBoolean }
 
@@ -16,17 +16,17 @@ import akka.util.ByteString
 
 import scala.annotation.tailrec
 
-private[akka] object SimpleFilePublisher {
+private[akka] object AsyncFilePublisher {
   def props(f: File, chunkSize: Int, readAhead: Int) = {
     require(chunkSize > 0, s"chunkSize must be > 0 (was $chunkSize)")
     require(readAhead > 0, s"readAhead must be > 0 (was $readAhead)")
-    Props(classOf[SimpleFilePublisher], f, chunkSize, readAhead)
+    Props(classOf[AsyncFilePublisher], f, chunkSize, readAhead)
       .withDispatcher("stream-file-io-dispatcher")
     // TODO: use a dedicated dispatcher for it
   }
 }
 
-private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int) extends akka.stream.actor.ActorPublisher[ByteString]
+private[akka] class AsyncFilePublisher(f: File, chunkSize: Int, readAhead: Int) extends akka.stream.actor.ActorPublisher[ByteString]
   with ActorLogging {
 
   private[this] val buffs = new DirectByteBufferPool(chunkSize, readAhead)
@@ -40,6 +40,7 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
 
   private[this] lazy val stream = new FileInputStream(f)
   private[this] lazy val chan = stream.getChannel
+  private[this] lazy val achan = AsynchronousFileChannel.open(f.toPath, StandardOpenOption.READ)
 
   final case object Continue
 
@@ -141,6 +142,7 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
 
   override def postStop(): Unit = {
     super.postStop()
+    achan.close()
     try chan.close() finally stream.close()
   }
 }
