@@ -47,7 +47,7 @@ class fiStreamFileBenchmark {
 
   var runToFold: RunnableFlow = _
   
-  @Param(Array("1048576"))
+  @Param(Array("1048576", "10485760"))
   val fileSize = 0 // bytes
   
   var f: File = _
