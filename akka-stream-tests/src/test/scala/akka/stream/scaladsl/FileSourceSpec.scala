@@ -117,7 +117,7 @@ class FileSourceSpec extends AkkaSpec {
 
           // collapse multiple writes into one bytestring
           writeLines(3)
-          within(5.seconds) {
+          within(10.seconds) {
             expectMsgType[String] should ===(line)
             expectMsgType[String] should ===(line)
             expectMsgType[String] should ===(line)
@@ -125,7 +125,7 @@ class FileSourceSpec extends AkkaSpec {
 
           // single writes can be read one by one if only one write during interval
           writeLines(1)
-          within(5.seconds) {
+          within(10.seconds) {
             expectMsgType[String] should ===(line)
             writeLines(1)
             expectMsgType[String] should ===(line)
@@ -149,6 +149,8 @@ class FileSourceSpec extends AkkaSpec {
         } finally
           try f.delete() finally writer.close()
       }
+
+      // TODO test for ordering issues
     }
 
     def requiresJdk7(s: String)(block: ⇒ Unit) = {
