@@ -5,10 +5,12 @@ package akka.stream.impl
 
 import java.io.{ File, FileInputStream }
 import java.nio.ByteBuffer
-import java.util.concurrent.atomic.AtomicBoolean
+import java.nio.channels.{ CompletionHandler, AsynchronousFileChannel }
+import java.nio.file.StandardOpenOption
+import java.util.concurrent.atomic.{ AtomicLong, AtomicBoolean }
 
 import akka.actor.{ ActorLogging, Props }
-import akka.io.BufferPool
+import akka.io.{ DirectByteBufferPool, BufferPool }
 import akka.stream.actor.ActorPublisherMessage
 import akka.util.ByteString
 
@@ -27,15 +29,18 @@ private[akka] object SimpleFilePublisher {
 private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int) extends akka.stream.actor.ActorPublisher[ByteString]
   with ActorLogging {
 
-  private[this] val buffs = new ByteBufferPool(chunkSize, readAhead)
+  private[this] val buffs = new DirectByteBufferPool(chunkSize, readAhead)
 
   private[this] var eofReachedAtOffset = Int.MaxValue
 
   var readBytesTotal = 0L
   var availableChunks: Vector[ByteString] = Vector.empty
 
+  var filePos = new AtomicLong(0L)
+
   private[this] lazy val stream = new FileInputStream(f)
-  private[this] lazy val chan = new FileInputStream(f).getChannel
+  private[this] lazy val chan = stream.getChannel
+  private[this] lazy val achan = AsynchronousFileChannel.open(f.toPath, StandardOpenOption.READ)
 
   final case object Continue
 
@@ -44,6 +49,13 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
       log.info("Demand added " + elements + ", now at " + totalDemand)
 
       loadAndSignal()
+
+    case Offer(pos, bs) ⇒
+      availableChunks :+= bs // TODO ordering issues
+      signalOnNexts()
+
+    case Failed(pos, thr) ⇒
+      throw thr // let supervision handle it
 
     case Continue ⇒ if (totalDemand > 0) loadAndSignal()
   }
@@ -88,12 +100,13 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
     log.info(s"Loaded $readBytes bytes")
 
     readBytes match {
-      case -1 ⇒
+      case -1 | 0 ⇒
         // had nothing to read into this chunk, will complete now
         eofReachedAtOffset = -1
         log.info("No more bytes available to read (got `-1` from `read`), marking final bytes of file @ " + eofReachedAtOffset)
 
       case _ ⇒
+        buf.flip()
         availableChunks :+= ByteString(buf).take(readBytes)
         buffs.release(buf)
 
@@ -101,10 +114,35 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
     }
   }
 
+  def asyncLoadChunk() = {
+    val pos = filePos.getAndAdd(chunkSize)
+    log.info("Loading chunk async ({}~{}~>{})", pos, chunkSize, pos + chunkSize)
+
+    val buf = buffs.acquire()
+    buf.clear()
+
+    achan.read(buf, pos, buf, new CompletionHandler[Integer, ByteBuffer] {
+      override def completed(readBytes: Integer, bytes: ByteBuffer): Unit =
+        if (readBytes > 0) {
+          self ! Offer(pos, ByteString(bytes).take(readBytes))
+          buffs.release(bytes)
+        }
+
+      override def failed(thr: Throwable, bytes: ByteBuffer): Unit = {
+        self ! Failed(pos, thr)
+        buffs.release(bytes)
+      }
+    })
+  }
+
+  final case class Offer(filePos: Long, bs: ByteString)
+  final case class Failed(filePos: Long, thr: Throwable)
+
   private final def eofEncountered: Boolean = eofReachedAtOffset != Int.MaxValue
 
   override def postStop(): Unit = {
     super.postStop()
+    achan.close()
     try chan.close() finally stream.close()
   }
 }
