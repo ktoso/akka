@@ -148,7 +148,7 @@ object Source {
    *
    * Refer to [[Source#tail]] for a more advanced (JDK 7+ only).
    */
-  def apply(f: File, chunkSize: Int = 256, readAhead: Int = 4): FileSource =
+  def apply(f: File, chunkSize: Int = 512, readAhead: Int = 16): FileSource =
     FileSource(f, chunkSize, readAhead)
 
   /**

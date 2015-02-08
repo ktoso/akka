@@ -73,7 +73,7 @@ class FlowMapBenchmark {
     system.awaitTermination()
   }
 
-  @GenerateMicroBenchmark
+  @Benchmark
   @OperationsPerInvocation(100000)
   def flow_map_100k_elements() {
     val lock = new Lock() // todo rethink what is the most lightweight way to await for a streams completion

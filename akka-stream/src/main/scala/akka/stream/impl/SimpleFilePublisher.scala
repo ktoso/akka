@@ -3,7 +3,7 @@
  */
 package akka.stream.impl
 
-import java.io.{ BufferedInputStream, File, FileInputStream }
+import java.io.{ File, FileInputStream }
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -34,7 +34,8 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
   var readBytesTotal = 0L
   var availableChunks: Vector[ByteString] = Vector.empty
 
-  private[this] lazy val stream = new BufferedInputStream(new FileInputStream(f))
+  private[this] lazy val stream = new FileInputStream(f)
+  private[this] lazy val chan = new FileInputStream(f).getChannel
 
   final case object Continue
 
@@ -83,7 +84,7 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
     buf.clear()
 
     // blocking read
-    val readBytes = stream.read(buf.array) // TODO can I use a direct one here, how? Needs array...
+    val readBytes = chan.read(buf)
     log.info(s"Loaded $readBytes bytes")
 
     readBytes match {
@@ -100,13 +101,11 @@ private[akka] class SimpleFilePublisher(f: File, chunkSize: Int, readAhead: Int)
     }
   }
 
-  final def chunkOffset(pos: Int): Int = pos * chunkSize
-
-  final def eofEncountered: Boolean = eofReachedAtOffset != Int.MaxValue
+  private final def eofEncountered: Boolean = eofReachedAtOffset != Int.MaxValue
 
   override def postStop(): Unit = {
     super.postStop()
-    stream.close()
+    try chan.close() finally stream.close()
   }
 }
 

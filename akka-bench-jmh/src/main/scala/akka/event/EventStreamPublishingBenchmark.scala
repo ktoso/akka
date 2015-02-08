@@ -67,25 +67,25 @@ class EventStreamPublishingBenchmark {
   }
 
   @Threads(1)
-  @GenerateMicroBenchmark
+  @Benchmark
   def publish_matching_events_to_event_stream_1_thread() {
     eventStream.publish(a)
   }
 
   @Threads(8)
-  @GenerateMicroBenchmark
+  @Benchmark
   def publish_matching_events_to_event_stream_8_threads() {
     eventStream.publish(a)
   }
 
   @Threads(1)
-  @GenerateMicroBenchmark
+  @Benchmark
   def publish_notMatching_events_to_event_stream_1_threads() {
     eventStream.publish(c)
   }
 
   @Threads(8)
-  @GenerateMicroBenchmark
+  @Benchmark
   def publish_notMatching_events_to_event_stream_8_threads() {
     eventStream.publish(c)
   }
