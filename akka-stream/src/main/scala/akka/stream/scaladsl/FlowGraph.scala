@@ -215,6 +215,13 @@ object Concat {
 object FlowGraph extends FlowGraphApply {
   import akka.stream.scaladsl.Graphs._
 
+  def apply[Mat](g1: Graph[Ports, Mat])(buildBlock: FlowGraphBuilder ⇒ (g1.Ports) ⇒ Unit): RunnableFlow[Mat] = {
+    val builder = new FlowGraphBuilder
+    val p1 = builder.importGraph(g1, (_: Any, m1: Mat) ⇒ m1)
+    buildBlock(builder)(p1)
+    builder.buildRunnable().asInstanceOf[RunnableFlow[Mat]]
+  }
+
   def apply(buildBlock: (FlowGraphBuilder) ⇒ Unit): RunnableFlow[Unit] = {
     val builder = new FlowGraphBuilder
     buildBlock(builder)
@@ -301,7 +308,7 @@ object FlowGraph extends FlowGraphApply {
       if (!moduleInProgress.isRunnable) {
         throw new IllegalStateException(
           "Cannot build the RunnableFlow because there are unconnected ports: " +
-            (moduleInProgress.outPorts ++ moduleInProgress.inPorts).mkString(","))
+            (moduleInProgress.outPorts ++ moduleInProgress.inPorts).mkString(", "))
       }
       new RunnableFlow[Unit](moduleInProgress)
     }

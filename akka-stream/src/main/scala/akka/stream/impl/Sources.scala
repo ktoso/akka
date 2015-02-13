@@ -23,7 +23,7 @@ trait SourceModule[+Out, Mat] extends StreamLayout.Module {
   override def upstreams = Map.empty
   override def downstreams = Map.empty
   override def inPorts = Set.empty
-  val outPort: Graphs.OutPort[Out] = new Graphs.OutPort[Out]("FIXME")
+  val outPort: Graphs.OutPort[Out] = new Graphs.OutPort[Out]("Source.out")
   override val outPorts: Set[StreamLayout.OutPort] = Set(outPort)
 
   /**

@@ -9,14 +9,30 @@ import scala.collection.immutable
 
 object Graphs {
 
-  final class InPort[-T](override val toString: String) extends StreamLayout.InPort
-  final class OutPort[+T](override val toString: String) extends StreamLayout.OutPort
+  sealed class InPort[-T](name: String) extends StreamLayout.InPort {
+    override val toString = s"$name(${super.toString.split('@').tail.head})"
+  }
+  sealed class OutPort[+T](name: String) extends StreamLayout.OutPort {
+    override val toString = s"$name(${super.toString.split('@').tail.head})"
+  }
+
+  /**
+   * All incarnations of an [[IndexedInPort]] retain the same [[id]].
+   * This may be used to identify multiple copies of a port pointing to teh same logical "position", e.g in selecting ports of a [[FlexiMerge]].
+   */
+  final class IndexedInPort[-T](val id: Int, name: String) extends InPort[T](name)
+
+  /**
+   * All incarnations of an [[IndexedOutPort]] retain the same [[id]].
+   * This may be used to identify multiple copies of a port pointing to teh same logical "position", e.g in selecting ports of a [[FlexiRoute]].
+   */
+  final class IndexedOutPort[+T](val id: Int, name: String) extends OutPort[T](name)
 
   trait Ports {
     def inlets: immutable.Seq[InPort[_]]
     def outlets: immutable.Seq[OutPort[_]]
 
-    def deepCopy(): Ports
+    def deepCopy(): Ports // could be this.type
   }
 
   final case class SourcePorts[+T](outlet: OutPort[T]) extends Ports {
