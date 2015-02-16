@@ -22,7 +22,7 @@ object GraphFlexiMergeSpec {
       val input2 = createInputPort[T]()
     }
 
-    final case class Logic[T](override val ports: Ports[T]) extends FlexiMerge[T, Ports[T]](ports) {
+    final case class Logic[T](override val ports: Ports[T]) extends FlexiMerge[T, Ports](ports) {
       def initialState = State[T](ReadAny(ports.input1, ports.input2)) { (ctx, input, element) ⇒
         ctx.emit(element)
         SameState
@@ -43,7 +43,7 @@ object GraphFlexiMergeSpec {
      * It never skips an input while cycling but waits on it instead (closed inputs are skipped though).
      * The fair merge above is a non-strict round-robin (skips currently unavailable inputs).
      */
-    final case class Logic[T](override val ports: Ports[T]) extends FlexiMerge[T, Ports[T]](ports) {
+    final case class Logic[T](override val ports: Ports[T]) extends FlexiMerge[T, Ports](ports) {
       import akka.stream.scaladsl.FlexiMerge._
       import ports._
 
@@ -90,7 +90,7 @@ object GraphFlexiMergeSpec {
       val input2 = createInputPort[B]()
     }
 
-    final case class Logic[A, B](override val ports: Ports[A, B]) extends FlexiMerge[(A, B), Ports[A, B]](ports) {
+    final case class Logic[A, B](override val ports: Ports[A, B]) extends FlexiMerge[(A, B), Ports](ports) {
       import ports._
 
       var lastInA: A = _
@@ -115,10 +115,7 @@ object GraphFlexiMergeSpec {
       override def initialState: State[_] = readA
     }
 
-    def apply[A, B]()(implicit b: FlowGraphBuilder): Ports[A, B] = {
-      val ports: MyZip.Ports[A, B] = Ports[A, B]()
-      FlexiMerge(ports)(p ⇒ Logic[A, B](p))
-    }
+    def apply[A, B]()(implicit b: FlowGraphBuilder): Ports[A, B] = FlexiMerge(Ports[A, B]())(Logic[A, B])
 
   }
 
@@ -316,7 +313,7 @@ class GraphFlexiMergeSpec extends AkkaSpec {
     "build simple fair merge" in {
       val p = FlowGraph[Publisher[String]](out) { implicit b ⇒
         o ⇒
-          val merge: Fair.Ports[String] = FlexiMerge(Fair.Ports[String](), Fair.Logic[String])
+          val merge = FlexiMerge(Fair.Ports[String]())(Fair.Logic[String])
 
           in1 ~> merge.input1
           in2 ~> merge.input2

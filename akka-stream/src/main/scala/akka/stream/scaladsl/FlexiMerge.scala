@@ -11,12 +11,13 @@ import akka.stream.scaladsl.Graphs.{ InPort, IndexedInPort, OutPort, Ports }
 import scala.collection.immutable
 import scala.collection.immutable.Seq
 
-object FlexiMerge {
-  import scala.language.higherKinds
+import scala.language.higherKinds
 
-  def apply[T, P[O] <: FlexiPorts[O]](ports: P[T])(createMergeLogic: P[T] ⇒ FlexiMerge[T, P[T]])(implicit b: FlowGraphBuilder): P[T] = {
+object FlexiMerge {
+
+  def apply[T, P[O] <: FlexiPorts[O]](ports: P[T])(createMergeLogic: P[T] ⇒ FlexiMerge[T, P])(implicit b: FlowGraphBuilder): P[T] = {
     val flexi = createMergeLogic(ports)
-    val module = new FlexiMergeModule(flexi, ports.inlets, ports.out)
+    val module = new FlexiMergeModule[T, P](flexi, ports.inlets, ports.out)
     b.addModule(module)
     flexi.ports
   }
@@ -261,10 +262,11 @@ import scala.language.higherKinds
  *
  * Note that a `FlexiMerge` instance can only be used at one place in the `FlowGraph` (one vertex).
  *
+ * @param ports ports that this junction exposes
  * @param attributes optional attributes for this vertex
  */
-abstract class FlexiMerge[Out, P <: FlexiPorts[Out]](
-  val ports: P,
+abstract class FlexiMerge[Out, P <: FlexiPorts](
+  val ports: P[Out],
   val attributes: OperationAttributes = OperationAttributes.name("FlexiMerge")) extends MergeLogic[Out] {
 
   def inputHandles(inputCount: Int): immutable.IndexedSeq[InPort[_]] = ports.inlets
