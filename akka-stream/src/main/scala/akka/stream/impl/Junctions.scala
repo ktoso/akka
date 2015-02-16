@@ -82,7 +82,7 @@ object Junctions {
 
   import scala.language.higherKinds
 
-  final case class FlexiMergeModule[T, P[O] <: FlexiPorts[O]](
+  final case class FlexiMergeModule[T, P <: FlexiPorts[T]](
     flexi: FlexiMerge[T, P], // TODO just the logic factory instead?
     ins: Vector[Graphs.InPort[_]],
     out: Graphs.OutPort[_],

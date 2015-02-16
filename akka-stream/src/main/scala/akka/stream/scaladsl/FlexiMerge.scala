@@ -15,7 +15,7 @@ import scala.language.higherKinds
 
 object FlexiMerge {
 
-  def apply[T, P[O] <: FlexiPorts[O]](ports: P[T])(createMergeLogic: P[T] ⇒ FlexiMerge[T, P])(implicit b: FlowGraphBuilder): P[T] = {
+  def apply[T, P <: FlexiPorts[T]](ports: P)(createMergeLogic: P ⇒ FlexiMerge[T, P])(implicit b: FlowGraphBuilder): P = {
     val flexi = createMergeLogic(ports)
     val module = new FlexiMergeModule[T, P](flexi, ports.inlets, ports.out)
     b.addModule(module)
@@ -265,8 +265,8 @@ import scala.language.higherKinds
  * @param ports ports that this junction exposes
  * @param attributes optional attributes for this vertex
  */
-abstract class FlexiMerge[Out, P <: FlexiPorts](
-  val ports: P[Out],
+abstract class FlexiMerge[Out, P <: FlexiPorts[Out]](
+  val ports: P,
   val attributes: OperationAttributes = OperationAttributes.name("FlexiMerge")) extends MergeLogic[Out] {
 
   def inputHandles(inputCount: Int): immutable.IndexedSeq[InPort[_]] = ports.inlets
