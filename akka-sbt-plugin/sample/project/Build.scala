@@ -6,7 +6,7 @@ import akka.sbt.AkkaKernelPlugin.{ Dist, outputDirectory, distJvmOptions}
 
 object HelloKernelBuild extends Build {
   val Organization = "akka.sample"
-  val Version      = "2.2.1"
+  val Version      = "2.2.1.1-manhattan"
   val ScalaVersion = "2.10.2"
 
   lazy val HelloKernel = Project(
