@@ -59,7 +59,7 @@ class GraphPreferredMergeSpec extends TwoStreamsSetup {
 
           merge.out ~> Sink.head[Int]
         }
-      }).getMessage should include("[MergePreferred.preferred] is not part of the underlying graph.")
+      }).getMessage should include("[MergePreferred.preferred] is already connected")
     }
 
   }

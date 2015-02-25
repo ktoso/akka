@@ -50,6 +50,9 @@ class TwitterStreamQuickstartDocSpec extends AkkaSpec {
 
   implicit val executionContext = system.dispatcher
 
+  // Disable println
+  def println(s: Any): Unit = ()
+
   trait Example0 {
     //#tweet-source
     val tweets: Source[Tweet, Unit]
