@@ -3,12 +3,11 @@
  */
 package akka.stream.scaladsl
 
-import java.io.{ File, FileWriter }
+import java.io.{File, FileWriter}
 import java.util.Random
 
-import akka.stream.FlowMaterializer
-import akka.stream.impl.TailFilePublisher
-import akka.stream.testkit.{ AkkaSpec, StreamTestKit }
+import akka.stream.ActorFlowMaterializer
+import akka.stream.testkit.{AkkaSpec, StreamTestKit}
 import akka.util.ByteString
 
 import scala.annotation.tailrec
@@ -16,7 +15,7 @@ import scala.concurrent.Await
 
 class FileSourceSpec extends AkkaSpec {
 
-  implicit val materializer = FlowMaterializer()
+  implicit val materializer = ActorFlowMaterializer()
 
   val testFile = {
     val f = File.createTempFile("file-source-spec", "tmp")
@@ -95,63 +94,63 @@ class FileSourceSpec extends AkkaSpec {
         }
       }
 
-    "Java 7+ only:" must {
-      import concurrent.duration._
-      val settings = TailFilePublisher.SamplingSettings(100.millis, TailFilePublisher.HighSamplingSensitivity)
-
-      requiresJdk7("tail a file for changes") {
-        val f = File.createTempFile("file-source-tailing-spec", ".tmp")
-
-        val tailSource = Source.tail(f.toPath, settings, chunkSize = 128, readAhead = 4)
-        val fileLineByLine = tailSource.transform(() ⇒ parseLines("\n", 512))
-
-        fileLineByLine.runWith(Sink.foreach { testActor ! _ })
-
-        val writer = new FileWriter(f)
-        val line = "Whoa, mathematical!"
-        def writeLines(n: Int) = (1 to n) foreach { i ⇒ writer.append(line + "\n").flush() }
-
-        try {
-
-          expectNoMsg(300.millis)
-
-          // collapse multiple writes into one bytestring
-          writeLines(3)
-          within(10.seconds) {
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-          }
-
-          // single writes can be read one by one if only one write during interval
-          writeLines(1)
-          within(10.seconds) {
-            expectMsgType[String] should ===(line)
-            writeLines(1)
-            expectMsgType[String] should ===(line)
-          }
-
-          // large amount of writes should be split up in batchSized byteStrings
-          writeLines(10)
-          within(5.seconds) {
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-            expectMsgType[String] should ===(line)
-          }
-
-        } finally
-          try f.delete() finally writer.close()
-      }
-
-      // TODO test for ordering issues
-    }
+//    "Java 7+ only:" must {
+//      import concurrent.duration._
+//      val settings = TailFilePublisher.SamplingSettings(100.millis, TailFilePublisher.HighSamplingSensitivity)
+//
+//      requiresJdk7("tail a file for changes") {
+//        val f = File.createTempFile("file-source-tailing-spec", ".tmp")
+//
+//        val tailSource = Source.tail(f.toPath, settings, chunkSize = 128, readAhead = 4)
+//        val fileLineByLine = tailSource.transform(() ⇒ parseLines("\n", 512))
+//
+//        fileLineByLine.runWith(Sink.foreach { testActor ! _ })
+//
+//        val writer = new FileWriter(f)
+//        val line = "Whoa, mathematical!"
+//        def writeLines(n: Int) = (1 to n) foreach { i ⇒ writer.append(line + "\n").flush() }
+//
+//        try {
+//
+//          expectNoMsg(300.millis)
+//
+//          // collapse multiple writes into one bytestring
+//          writeLines(3)
+//          within(10.seconds) {
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//          }
+//
+//          // single writes can be read one by one if only one write during interval
+//          writeLines(1)
+//          within(10.seconds) {
+//            expectMsgType[String] should ===(line)
+//            writeLines(1)
+//            expectMsgType[String] should ===(line)
+//          }
+//
+//          // large amount of writes should be split up in batchSized byteStrings
+//          writeLines(10)
+//          within(5.seconds) {
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//            expectMsgType[String] should ===(line)
+//          }
+//
+//        } finally
+//          try f.delete() finally writer.close()
+//      }
+//
+//      // TODO test for ordering issues
+//    }
 
     def requiresJdk7(s: String)(block: ⇒ Unit) = {
       val jv = System.getProperty("java.version")

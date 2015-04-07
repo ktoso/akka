@@ -11,7 +11,7 @@ import akka.stream.stage.{ TerminationDirective, Directive, Context, PushPullSta
 import scala.annotation.unchecked.uncheckedVariance
 import scala.language.higherKinds
 import akka.actor.Props
-import akka.stream.impl.{ TailFilePublisher, EmptyPublisher, ErrorPublisher, SynchronousIterablePublisher }
+import akka.stream.impl._
 import org.reactivestreams.Publisher
 import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration

@@ -3,12 +3,14 @@
  */
 package akka.stream.impl
 
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.{ ActorRef, Cancellable, PoisonPill, Props }
 import akka.stream.impl.StreamLayout.Module
 import akka.stream.scaladsl.OperationAttributes
 import akka.stream.{ Outlet, Shape, SourceShape }
+import akka.util.ByteString
 import org.reactivestreams._
 
 import scala.annotation.unchecked.uncheckedVariance
@@ -108,6 +110,23 @@ private[akka] final class FutureSource[Out](future: Future[Out], val attributes:
 
   override protected def newInstance(shape: SourceShape[Out]): SourceModule[Out, Unit] = new FutureSource(future, attributes, shape)
   override def withAttributes(attr: OperationAttributes): Module = new FutureSource(future, attr, amendShape(attr))
+}
+
+/**
+ * INTERNAL API
+ * Start a new `Source` from the given `File`.
+ *
+ * TODO full docs
+ */
+private[akka] final class SynchronousFileSource(f: File, val attributes: OperationAttributes, shape: SourceShape[ByteString]) extends SourceModule[ByteString, Unit](shape) {
+  override def create(materializer: ActorFlowMaterializerImpl, flowName: String) =
+    (ActorPublisher(materializer.actorOf(SimpleFilePublisher.props(f, 256, 8), s"$flowName-0-synchronous-file")), ())
+
+  override protected def newInstance(shape: SourceShape[ByteString]): SourceModule[ByteString, Unit] =
+    new SynchronousFileSource(f, attributes, shape)
+
+  override def withAttributes(attr: OperationAttributes): Module =
+    new SynchronousFileSource(f, attr, amendShape(attr))
 }
 
 /**
