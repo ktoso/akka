@@ -45,7 +45,7 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
     _settings: ActorFlowMaterializerSettings,
     _ops: Seq[Stage[_, _]],
     brokenMessage: Any)
-    extends ActorInterpreter(_settings, _ops, mat) {
+    extends ActorInterpreter(_settings, _ops, mat, OperationAttributes.none) {
 
     import akka.stream.actor.ActorSubscriberMessage._
 

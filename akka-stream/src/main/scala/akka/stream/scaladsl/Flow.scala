@@ -3,12 +3,15 @@
  */
 package akka.stream.scaladsl
 
+import akka.actor.ActorSystem
+import akka.event.LoggingAdapter
 import akka.stream.impl.Stages.{ MaterializingStageFactory, StageModule }
 import akka.stream.impl.StreamLayout.{ EmptyModule, Module }
 import akka.stream._
 import akka.stream.scaladsl.OperationAttributes._
 import akka.util.Collections.EmptyImmutableSeq
 import org.reactivestreams.Processor
+import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.immutable
 import scala.concurrent.duration.{ Duration, FiniteDuration }
@@ -660,6 +663,28 @@ trait FlowOps[+Out, +Mat] {
   def withAttributes(attr: OperationAttributes): Repr[Out, Mat]
 
   def named(name: String): Repr[Out, Mat] = withAttributes(OperationAttributes.name(name))
+
+  /**
+   * Logs elements flowing through the stream as well as completion and erroring.
+   *
+   * By default element and completion signals are logged on debug level, and errors are logged on Error level.
+   * This can be adjusted according to your needs by providing a custom [[OperationAttributes.LogLevels]] atrribute on the given Flow:
+   *
+   * {{{
+   *  Source.single(42)
+   *    .map(_ * 2)
+   *    .log("after-map")
+   *    .withAttributes(OperationAttributes.logLevels(
+   *      onElement = Logging.InfoLevel,
+   *      onFinish = Logging.InfoLevel,
+   *      onFailure = Logging.InfoLevel))
+   * }}}
+   *
+   * Uses implicit [[LoggingAdapter]] if available, otherwise uses an internally created one,
+   * which uses `akka.stream.Log` as it's source (use this class to configure slf4j loggers).
+   */
+  def log(name: String, extract: Out ⇒ Any = identity)(implicit log: LoggingAdapter = null): Repr[Out, Mat] =
+    andThen(Stages.Log(name, extract.asInstanceOf[Any ⇒ Any], Option(log)))
 
   /** INTERNAL API */
   private[scaladsl] def andThen[U](op: StageModule): Repr[U, Mat]

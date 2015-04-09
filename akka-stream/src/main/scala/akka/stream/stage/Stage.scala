@@ -3,8 +3,10 @@
  */
 package akka.stream.stage
 
-import akka.stream.Supervision
-import akka.stream.FlowMaterializer
+import akka.stream.{ javadsl, Supervision, FlowMaterializer }
+import akka.stream.scaladsl.OperationAttributes
+
+import scala.collection.immutable
 
 /**
  * General interface for stream transformation.
@@ -571,6 +573,9 @@ sealed trait Context[Out] {
    * It can be used to materialize sub-flows.
    */
   def materializer: FlowMaterializer
+
+  /** Returns operation attributes associated with the this Stage */
+  def attributes: OperationAttributes
 }
 
 /**

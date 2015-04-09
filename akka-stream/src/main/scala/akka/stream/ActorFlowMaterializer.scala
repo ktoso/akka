@@ -52,6 +52,7 @@ object ActorFlowMaterializer {
     val system = actorSystemOf(context)
 
     new ActorFlowMaterializerImpl(
+      system,
       materializerSettings,
       system.dispatchers,
       context.actorOf(StreamSupervisor.props(materializerSettings).withDispatcher(materializerSettings.dispatcher)),

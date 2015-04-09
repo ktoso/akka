@@ -3,13 +3,14 @@
  */
 package akka.stream.impl.fusing
 
-import scala.annotation.{ tailrec, switch }
+import akka.stream.{ FlowMaterializer, Supervision }
+import akka.stream.impl.ReactiveStreamsCompliance
+import akka.stream.scaladsl.OperationAttributes
+import akka.stream.stage._
+
+import scala.annotation.{ switch, tailrec }
 import scala.collection.breakOut
 import scala.util.control.NonFatal
-import akka.stream.stage._
-import akka.stream.Supervision
-import akka.stream.impl.ReactiveStreamsCompliance
-import akka.stream.FlowMaterializer
 
 // TODO:
 // fix jumpback table with keep-going-on-complete ops (we might jump between otherwise isolated execution regions)
@@ -124,11 +125,12 @@ private[akka] object OneBoundedInterpreter {
 private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
                                           onAsyncInput: (AsyncStage[Any, Any, Any], AsyncContext[Any, Any], Any) ⇒ Unit,
                                           materializer: FlowMaterializer,
+                                          attributes: OperationAttributes = OperationAttributes.none,
                                           val forkLimit: Int = 100,
                                           val overflowToHeap: Boolean = true,
                                           val name: String = "") {
-  import OneBoundedInterpreter._
   import AbstractStage._
+  import OneBoundedInterpreter._
 
   type UntypedOp = AbstractStage[Any, Any, Directive, Directive, Context[Any]]
   require(ops.nonEmpty, "OneBoundedInterpreter cannot be created without at least one Op")
@@ -387,6 +389,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
     override def run(): Unit = currentOp.onPush(elementInFlight, ctx = this)
     override def incomingBall = UpstreamBall
     override def toString = "Pushing"
+    override def attributes: OperationAttributes = OneBoundedInterpreter.this.attributes
   }
 
   private final val PushFinish: State = new State {
@@ -411,6 +414,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
 
     override def incomingBall = UpstreamBall
 
+    override def attributes: OperationAttributes = OneBoundedInterpreter.this.attributes
     override def toString = "PushFinish"
   }
 
@@ -424,6 +428,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
 
     override def incomingBall = DownstreamBall
 
+    override def attributes = OneBoundedInterpreter.this.attributes
     override def toString = "Pulling"
   }
 
@@ -457,6 +462,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
 
     override def incomingBall = UpstreamBall
 
+    override def attributes: OperationAttributes = OneBoundedInterpreter.this.attributes
     override def toString = "Completing"
   }
 
@@ -479,6 +485,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
 
     override def incomingBall = DownstreamBall
 
+    override def attributes: OperationAttributes = OneBoundedInterpreter.this.attributes
     override def toString = "Cancelling"
   }
 
@@ -503,6 +510,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
     }
 
     override def incomingBall = UpstreamBall
+    override def attributes: OperationAttributes = OneBoundedInterpreter.this.attributes
   }
 
   private def inside: Boolean = activeOpIndex > -1 && activeOpIndex < pipeline.length
@@ -618,6 +626,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
 
     override def incomingBall = 0
 
+    override def attributes: OperationAttributes = OneBoundedInterpreter.this.attributes
     override def toString = s"$name($entryPoint)"
   }
 

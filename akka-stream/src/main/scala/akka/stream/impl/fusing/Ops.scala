@@ -3,16 +3,20 @@
  */
 package akka.stream.impl.fusing
 
+import akka.actor.LocalActorRef
+import akka.event.{ Logging, LoggingAdapter }
+import akka.stream.scaladsl.OperationAttributes
+import akka.stream.scaladsl.OperationAttributes.LogLevels
+
 import scala.collection.immutable
-import akka.stream.impl.FixedSizeBuffer
+import akka.stream.impl.{ ActorFlowMaterializerImpl, FixedSizeBuffer, ReactiveStreamsCompliance }
 import akka.stream.stage._
 import akka.stream._
 import akka.stream.Supervision
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.Future
 import scala.util.{ Try, Success, Failure }
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
-import akka.stream.impl.ReactiveStreamsCompliance
 
 /**
  * INTERNAL API
@@ -490,4 +494,57 @@ private[akka] final case class MapAsyncUnordered[In, Out](parallelism: Int, f: I
   override def onUpstreamFinish(ctx: AsyncContext[Out, Try[Out]]) =
     if (todo > 0) ctx.absorbTermination()
     else ctx.finish()
+}
+
+/**
+ * INTERNAL API
+ */
+private[akka] final case class Log[T](name: String, extract: T ⇒ Any, logAdapter: Option[LoggingAdapter]) extends PushStage[T, T] {
+  import Log._
+  private var log: LoggingAdapter = _
+  private var logLevels: OperationAttributes.LogLevels = _
+
+  override def onPush(elem: T, ctx: Context[T]): SyncDirective = {
+    initLogger(ctx) // TODO if we have preStart this could be called in it, instead of in all callbacks
+
+    log.log(logLevels.onElement, "[{}] Element: {}", name, extract(elem))
+    ctx.push(elem)
+  }
+
+  override def onUpstreamFailure(cause: Throwable, ctx: Context[T]): TerminationDirective = {
+    initLogger(ctx) // TODO if we have preStart this could be called in it, instead of in all callbacks
+
+    // TODO should be able to determine who my upstream is and give it's name here?
+    logLevels.onFailure match {
+      case Logging.ErrorLevel ⇒ log.error(cause, "[{}] Upstream failed.", name)
+      case level              ⇒ log.log(level, "[{}] Upstream failed, cause: {}: {}", name, Logging.simpleName(cause.getClass), cause.getMessage)
+    }
+    super.onUpstreamFailure(cause, ctx)
+  }
+
+  override def onUpstreamFinish(ctx: Context[T]): TerminationDirective = {
+    initLogger(ctx) // TODO if we have preStart this could be called in it, instead of in all callbacks
+
+    // TODO should be able to determine who my upstream is and give it's name here?
+    log.log(logLevels.onFinish, "[{}] Upstream finished.", name)
+    super.onUpstreamFinish(ctx)
+  }
+
+  /** Idempotent initialization of logger and log levels */
+  def initLogger(ctx: Context[T]): Unit =
+    if (log == null) {
+      logLevels = ctx.attributes.logLevels.getOrElse(DefaultLogLevels)
+
+      log = logAdapter getOrElse {
+        val sys = ctx.materializer.asInstanceOf[ActorFlowMaterializerImpl].system
+        Logging(sys, "akka.stream.Log")
+      }
+    }
+}
+
+/**
+ * INTERNAL API
+ */
+private[akka] object Log {
+  private final val DefaultLogLevels = LogLevels(onElement = Logging.DebugLevel, onFinish = Logging.DebugLevel, onFailure = Logging.ErrorLevel)
 }

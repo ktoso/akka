@@ -3,7 +3,7 @@
  */
 package akka.stream.impl
 
-import akka.event.Logging
+import akka.event.{ LoggingAdapter, Logging }
 import akka.stream.{ OverflowStrategy, TimerTransformer }
 import akka.stream.scaladsl.{ OperationAttributes }
 import akka.stream.scaladsl.OperationAttributes._
@@ -100,6 +100,11 @@ private[stream] object Stages {
   }
 
   final case class Map(f: Any ⇒ Any, attributes: OperationAttributes = map) extends StageModule {
+    def withAttributes(attributes: OperationAttributes) = copy(attributes = attributes)
+    override protected def newInstance: StageModule = this.copy()
+  }
+
+  final case class Log(name: String, extract: Any ⇒ Any, loggingAdapter: Option[LoggingAdapter], attributes: OperationAttributes = map) extends StageModule {
     def withAttributes(attributes: OperationAttributes) = copy(attributes = attributes)
     override protected def newInstance: StageModule = this.copy()
   }

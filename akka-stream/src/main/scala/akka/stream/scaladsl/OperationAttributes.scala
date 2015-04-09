@@ -3,6 +3,7 @@
  */
 package akka.stream.scaladsl
 
+import akka.event.Logging
 import akka.stream.impl.Stages.StageModule
 import akka.stream.Supervision
 
@@ -44,6 +45,12 @@ final case class OperationAttributes private (attributes: List[OperationAttribut
   private[akka] def nameOption: Option[String] =
     attributes.collectFirst { case Name(name) ⇒ name }
 
+  /**
+   * INTERNAL API
+   */
+  private[akka] def logLevels: Option[LogLevels] =
+    attributes.collectFirst { case l: LogLevels ⇒ l }
+
   private[akka] def transform(node: StageModule): StageModule =
     if ((this eq OperationAttributes.none) || (this eq node.attributes)) node
     else node.withAttributes(attributes = this and node.attributes)
@@ -57,6 +64,7 @@ object OperationAttributes {
   final case class InputBuffer(initial: Int, max: Int) extends Attribute
   final case class Dispatcher(dispatcher: String) extends Attribute
   final case class SupervisionStrategy(decider: Supervision.Decider) extends Attribute
+  final case class LogLevels(onElement: Logging.LogLevel, onFinish: Logging.LogLevel, onFailure: Logging.LogLevel) extends Attribute
 
   private[OperationAttributes] def apply(attribute: Attribute): OperationAttributes =
     apply(List(attribute))
@@ -86,4 +94,11 @@ object OperationAttributes {
    */
   def supervisionStrategy(decider: Supervision.Decider): OperationAttributes =
     OperationAttributes(SupervisionStrategy(decider))
+
+  /**
+   * Configures `log()` stage log-levels to be used when logging.
+   */
+  def logLevels(onElement: Logging.LogLevel = Logging.DebugLevel, onFinish: Logging.LogLevel = Logging.DebugLevel, onFailure: Logging.LogLevel = Logging.ErrorLevel) =
+    OperationAttributes(LogLevels(onElement, onFinish, onFailure))
+
 }

@@ -5,6 +5,7 @@ package akka.stream.javadsl
 
 import java.util.concurrent.Callable
 import akka.actor.{ Cancellable, ActorRef, Props }
+import akka.event.LoggingAdapter
 import akka.japi.Util
 import akka.stream._
 import akka.stream.impl.ActorPublisherSource
@@ -503,5 +504,95 @@ class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Graph[Sour
 
   def named(name: String): javadsl.Source[Out, Mat] =
     new Source(delegate.named(name))
+
+  /**
+   * Logs elements flowing through the stream as well as completion and erroring.
+   *
+   * By default element and completion signals are logged on debug level, and errors are logged on Error level.
+   * This can be adjusted according to your needs by providing a custom [[OperationAttributes.LogLevels]] atrribute on the given Flow:
+   *
+   * {{{
+   *  Source.single(42)
+   *    .map(el -> el * 2)
+   *    .log("after-map", el -> el, Logging(sys, "com.example.MyLogger"))
+   *    .withAttributes(OperationAttributes.logLevels(
+   *      onElement = Logging.InfoLevel,
+   *      onFinish = Logging.InfoLevel,
+   *      onFailure = Logging.InfoLevel))
+   * }}}
+   *
+   * The `extract` function will be applied to each element before logging, so it is possible to log only those fields
+   * of a complex object flowing through this element.
+   *
+   * Uses the given [[LoggingAdapter]] for logging.
+   */
+  def log(name: String, extract: japi.Function[Out, Any], log: LoggingAdapter): javadsl.Source[Out, Mat] =
+    new Source(delegate.log(name, e ⇒ extract.apply(e))(log))
+
+  /**
+   * Logs elements flowing through the stream as well as completion and erroring.
+   *
+   * By default element and completion signals are logged on debug level, and errors are logged on Error level.
+   * This can be adjusted according to your needs by providing a custom [[OperationAttributes.LogLevels]] atrribute on the given Flow:
+   *
+   * {{{
+   *  Source.single(42)
+   *    .map(el -> el * 2)
+   *    .log("after-map", el -> el)
+   *    .withAttributes(OperationAttributes.logLevels(
+   *      onElement = Logging.InfoLevel,
+   *      onFinish = Logging.InfoLevel,
+   *      onFailure = Logging.InfoLevel))
+   * }}}
+   *
+   * The `extract` function will be applied to each element before logging, so it is possible to log only those fields
+   * of a complex object flowing through this element.
+   *
+   * Uses an internally created [[LoggingAdapter]] which uses `akka.stream.Log` as it's source (use this class to configure slf4j loggers).
+   */
+  def log(name: String, extract: japi.Function[Out, Any]): javadsl.Source[Out, Mat] =
+    this.log(name, extract, null)
+
+  /**
+   * Logs elements flowing through the stream as well as completion and erroring.
+   *
+   * By default element and completion signals are logged on debug level, and errors are logged on Error level.
+   * This can be adjusted according to your needs by providing a custom [[OperationAttributes.LogLevels]] atrribute on the given Flow:
+   *
+   * {{{
+   *  Source.single(42)
+   *    .map(el -> el * 2)
+   *    .log("after-map", Logging(sys, "com.example.MyLogger"))
+   *    .withAttributes(OperationAttributes.logLevels(
+   *      onElement = Logging.InfoLevel,
+   *      onFinish = Logging.InfoLevel,
+   *      onFailure = Logging.InfoLevel))
+   * }}}
+   *
+   * Uses the given [[LoggingAdapter]] for logging.
+   */
+  def log(name: String, log: LoggingAdapter): javadsl.Source[Out, Mat] =
+    this.log(name, japi.Function.identity[Out], log)
+
+  /**
+   * Logs elements flowing through the stream as well as completion and erroring.
+   *
+   * By default element and completion signals are logged on debug level, and errors are logged on Error level.
+   * This can be adjusted according to your needs by providing a custom [[OperationAttributes.LogLevels]] atrribute on the given Flow:
+   *
+   * {{{
+   *  Source.single(42)
+   *    .map(el -> el * 2)
+   *    .log("after-map")
+   *    .withAttributes(OperationAttributes.logLevels(
+   *      onElement = Logging.InfoLevel,
+   *      onFinish = Logging.InfoLevel,
+   *      onFailure = Logging.InfoLevel))
+   * }}}
+   *
+   * Uses an internally created [[LoggingAdapter]] which uses `akka.stream.Log` as it's source (use this class to configure slf4j loggers).
+   */
+  def log(name: String): javadsl.Source[Out, Mat] =
+    this.log(name, japi.Function.identity[Out], null)
 
 }
