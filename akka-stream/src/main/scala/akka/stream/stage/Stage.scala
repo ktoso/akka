@@ -3,8 +3,7 @@
  */
 package akka.stream.stage
 
-import akka.stream.Supervision
-import akka.stream.FlowMaterializer
+import akka.stream.{ FlowMaterializer, OperationAttributes, Supervision }
 
 /**
  * General interface for stream transformation.
@@ -92,6 +91,14 @@ abstract class AbstractStage[-In, Out, PushD <: Directive, PullD <: Directive, C
   }
 
   /**
+   * `preStart` is called when the stage is first initialized.
+   * It will be only called once.
+   *
+   * Empty default implementation.
+   */
+  def preStart(ctx: LifecycleContext): Unit = ()
+
+  /**
    * `onPush` is called when an element from upstream is available and there is demand from downstream, i.e.
    * in `onPush` you are allowed to call [[akka.stream.stage.Context#push]] to emit one element downstreams,
    * or you can absorb the element by calling [[akka.stream.stage.Context#pull]]. Note that you can only
@@ -168,6 +175,12 @@ abstract class AbstractStage[-In, Out, PushD <: Directive, PullD <: Directive, C
    */
   def restart(): Stage[In, Out] = this
 
+  /**
+   * `postStop` is called when the stage is being shut down.
+   *
+   * Empty default implementation.
+   */
+  def postStop(ctx: LifecycleContext): Unit = ()
 }
 
 /**
@@ -521,9 +534,24 @@ sealed trait TerminationDirective extends SyncDirective
 sealed abstract class FreeDirective private () extends UpstreamDirective with DownstreamDirective with TerminationDirective with AsyncDirective
 
 /**
+ * Subset of [[Context]] which is passed to lifecycle callbacks such as
+ * [[AbstractStage.preStart()]] or [[AbstractStage.postStop()]].
+ */
+trait LifecycleContext {
+  /**
+   * Returns the FlowMaterializer that was used to materialize this [[Stage]].
+   * It can be used to materialize sub-flows.
+   */
+  def materializer: FlowMaterializer
+
+  /** Returns operation attributes associated with the this Stage */
+  def attributes: OperationAttributes
+}
+
+/**
  * Passed to the callback methods of [[PushPullStage]] and [[StatefulStage]].
  */
-sealed trait Context[Out] {
+sealed trait Context[Out] extends LifecycleContext {
   /**
    * INTERNAL API
    */
@@ -566,11 +594,6 @@ sealed trait Context[Out] {
    */
   def isFinishing: Boolean
 
-  /**
-   * Returns the FlowMaterializer that was used to materialize this [[Stage]].
-   * It can be used to materialize sub-flows.
-   */
-  def materializer: FlowMaterializer
 }
 
 /**
@@ -643,3 +666,4 @@ trait AsyncContext[Out, Ext] extends DetachedContext[Out] {
 private[akka] trait BoundaryContext extends Context[Any] {
   def exit(): FreeDirective
 }
+

@@ -6,6 +6,15 @@ package akka.stream.javadsl.japi
 // TODO Same SAM-classes as in akka.japi, but with variance annotations
 // TODO Remove these in favour of using akka.japi with added variance
 
+object Function {
+  private final val Identity = new Function[Any, Any] {
+    @throws(classOf[Exception])
+    override def apply(param: Any): Any = param
+  }
+
+  final def identity[T]: Function[T, T] = Identity.asInstanceOf[Function[T, T]]
+}
+
 /**
  * A Function interface. Used to create first-class-functions is Java.
  */

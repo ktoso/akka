@@ -3,15 +3,15 @@
  */
 package akka.stream.scaladsl
 
-import scala.collection.immutable.Seq
+import akka.actor.PoisonPill
+import akka.stream.{ OperationAttributes, OverflowStrategy, ActorFlowMaterializer, ActorFlowMaterializerSettings }
+import akka.stream.stage._
+import akka.stream.testkit.{ AkkaSpec, StreamTestKit }
+import akka.testkit.{ TestProbe, EventFilter }
+import com.typesafe.config.ConfigFactory
+
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
-import akka.stream.ActorFlowMaterializer
-import akka.stream.ActorFlowMaterializerSettings
-import akka.stream.testkit.{ AkkaSpec, StreamTestKit }
-import akka.testkit.{ EventFilter, TestProbe }
-import com.typesafe.config.ConfigFactory
-import akka.stream.stage._
 
 class FlowStageSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.receive=off\nakka.loglevel=INFO")) {
 
@@ -392,6 +392,40 @@ class FlowStageSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug
       s2.expectSubscription().request(3)
       s2.expectNext(1, 2, 3)
       s2.expectComplete()
+    }
+
+    "have preStart and postStop lifecycle hooks with attributes passed in" in {
+      val p = TestProbe()
+
+      val s = Source.actorRef[Int](2, OverflowStrategy.fail)
+      val ref = s.transform(() ⇒
+        new PushStage[Int, Int] {
+          override def preStart(ctx: LifecycleContext): Unit =
+            p.ref ! "preStart: " + ctx.attributes.nameOrDefault()
+
+          override def onPush(elem: Int, ctx: Context[Int]): SyncDirective = {
+            p.ref ! "elem: " + elem
+            ctx.push(elem)
+          }
+
+          override def postStop(ctx: LifecycleContext): Unit =
+            p.ref ! "postStop: " + ctx.attributes.nameOrDefault()
+
+        })
+        .withAttributes(OperationAttributes.name("example-stage"))
+        .to(Sink.ignore).run()
+
+      p.expectMsg("preStart: example-stage-stageFactory-stageFactory") // TODO not very nice name?
+
+      ref ! 1
+      p.expectMsg("elem: 1")
+
+      ref ! 2
+      p.expectMsg("elem: 2")
+
+      ref ! PoisonPill
+      p.expectMsg("postStop: example-stage-stageFactory-stageFactory")
+
     }
   }
 

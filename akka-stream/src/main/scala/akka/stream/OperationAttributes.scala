@@ -3,13 +3,15 @@
  */
 package akka.stream
 
+import akka.event.Logging
+
 import scala.collection.immutable
 import akka.stream.javadsl.japi
 import akka.stream.impl.Stages.StageModule
 
 /**
- * Holds attributes which can be used to alter [[Flow]] or [[FlowGraph]]
- * materialization.
+ * Holds attributes which can be used to alter [[akka.stream.scaladsl.Flow]] / [[akka.stream.javadsl.Flow]]
+ * or [[akka.stream.scaladsl.FlowGraph]] / [[akka.stream.javadsl.FlowGraph]] materialization.
  *
  * Note that more attributes for the [[ActorFlowMaterializer]] are defined in [[ActorOperationAttributes]].
  */
@@ -83,6 +85,9 @@ final case class OperationAttributes private (attributes: immutable.Seq[Operatio
   /**
    * INTERNAL API
    */
+  private[akka] def logLevels: Option[LogLevels] =
+    attributes.collectFirst { case l: LogLevels ⇒ l }
+
   private[akka] def transform(node: StageModule): StageModule =
     if ((this eq OperationAttributes.none) || (this eq node.attributes)) node
     else node.withAttributes(attributes = this and node.attributes)
@@ -97,6 +102,11 @@ object OperationAttributes {
   trait Attribute
   final case class Name(n: String) extends Attribute
   final case class InputBuffer(initial: Int, max: Int) extends Attribute
+  final case class LogLevels(onElement: Logging.LogLevel, onFinish: Logging.LogLevel, onFailure: Logging.LogLevel) extends Attribute
+  object LogLevels {
+    /** Use to disable logging on certain operations when configuring [[OperationAttributes.LogLevels]] */
+    final val Off: Logging.LogLevel = Logging.levelFor("off").get
+  }
 
   /**
    * INTERNAL API
@@ -118,6 +128,30 @@ object OperationAttributes {
    * Specifies the initial and maximum size of the input buffer.
    */
   def inputBuffer(initial: Int, max: Int): OperationAttributes = OperationAttributes(InputBuffer(initial, max))
+
+  /**
+   * Java API
+   *
+   * Configures `log()` stage log-levels to be used when logging.
+   * Logging a certain operation can be completely disabled by using [[LogLevels.Off]].
+   *
+   * Passing in null as any of the arguments sets the level to its default value, which is:
+   * `Debug` for `onElement` and `onFinish`, and `Error` for `onFailure`.
+   */
+  def createLogLevels(onElement: Logging.LogLevel, onFinish: Logging.LogLevel, onFailure: Logging.LogLevel) =
+    logLevels(
+      onElement = Option(onElement).getOrElse(Logging.DebugLevel),
+      onFinish = Option(onFinish).getOrElse(Logging.DebugLevel),
+      onFailure = Option(onFailure).getOrElse(Logging.ErrorLevel))
+
+  /**
+   * Configures `log()` stage log-levels to be used when logging.
+   * Logging a certain operation can be completely disabled by using [[LogLevels.Off]].
+   *
+   * See [[OperationAttributes.createLogLevels]] for Java API
+   */
+  def logLevels(onElement: Logging.LogLevel = Logging.DebugLevel, onFinish: Logging.LogLevel = Logging.DebugLevel, onFailure: Logging.LogLevel = Logging.ErrorLevel) =
+    OperationAttributes(LogLevels(onElement, onFinish, onFailure))
 
 }
 
@@ -146,4 +180,29 @@ object ActorOperationAttributes {
    */
   def withSupervisionStrategy(decider: japi.Function[Throwable, Supervision.Directive]): OperationAttributes =
     ActorOperationAttributes.supervisionStrategy(decider.apply _)
+
+  /**
+   * Java API
+   *
+   * Configures `log()` stage log-levels to be used when logging.
+   * Logging a certain operation can be completely disabled by using [[LogLevels.Off]].
+   *
+   * Passing in null as any of the arguments sets the level to its default value, which is:
+   * `Debug` for `onElement` and `onFinish`, and `Error` for `onFailure`.
+   */
+  def createLogLevels(onElement: Logging.LogLevel, onFinish: Logging.LogLevel, onFailure: Logging.LogLevel) =
+    logLevels(
+      onElement = Option(onElement).getOrElse(Logging.DebugLevel),
+      onFinish = Option(onFinish).getOrElse(Logging.DebugLevel),
+      onFailure = Option(onFailure).getOrElse(Logging.ErrorLevel))
+
+  /**
+   * Configures `log()` stage log-levels to be used when logging.
+   * Logging a certain operation can be completely disabled by using [[LogLevels.Off]].
+   *
+   * See [[OperationAttributes.createLogLevels]] for Java API
+   */
+  def logLevels(onElement: Logging.LogLevel = Logging.DebugLevel, onFinish: Logging.LogLevel = Logging.DebugLevel, onFailure: Logging.LogLevel = Logging.ErrorLevel) =
+    OperationAttributes(LogLevels(onElement, onFinish, onFailure))
+
 }
