@@ -14,7 +14,6 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ Await, Future }
 import scala.util.{ Failure, Success }
 import scala.util.matching.Regex
-import akka.event.LoggingAdapter
 import akka.util.ByteString
 import akka.actor._
 
@@ -83,15 +82,6 @@ package object util {
       }
     }
   }
-
-  private[http] def errorLogger(log: LoggingAdapter, msg: String): PushStage[ByteString, ByteString] =
-    new PushStage[ByteString, ByteString] {
-      override def onPush(element: ByteString, ctx: Context[ByteString]): SyncDirective = ctx.push(element)
-      override def onUpstreamFailure(cause: Throwable, ctx: Context[ByteString]): TerminationDirective = {
-        log.error(cause, msg)
-        super.onUpstreamFailure(cause, ctx)
-      }
-    }
 
   private[this] val _identityFunc: Any ⇒ Any = x ⇒ x
   /** Returns a constant identity function to avoid allocating the closure */

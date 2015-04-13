@@ -85,7 +85,12 @@ private[http] object OutgoingConnectionBlueprint {
       val terminationFanout = b.add(Broadcast[HttpResponse](2))
       val terminationMerge = b.add(new TerminationMerge)
 
-      val logger = Flow[ByteString].transform(() ⇒ errorLogger(log, "Outgoing request stream error")).named("errorLogger")
+      val logger = Flow[ByteString].log("Outgoing request stream error")
+        .named("errorLogger")
+        .withAttributes(OperationAttributes.logLevels(
+          onElement = akka.event.Logging.LogLevel(Int.MinValue), // TODO replace with OffLevel once private[akka]
+          onFinish = akka.event.Logging.LogLevel(Int.MinValue), // TODO replace with OffLevel once private[akka]
+          onFailure = akka.event.Logging.ErrorLevel))
       val bytesOut = (terminationMerge.out ~> requestRendering.via(logger)).outlet
 
       val bytesIn = responseParsingMerge.in0
