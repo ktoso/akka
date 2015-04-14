@@ -614,9 +614,36 @@ trait FlowOps[+Out, +Mat] {
    * If the split predicate `p` throws an exception and the supervision decision
    * is [[akka.stream.Supervision.Resume]] or [[akka.stream.Supervision.Restart]]
    * the element is dropped and the stream and substreams continue.
+   *
+   * See also [[FlowOps.splitAfter]].
    */
   def splitWhen[U >: Out](p: Out ⇒ Boolean): Repr[Source[U, Unit], Mat] =
     andThen(SplitWhen(p.asInstanceOf[Any ⇒ Boolean]))
+
+  /**
+   * This operation applies the given predicate to all incoming elements and
+   * emits them to a stream of output streams. It *ends* the current substream when the
+   * predicate is true. This means that for the following series of predicate values,
+   * three substreams will be produced with lengths 1, 2, and 3:
+   *
+   * {{{
+   * true,               // element goes into first substream
+   * false, true,        // elements go into second substream
+   * false, false, true  // elements go into third substream
+   * }}}
+   *
+   * If the split predicate `p` throws an exception and the supervision decision
+   * is [[akka.stream.Supervision.Stop]] the stream and substreams will be completed
+   * with failure.
+   *
+   * If the split predicate `p` throws an exception and the supervision decision
+   * is [[akka.stream.Supervision.Resume]] or [[akka.stream.Supervision.Restart]]
+   * the element is dropped and the stream and substreams continue.
+   *
+   * See also [[FlowOps.splitAfter]].
+   */
+  def splitAfter[U >: Out](p: Out ⇒ Boolean): Repr[Source[U, Unit], Mat] =
+    andThen(SplitAfter(p.asInstanceOf[Any ⇒ Boolean]))
 
   /**
    * Transforms a stream of streams into a contiguous stream of elements using the provided flattening strategy.

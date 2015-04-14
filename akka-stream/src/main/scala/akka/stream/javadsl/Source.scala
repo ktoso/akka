@@ -487,9 +487,44 @@ class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Graph[Sour
    * true, false,       // elements go into second substream
    * true, false, false // elements go into third substream
    * }}}
+   *
+   * If the split predicate `p` throws an exception and the supervision decision
+   * is [[akka.stream.Supervision.Stop]] the stream and substreams will be completed
+   * with failure.
+   *
+   * If the split predicate `p` throws an exception and the supervision decision
+   * is [[akka.stream.Supervision.Resume]] or [[akka.stream.Supervision.Restart]]
+   * the element is dropped and the stream and substreams continue.
+   *
+   * See also [[Source.splitAfter]].
    */
   def splitWhen(p: japi.Predicate[Out]): javadsl.Source[javadsl.Source[Out, Unit], Mat] =
     new Source(delegate.splitWhen(p.test).map(_.asJava))
+
+  /**
+   * This operation applies the given predicate to all incoming elements and
+   * emits them to a stream of output streams. It *ends* the current substream when the
+   * predicate is true. This means that for the following series of predicate values,
+   * three substreams will be produced with lengths 1, 2, and 3:
+   *
+   * {{{
+   * true,               // element goes into first substream
+   * false, true,        // elements go into second substream
+   * false, false, true  // elements go into third substream
+   * }}}
+   *
+   * If the split predicate `p` throws an exception and the supervision decision
+   * is [[akka.stream.Supervision.Stop]] the stream and substreams will be completed
+   * with failure.
+   *
+   * If the split predicate `p` throws an exception and the supervision decision
+   * is [[akka.stream.Supervision.Resume]] or [[akka.stream.Supervision.Restart]]
+   * the element is dropped and the stream and substreams continue.
+   *
+   * See also [[Source.splitWhen]].
+   */
+  def splitAfter[U >: Out](p: japi.Predicate[Out]): javadsl.Source[Source[Out, Unit], Mat] =
+    new Source(delegate.splitAfter(p.test).map(_.asJava))
 
   /**
    * Transforms a stream of streams into a contiguous stream of elements using the provided flattening strategy.

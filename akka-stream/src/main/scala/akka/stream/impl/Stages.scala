@@ -39,6 +39,7 @@ private[stream] object Stages {
     val groupBy = name("groupBy")
     val prefixAndTail = name("prefixAndTail")
     val splitWhen = name("splitWhen")
+    val splitAfter = name("splitAfter")
     val concatAll = name("concatAll")
     val processor = name("processor")
     val processorWithKey = name("processorWithKey")
@@ -176,6 +177,11 @@ private[stream] object Stages {
   }
 
   final case class SplitWhen(p: Any ⇒ Boolean, attributes: OperationAttributes = splitWhen) extends StageModule {
+    def withAttributes(attributes: OperationAttributes) = copy(attributes = attributes)
+    override protected def newInstance: StageModule = this.copy()
+  }
+
+  final case class SplitAfter(p: Any ⇒ Boolean, attributes: OperationAttributes = splitAfter) extends StageModule {
     def withAttributes(attributes: OperationAttributes) = copy(attributes = attributes)
     override protected def newInstance: StageModule = this.copy()
   }
