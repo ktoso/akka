@@ -3,6 +3,7 @@
  */
 package akka.stream.scaladsl
 
+import akka.stream.impl.SplitDecision._
 import akka.stream.impl.Stages.{ MaterializingStageFactory, StageModule }
 import akka.stream.impl.StreamLayout.{ EmptyModule, Module }
 import akka.stream._
@@ -617,8 +618,10 @@ trait FlowOps[+Out, +Mat] {
    *
    * See also [[FlowOps.splitAfter]].
    */
-  def splitWhen[U >: Out](p: Out ⇒ Boolean): Repr[Source[U, Unit], Mat] =
-    andThen(SplitWhen(p.asInstanceOf[Any ⇒ Boolean]))
+  def splitWhen[U >: Out](p: Out ⇒ Boolean): Repr[Out, Mat]#Repr[Source[U, Unit], Mat] = {
+    val f = p.asInstanceOf[Any ⇒ Boolean]
+    withAttributes(name("splitWhen")).andThen(Split(el ⇒ if (f(el)) SplitBefore else Continue))
+  }
 
   /**
    * This operation applies the given predicate to all incoming elements and
@@ -642,8 +645,10 @@ trait FlowOps[+Out, +Mat] {
    *
    * See also [[FlowOps.splitAfter]].
    */
-  def splitAfter[U >: Out](p: Out ⇒ Boolean): Repr[Source[U, Unit], Mat] =
-    andThen(SplitAfter(p.asInstanceOf[Any ⇒ Boolean]))
+  def splitAfter[U >: Out](p: Out ⇒ Boolean): Repr[Out, Mat]#Repr[Source[U, Unit], Mat] = {
+    val f = p.asInstanceOf[Any ⇒ Boolean]
+    withAttributes(name("splitAfter")).andThen(Split(el ⇒ if (f(el)) SplitAfter else Continue))
+  }
 
   /**
    * Transforms a stream of streams into a contiguous stream of elements using the provided flattening strategy.

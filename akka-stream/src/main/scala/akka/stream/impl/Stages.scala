@@ -4,8 +4,9 @@
 package akka.stream.impl
 
 import akka.event.Logging
+import akka.stream.impl.SplitDecision.SplitDecision
 import akka.stream.{ OverflowStrategy, TimerTransformer }
-import akka.stream.scaladsl.{ OperationAttributes }
+import akka.stream.scaladsl.OperationAttributes
 import akka.stream.scaladsl.OperationAttributes._
 import akka.stream.stage.Stage
 import org.reactivestreams.Processor
@@ -38,8 +39,7 @@ private[stream] object Stages {
     val mapConcat = name("mapConcat")
     val groupBy = name("groupBy")
     val prefixAndTail = name("prefixAndTail")
-    val splitWhen = name("splitWhen")
-    val splitAfter = name("splitAfter")
+    val split = name("split")
     val concatAll = name("concatAll")
     val processor = name("processor")
     val processorWithKey = name("processorWithKey")
@@ -176,12 +176,7 @@ private[stream] object Stages {
     override protected def newInstance: StageModule = this.copy()
   }
 
-  final case class SplitWhen(p: Any ⇒ Boolean, attributes: OperationAttributes = splitWhen) extends StageModule {
-    def withAttributes(attributes: OperationAttributes) = copy(attributes = attributes)
-    override protected def newInstance: StageModule = this.copy()
-  }
-
-  final case class SplitAfter(p: Any ⇒ Boolean, attributes: OperationAttributes = splitAfter) extends StageModule {
+  final case class Split(p: Any ⇒ SplitDecision, attributes: OperationAttributes = split) extends StageModule {
     def withAttributes(attributes: OperationAttributes) = copy(attributes = attributes)
     override protected def newInstance: StageModule = this.copy()
   }

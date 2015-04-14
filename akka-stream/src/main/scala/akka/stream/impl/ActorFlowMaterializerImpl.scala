@@ -268,8 +268,7 @@ private[akka] object ActorProcessorFactory {
       case Grouped(n, _)              ⇒ (ActorInterpreter.props(settings, List(fusing.Grouped(n)), materializer), ())
       case GroupBy(f, _)              ⇒ (GroupByProcessorImpl.props(settings, f), ())
       case PrefixAndTail(n, _)        ⇒ (PrefixAndTailImpl.props(settings, n), ())
-      case SplitWhen(p, _)            ⇒ (SplitWhenProcessorImpl.props(settings, p), ())
-      case SplitAfter(p, _)           ⇒ (SplitAfterProcessorImpl.props(settings, p), ())
+      case Split(d, _)                ⇒ (SplitWhereProcessorImpl.props(settings, d), ())
       case ConcatAll(_)               ⇒ (ConcatAllImpl.props(materializer), ()) //FIXME closes over the materializer, is this good?
       case StageFactory(mkStage, _)   ⇒ (ActorInterpreter.props(settings, List(mkStage()), materializer), ())
       case TimerTransform(mkStage, _) ⇒ (TimerTransformerProcessorsImpl.props(settings, mkStage()), ())

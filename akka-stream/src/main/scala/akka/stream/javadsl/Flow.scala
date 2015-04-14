@@ -5,9 +5,7 @@ package akka.stream.javadsl
 
 import akka.stream._
 import akka.japi.{ Util, Pair }
-import akka.stream.impl.Stages.SplitAfter
 import akka.stream.scaladsl
-import akka.stream.scaladsl.Source
 import scala.annotation.unchecked.uncheckedVariance
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
