@@ -24,7 +24,6 @@ import scala.concurrent.{ Await, ExecutionContextExecutor }
  */
 private[akka] case class ActorFlowMaterializerImpl(override val system: ActorSystem,
                                                    override val settings: ActorFlowMaterializerSettings,
-                                                   dispatchers: Dispatchers,
                                                    supervisor: ActorRef,
                                                    flowNameCounter: AtomicLong,
                                                    namePrefix: String,
@@ -47,7 +46,6 @@ private[akka] case class ActorFlowMaterializerImpl(override val system: ActorSys
         case InputBuffer(initial, max)    ⇒ s.withInputBuffer(initial, max)
         case Dispatcher(dispatcher)       ⇒ s.withDispatcher(dispatcher)
         case SupervisionStrategy(decider) ⇒ s.withSupervisionStrategy(decider)
-        case l: LogLevels                 ⇒ s
         case Name(_)                      ⇒ s
       }
     }
@@ -172,7 +170,7 @@ private[akka] case class ActorFlowMaterializerImpl(override val system: ActorSys
     session.materialize().asInstanceOf[Mat]
   }
 
-  override lazy val executionContext: ExecutionContextExecutor = dispatchers.lookup(settings.dispatcher match {
+  override lazy val executionContext: ExecutionContextExecutor = system.dispatchers.lookup(settings.dispatcher match {
     case Deploy.NoDispatcherGiven ⇒ Dispatchers.DefaultDispatcherId
     case other                    ⇒ other
   })

@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
  * INTERNAL API
  */
 private[akka] object OneBoundedInterpreter {
-  final val Debug = false
+  final val Debug = true
 
   /**
    * INTERNAL API
@@ -303,7 +303,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
         mustHave(DownstreamBall)
       }
       removeBits(DownstreamBall | PrecedingWasPull)
-      finishCurrentOp()
+      finishActiveOp()
       // This MUST be an unsafeFork because the execution of PushFinish MUST strictly come before the finish execution
       // path. Other forks are not order dependent because they execute on isolated execution domains which cannot
       // "cross paths". This unsafeFork is relatively safe here because PushAndFinish simply absorbs all later downstream
@@ -433,7 +433,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
   private final val Completing: State = new State {
     override def advance(): Unit = {
       elementInFlight = null
-      finishCurrentOp()
+      finishActiveOp()
       activeOpIndex += 1
     }
 
@@ -466,7 +466,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
   private final val Cancelling: State = new State {
     override def advance(): Unit = {
       elementInFlight = null
-      finishCurrentOp()
+      finishActiveOp()
       activeOpIndex -= 1
     }
 
@@ -488,7 +488,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
   private final case class Failing(cause: Throwable) extends State {
     override def advance(): Unit = {
       elementInFlight = null
-      finishCurrentOp()
+      finishActiveOp()
       activeOpIndex += 1
     }
 
@@ -634,28 +634,67 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
    * This method injects a Context to each of the BoundaryStages and AsyncStages. This will be the context returned by enter().
    */
   private def initBoundaries(): Unit = {
+    var failed: List[(Int, Throwable)] = Nil
+
     var op = 0
     while (op < pipeline.length) {
       (pipeline(op): Any) match {
         case b: BoundaryStage ⇒
           b.context = new EntryState("boundary", op)
-          b.preStart(LifecycleContext)
+          try b.preStart(LifecycleContext) catch { case ex: Exception ⇒ b.context.fail(ex) }
 
         case a: AsyncStage[Any, Any, Any] @unchecked ⇒
           a.context = new EntryState("async", op)
           activeOpIndex = op
-          a.preStart(LifecycleContext)
+          try a.preStart(LifecycleContext) catch { case ex: Exception ⇒ a.context.fail(ex) }
           a.initAsyncInput(a.context) // TODO remove asyncInput? it's like on Init
 
         case s: UntypedOp ⇒
-          s.context = new EntryState("initializing", op)
-          s.preStart(LifecycleContext)
+          s.context = new EntryState("stage", op)
+          activeOpIndex = op
+
+          try {
+            s.preStart(LifecycleContext)
+          } catch {
+            case NonFatal(e) if lastOpFailing != activeOpIndex ⇒
+              lastOpFailing = activeOpIndex
+              decide(e) match {
+                case Supervision.Stop ⇒
+                  println("decision → fail")
+                  failed = (op, e) :: failed
+                //                  s.context = Failing(e)
+                //                  s.context.fail(e)
+                //                  fork(Failing(e))
+                //                  s.enterAndFail(e)
+                //                  s.enterAndFail(e)
+
+                case Supervision.Resume ⇒
+                  println("decision → resume")
+                  // reset, purpose of lastOpFailing is to avoid infinite loops when fail fails -- double fault
+                  lastOpFailing = -1
+                //                  afterRecovery()
+
+                case Supervision.Restart ⇒
+                  println("decision → restart")
+                  // reset, purpose of lastOpFailing is to avoid infinite loops when fail fails -- double fault
+                  lastOpFailing = -1
+                  pipeline(activeOpIndex) = pipeline(activeOpIndex).restart().asInstanceOf[UntypedOp]
+                //                  afterRecovery()
+              }
+          }
+
       }
       op += 1
     }
+
+    failed foreach {
+      case (fop, ex) ⇒
+        pipeline(fop).enterAndFail(ex)
+    }
   }
 
-  private def finishCurrentOp(): Unit = {
+  private def finishActiveOp(): Unit = {
+    //    println("finishActiveOp = " + currentOp)
     currentOp.postStop(LifecycleContext)
     pipeline(activeOpIndex) = Finished.asInstanceOf[UntypedOp]
   }

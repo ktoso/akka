@@ -263,6 +263,7 @@ private[akka] class ActorOutputBoundary(val actor: ActorRef,
   protected def downstreamRunning: Actor.Receive = {
     case SubscribePending ⇒
       subscribePending(exposedPublisher.takePendingSubscribers())
+
     case RequestMore(subscription, elements) ⇒
       if (elements < 1) {
         enterAndFinish()
