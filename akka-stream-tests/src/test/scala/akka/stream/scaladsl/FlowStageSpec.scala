@@ -426,21 +426,86 @@ class FlowStageSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug
     //
     //    }
 
+    //    "showcase normal error propagation" in {
+    //      val f = Source(List(1, 2, 3))
+    //        .transform(() ⇒
+    //          new PushStage[Int, Int] {
+    //            override def onPush(elem: Int, ctx: Context[Int]): SyncDirective = ctx.push(elem)
+    //
+    //            override def onDownstreamFinish(ctx: Context[Int]): TerminationDirective = {
+    //              println("!!!!!!!!downstream finished!!!!!!!!!!! ")
+    //              super.onDownstreamFinish(ctx)
+    //            }
+    //          })
+    //        .transform(() ⇒ new PushStage[Int, Int] {
+    //          override def onPush(elem: Int, ctx: Context[Int]): SyncDirective = {
+    //            throw new TE("Booooooom!")
+    //          }
+    //        })
+    //        .transform(() ⇒
+    //          new PushStage[Int, Int] {
+    //            override def onPush(elem: Int, ctx: Context[Int]): SyncDirective = {
+    //              println("onPush = " + elem + ", ctx = " + ctx)
+    //              throw new Exception("GOT ON PUSH222 BUT SHOULD NOT HAVE")
+    //            }
+    //
+    //            override def onUpstreamFailure(cause: scala.Throwable, ctx: Context[Int]): TerminationDirective = {
+    //              println(s"!!!!!!!!!!!!!!!!!! upstream failure [$cause] !!!!!!!!!!!!!!!!!!!!!")
+    //              super.onUpstreamFailure(cause, ctx)
+    //            }
+    //          })
+    //        .runWith(Sink.head)
+    //      import scala.concurrent.duration._
+    //      intercept[TE] {
+    //        Await.result(f, 10.seconds)
+    //      }
+    //    }
+
     "handle exception thrown in preStart by signalling failure" in {
-      val f = Source(List(1, 2))
+      val f = Source(List(1, 2, 3, 4, 5, 6, 7))
         .transform(() ⇒
           new PushStage[Int, Int] {
-            override def preStart(ctx: LifecycleContext): Unit = throw new TE("preStart: Boom!")
+            override def onPush(elem: Int, ctx: Context[Int]): SyncDirective = ctx.push(elem)
+
+            override def onDownstreamFinish(ctx: Context[Int]): TerminationDirective = {
+              println("!!!!!!!!downstream finished!!!!!!!!!!! ")
+              super.onDownstreamFinish(ctx)
+            }
+          })
+        .transform(() ⇒
+          new PushStage[Int, Int] {
+            override def preStart(ctx: LifecycleContext): Unit = {
+              println("preStart = " + ctx)
+              throw new TE("preStart: Boom!")
+            }
+
             override def onPush(elem: Int, ctx: Context[Int]): SyncDirective = {
-              println("ctx = " + ctx)
+              println("onPush = " + elem + ", ctx = " + ctx)
+              throw new Exception("GOT ON PUSH BUT SHOULD NOT HAVE")
               if (ctx.isFinishing) ctx.finish() else ctx.push(elem)
+            }
+
+            override def postStop(ctx: LifecycleContext): Unit = {
+              println("postStop = " + ctx)
+            }
+          })
+        .transform(() ⇒
+          new PushStage[Int, Int] {
+            override def onPush(elem: Int, ctx: Context[Int]): SyncDirective = {
+              println("onPush = " + elem + ", ctx = " + ctx)
+              throw new Exception("GOT ON PUSH222 BUT SHOULD NOT HAVE")
+            }
+
+            override def onUpstreamFailure(cause: scala.Throwable, ctx: Context[Int]): TerminationDirective = {
+              println(s"!!!!!!!!!!!!!!!!!! upstream failure [$cause] !!!!!!!!!!!!!!!!!!!!!")
+              super.onUpstreamFailure(cause, ctx)
             }
           })
         .runWith(Sink.head)
 
       import scala.concurrent.duration._
       intercept[TE] {
-        Await.result(f, 3.seconds)
+        Await.result(f, 10.seconds)
       }
     }
   }

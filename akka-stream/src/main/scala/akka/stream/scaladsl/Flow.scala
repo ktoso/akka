@@ -670,7 +670,6 @@ trait FlowOps[+Out, +Mat] {
 
   def withAttributes(attr: OperationAttributes): Repr[Out, Mat]
 
-
   /**
    * Logs elements flowing through the stream as well as completion and erroring.
    *

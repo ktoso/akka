@@ -46,6 +46,7 @@ private[akka] case class ActorFlowMaterializerImpl(override val system: ActorSys
         case InputBuffer(initial, max)    ⇒ s.withInputBuffer(initial, max)
         case Dispatcher(dispatcher)       ⇒ s.withDispatcher(dispatcher)
         case SupervisionStrategy(decider) ⇒ s.withSupervisionStrategy(decider)
+        case LogLevels(_, _, _)           ⇒ s
         case Name(_)                      ⇒ s
       }
     }

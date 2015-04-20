@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
  * INTERNAL API
  */
 private[akka] object OneBoundedInterpreter {
-  final val Debug = true
+  final val Debug = false
 
   /**
    * INTERNAL API
@@ -419,11 +419,17 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
 
   private final val Pulling: State = new State {
     override def advance(): Unit = {
+      blop("currentOp " + currentOp + "(" + activeOpIndex + ") ")
+      blop("advance pulling >>")
       elementInFlight = null
       activeOpIndex = jumpBacks(activeOpIndex)
     }
 
-    override def run(): Unit = currentOp.onPull(ctx = this)
+    override def run(): Unit = {
+      blop("currentOp " + currentOp + "(" + activeOpIndex + ") ")
+      blop("run pulling >>")
+      currentOp.onPull(ctx = this)
+    }
 
     override def incomingBall = DownstreamBall
 
@@ -432,12 +438,16 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
 
   private final val Completing: State = new State {
     override def advance(): Unit = {
+      blop("currentOp " + currentOp + "(" + activeOpIndex + ") ")
+      blop("advance completing >>")
       elementInFlight = null
       finishActiveOp()
       activeOpIndex += 1
     }
 
     override def run(): Unit = {
+      blop("currentOp " + currentOp + "(" + activeOpIndex + ") ")
+      blop("run completing >>")
       if (hasBits(TerminationPending)) exit()
       else currentOp.onUpstreamFinish(ctx = this)
     }
@@ -465,12 +475,16 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
 
   private final val Cancelling: State = new State {
     override def advance(): Unit = {
+      blop("currentOp " + currentOp + "(" + activeOpIndex + ") ")
+      blop("advance cancelling >>")
       elementInFlight = null
       finishActiveOp()
       activeOpIndex -= 1
     }
 
     def run(): Unit = {
+      blop("currentOp " + currentOp + "(" + activeOpIndex + ") ")
+      blop("run cancelling >>")
       if (hasBits(TerminationPending)) exit()
       else currentOp.onDownstreamFinish(ctx = this)
     }
@@ -487,14 +501,21 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
 
   private final case class Failing(cause: Throwable) extends State {
     override def advance(): Unit = {
+      blop("currentOp " + currentOp + "(" + activeOpIndex + ") ")
+      blop("advance failing >>>")
       elementInFlight = null
-      finishActiveOp()
+      pipeline(activeOpIndex) = Finished.asInstanceOf[UntypedOp]
       activeOpIndex += 1
     }
 
-    def run(): Unit = currentOp.onUpstreamFailure(cause, ctx = this)
+    def run(): Unit = {
+      blop("currentOp " + currentOp + "(" + activeOpIndex + ") ")
+      blop("run failing >>>")
+      try currentOp.onUpstreamFailure(cause, ctx = this) finally currentOp.postStop(LifecycleContext)
+    }
 
     override def absorbTermination(): TerminationDirective = {
+      blop("failing absorbTermination")
       addBits(TerminationPending)
       removeBits(UpstreamBall)
       updateJumpBacks(activeOpIndex)
@@ -612,7 +633,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
       activeOpIndex = entryPoint
       if (Debug) {
         val s = "    " * entryPoint + "ENTR"
-        println(f"$s%-24s ${OneBoundedInterpreter.this.name}")
+        blop(f"$s%-24s ${OneBoundedInterpreter.this.name}")
       }
     }
 
@@ -641,15 +662,18 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
       (pipeline(op): Any) match {
         case b: BoundaryStage ⇒
           b.context = new EntryState("boundary", op)
+          blop("preStart boundary = " + b + "(" + op + ")")
           try b.preStart(LifecycleContext) catch { case ex: Exception ⇒ b.context.fail(ex) }
 
         case a: AsyncStage[Any, Any, Any] @unchecked ⇒
+          blop("preStart async = " + a + "(" + op + ")")
           a.context = new EntryState("async", op)
           activeOpIndex = op
           try a.preStart(LifecycleContext) catch { case ex: Exception ⇒ a.context.fail(ex) }
           a.initAsyncInput(a.context) // TODO remove asyncInput? it's like on Init
 
         case s: UntypedOp ⇒
+          blop("preStart stage = " + s + "(" + op + ")")
           s.context = new EntryState("stage", op)
           activeOpIndex = op
 
@@ -660,7 +684,7 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
               lastOpFailing = activeOpIndex
               decide(e) match {
                 case Supervision.Stop ⇒
-                  println("decision → fail")
+                  blop("preStart failed: decision → fail (ctx: " + s.context + ")")
                   failed = (op, e) :: failed
                 //                  s.context = Failing(e)
                 //                  s.context.fail(e)
@@ -669,13 +693,13 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
                 //                  s.enterAndFail(e)
 
                 case Supervision.Resume ⇒
-                  println("decision → resume")
+                  blop("decision → resume")
                   // reset, purpose of lastOpFailing is to avoid infinite loops when fail fails -- double fault
                   lastOpFailing = -1
                 //                  afterRecovery()
 
                 case Supervision.Restart ⇒
-                  println("decision → restart")
+                  blop("decision → restart")
                   // reset, purpose of lastOpFailing is to avoid infinite loops when fail fails -- double fault
                   lastOpFailing = -1
                   pipeline(activeOpIndex) = pipeline(activeOpIndex).restart().asInstanceOf[UntypedOp]
@@ -684,17 +708,24 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
           }
 
       }
+      blop("op = " + op + " = " + pipeline(op))
       op += 1
     }
 
     failed foreach {
       case (fop, ex) ⇒
+        blop(s"[  failing @ $fop = $ex  ]")
         pipeline(fop).enterAndFail(ex)
+        //        pipeline(fop).context = Failing(ex)
+        //        activeOpIndex = fop
+        //        state = Failing(ex)
+        //        execute()
+        blop(s"[  done failing @ $fop = $ex  ]")
     }
   }
 
   private def finishActiveOp(): Unit = {
-    //    println("finishActiveOp = " + currentOp)
+    blop("finishActiveOp = " + currentOp.context)
     currentOp.postStop(LifecycleContext)
     pipeline(activeOpIndex) = Finished.asInstanceOf[UntypedOp]
   }
@@ -709,12 +740,18 @@ private[akka] class OneBoundedInterpreter(ops: Seq[Stage[_, _]],
     var op = pipeline.length - 1
     while (op >= 0) {
       if (pipeline(op).isDetached) {
+        blop("runDetached() = " + op)
         activeOpIndex = op
         state = Pulling
         execute()
       }
       op -= 1
     }
+  }
+
+  def blop(s: String): Unit = {
+    if (!Debug)
+      println(s)
   }
 
 }
