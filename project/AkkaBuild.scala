@@ -143,11 +143,19 @@ object AkkaBuild extends Build {
     dependencies = Seq(actor, remote % "test->test", testkit % "test->test")
   )
 
+  lazy val persistenceQuery = Project(
+    id = "akka-persistence-query-experimental",
+    base = file("akka-persistence-query"),
+    dependencies = Seq(actor, persistence, remote % "test->test", testkit % "test->test")
+  )
+
   lazy val persistenceTck = Project(
     id = "akka-persistence-experimental-tck",
     base = file("akka-persistence-tck"),
     dependencies = Seq(persistence % "compile;provided->provided;test->test", testkit % "compile;test->test")
   )
+
+  // TODO persistence query TCK
 
   lazy val kernel = Project(
     id = "akka-kernel",
@@ -188,13 +196,14 @@ object AkkaBuild extends Build {
     settings = parentSettings ++ ActivatorDist.settings,
     // FIXME osgiDiningHakkersSampleMavenTest temporarily removed from aggregate due to #16703
     aggregate = if (!CommandLineOptions.aggregateSamples) Nil else
-      Seq(sampleCamelJava, sampleCamelScala, sampleClusterJava, sampleClusterScala, sampleFsmScala,
+//      Seq(sampleCamelJava, sampleCamelScala, sampleClusterJava, sampleClusterScala, sampleFsmScala,
+      Seq(sampleClusterJava, sampleClusterScala, sampleFsmScala,
         sampleMainJava, sampleMainScala, sampleMultiNodeScala,
         samplePersistenceJava, samplePersistenceScala, sampleRemoteJava, sampleRemoteScala)
   )
 
-  lazy val sampleCamelJava = Sample.project("akka-sample-camel-java")
-  lazy val sampleCamelScala = Sample.project("akka-sample-camel-scala")
+//  lazy val sampleCamelJava = Sample.project("akka-sample-camel-java")
+//  lazy val sampleCamelScala = Sample.project("akka-sample-camel-scala")
 
   lazy val sampleClusterJava = Sample.project("akka-sample-cluster-java")
   lazy val sampleClusterScala = Sample.project("akka-sample-cluster-scala")

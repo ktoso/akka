@@ -13,10 +13,47 @@ import akka.actor._
 import akka.pattern.pipe
 import akka.persistence._
 
+trait AsyncWriteJournalPlugin {
+  //#journal-plugin-api
+  /**
+   * Plugin API: asynchronously writes a batch of persistent messages to the journal.
+   * The batch write must be atomic i.e. either all persistent messages in the batch
+   * are written or none.
+   */
+  def asyncWriteMessages(messages: immutable.Seq[PersistentRepr]): Future[Unit] // TODO teh query side plugin must know about tags here
+
+  /**
+   * Plugin API: asynchronously deletes all persistent messages up to `toSequenceNr`
+   * (inclusive). If `permanent` is set to `false`, the persistent messages are marked
+   * as deleted, otherwise they are permanently deleted.
+   */
+  def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long, permanent: Boolean): Future[Unit]
+  //#journal-plugin-api
+}
+
+
+trait AsyncQueryJournalPlugin { // TODO better name // TODO IS-A or not?
+  //#journal-plugin-api
+  /**
+   * Plugin API: asynchronously writes a batch of persistent messages to the journal.
+   * The batch write must be atomic i.e. either all persistent messages in the batch
+   * are written or none.
+   */
+  def asyncWriteTaggedMessages(messages: immutable.Seq[PersistentRepr]): Future[Unit] // TODO teh query side plugin must know about tags here
+
+  /**
+   * Plugin API: asynchronously deletes all persistent messages up to `toSequenceNr`
+   * (inclusive). If `permanent` is set to `false`, the persistent messages are marked
+   * as deleted, otherwise they are permanently deleted.
+   */
+  def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long, permanent: Boolean): Future[Unit]
+  //#journal-plugin-api
+}
+
 /**
  * Abstract journal, optimized for asynchronous, non-blocking writes.
  */
-trait AsyncWriteJournal extends Actor with WriteJournalBase with AsyncRecovery {
+trait AsyncWriteJournal extends Actor with AsyncWriteJournalPlugin with WriteJournalBase with AsyncRecovery {
   import JournalProtocol._
   import AsyncWriteJournal._
   import context.dispatcher
@@ -70,21 +107,6 @@ trait AsyncWriteJournal extends Actor with WriteJournalBase with AsyncRecovery {
       }
   }
 
-  //#journal-plugin-api
-  /**
-   * Plugin API: asynchronously writes a batch of persistent messages to the journal.
-   * The batch write must be atomic i.e. either all persistent messages in the batch
-   * are written or none.
-   */
-  def asyncWriteMessages(messages: immutable.Seq[PersistentRepr]): Future[Unit]
-
-  /**
-   * Plugin API: asynchronously deletes all persistent messages up to `toSequenceNr`
-   * (inclusive). If `permanent` is set to `false`, the persistent messages are marked
-   * as deleted, otherwise they are permanently deleted.
-   */
-  def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long, permanent: Boolean): Future[Unit]
-  //#journal-plugin-api
 }
 
 /**

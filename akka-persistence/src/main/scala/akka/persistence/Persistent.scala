@@ -4,15 +4,14 @@
 
 package akka.persistence
 
-import java.lang.{ Iterable ⇒ JIterable }
-import java.util.{ List ⇒ JList }
+import java.lang.{Iterable => JIterable}
+import java.util.{List => JList}
 
-import scala.collection.immutable
-
-import akka.actor.{ ActorContext, ActorRef }
-import akka.japi.Util.immutableSeq
+import akka.actor.{ActorContext, ActorRef}
 import akka.pattern.PromiseActorRef
 import akka.persistence.serialization.Message
+
+import scala.collection.immutable
 
 /**
  * INTERNAL API
@@ -23,7 +22,7 @@ import akka.persistence.serialization.Message
  */
 private[persistence] sealed trait PersistentEnvelope {
   def payload: Any
-  def sender: ActorRef
+  def sender: ActorRef // TODO do not persist?
 }
 
 /**
@@ -31,6 +30,11 @@ private[persistence] sealed trait PersistentEnvelope {
  * Message which can be resequenced by the Journal, but will not be persisted.
  */
 private[persistence] final case class NonPersistentRepr(payload: Any, sender: ActorRef) extends PersistentEnvelope
+
+/** Plugin API: Extends [[PersistentRepr]] with additional tags obtained by applying an [[TagMapper]] to the payload */
+trait TaggedPersistentRepr extends PersistentRepr {
+  def tags: immutable.Set[String]
+}
 
 /**
  * Plugin API: representation of a persistent message in the journal plugin API.
@@ -40,7 +44,6 @@ private[persistence] final case class NonPersistentRepr(payload: Any, sender: Ac
  * @see [[journal.AsyncRecovery]]
  */
 trait PersistentRepr extends PersistentEnvelope with Message {
-  import scala.collection.JavaConverters._
 
   /**
    * This persistent message's payload.

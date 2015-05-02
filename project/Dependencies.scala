@@ -13,6 +13,8 @@ object Dependencies {
     val scalaStmVersion  = sys.props.get("akka.build.scalaStmVersion").getOrElse("0.7")
     val scalaTestVersion = sys.props.get("akka.build.scalaTestVersion").getOrElse("2.1.3")
     val scalaCheckVersion = sys.props.get("akka.build.scalaCheckVersion").getOrElse("1.11.3")
+
+    val publishedAkkaStreamsVersion = sys.props.get("akka.build.publishedAkkaStreamsVersion").getOrElse("1.0-RC2")
   }
 
   object Compile {
@@ -64,6 +66,10 @@ object Dependencies {
       val slf4jLog4j    = "org.slf4j"                   % "log4j-over-slf4j"             % "1.7.7"    % "test"    // MIT
     }
 
+    object Published {
+      def akkaStreams = "com.typesafe.akka" %% "akka-stream-experimental" % publishedAkkaStreamsVersion
+    }
+
     object Provided {
       // TODO remove from "test" config
       val sigarLoader  = "io.kamon"         % "sigar-loader"        % "1.6.5-rev001"     %     "optional;provided;test" // ApacheV2
@@ -95,6 +101,8 @@ object Dependencies {
   val agent = Seq(scalaStm, Test.scalatest, Test.junit)
 
   val persistence = deps(protobuf, Provided.levelDB, Provided.levelDBNative, Test.scalatest, Test.junit, Test.commonsIo, Test.scalaXml)
+
+  val persistenceQuery = deps(Published.akkaStreams)
 
   val persistenceTck = Seq(Test.scalatest.copy(configurations = Some("compile")), Test.junit.copy(configurations = Some("compile")))
 

@@ -38,6 +38,8 @@ object OSGi {
 
   val persistence = exports(Seq("akka.persistence.*"), imports = Seq(protobufImport()))
 
+  val persistenceQuery = exports(Seq("akka.persistence.*"), imports = Seq(protobufImport()))
+
   val testkit = exports(Seq("akka.testkit.*"))
 
   val osgiOptionalImports = Seq(
