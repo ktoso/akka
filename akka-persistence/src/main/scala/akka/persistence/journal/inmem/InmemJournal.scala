@@ -72,11 +72,12 @@ private[persistence] trait InmemMessages {
 /**
  * INTERNAL API.
  */
-private[persistence] class InmemStore extends Actor with InmemMessages {
+private[persistence] class InmemStore extends Actor with InmemMessages with ActorLogging {
   import AsyncWriteTarget._
 
   def receive = {
     case WriteMessages(msgs) ⇒
+      log.warning("add msgs: " + msgs.mkString(","))
       sender() ! msgs.foreach(add)
     case DeleteMessagesTo(pid, tsnr, false) ⇒
       sender() ! (1L to tsnr foreach { snr ⇒ update(pid, snr)(_.update(deleted = true)) })

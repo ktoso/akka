@@ -4,16 +4,21 @@
 
 package akka.persistence
 
-import scala.concurrent.duration._
-import com.typesafe.config.Config
+import java.util.concurrent.atomic.AtomicReference
+
 import akka.actor._
 import akka.dispatch.Dispatchers
-import akka.persistence.journal.AsyncWriteJournal
-import akka.util.Helpers.ConfigOps
-import akka.event.LoggingAdapter
 import akka.event.Logging
-import java.util.concurrent.atomic.AtomicReference
+import akka.event.LoggingAdapter
+import akka.persistence.journal.AsyncWriteJournal
+import akka.persistence.journal.Tagger
+import akka.persistence.tagging.TaggersMap
+import akka.util.Helpers.ConfigOps
+import com.typesafe.config.Config
+
 import scala.annotation.tailrec
+import scala.collection.immutable
+import scala.concurrent.duration._
 
 /**
  * Persistence configuration.
@@ -54,6 +59,26 @@ final class PersistenceSettings(config: Config) {
 
     val maxUnconfirmedMessages: Int =
       config.getInt("at-least-once-delivery.max-unconfirmed-messages")
+  }
+
+  object tagging {
+    private val tagging = config.getConfig("tagging")
+    val taggers = configToMap("taggers")
+    val bindings = configToMapList("tagger-bindings")
+
+    // TODO DUPLICATED from Serialization provide common place to extend Config?
+    private final def configToMap(path: String): Map[String, String] = {
+      import scala.collection.JavaConverters._
+      tagging.getConfig(path).root.unwrapped.asScala.toMap map { case (k, v) ⇒ k -> v.toString }
+    }
+
+    // TODO can we do better than that?
+    private final def configToMapList(path: String): Map[String, immutable.Seq[String]] = {
+      import scala.collection.JavaConverters._
+      val o = tagging.getObject(path)
+      //noinspection ScalaUnnecessaryParentheses
+      (o.keySet().asScala.map { k ⇒ k → o.toConfig.getStringList("\"" + k + "\"").asScala.toList }).toMap
+    }
   }
 
   /**
@@ -155,6 +180,20 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
 
   /** Discovered persistence snapshot store plugins. */
   private val snapshotPluginExtensionId = new AtomicReference[Map[String, ExtensionId[PluginHolder]]](Map.empty)
+
+  /** Registered Taggers */
+  private val taggerMap = TaggersMap(system, settings.tagging.taggers, settings.tagging.bindings)
+
+  // TODO: can be public later on I guess
+  private[akka] final def taggerFor(msg: Any): Tagger[Any] = taggerMap.get(msg.getClass)
+  
+  private[akka] final def taggingEnabled: Boolean = settings.tagging.taggers.nonEmpty
+
+  // TODO: do we want to expose it as such to users?
+  final def tagsFor(msg: Any): immutable.Set[String] = {
+    val tagger = taggerFor(msg)
+    tagger.tagsFor(msg)
+  }
 
   /**
    * Returns a journal plugin actor identified by `journalPluginId`.

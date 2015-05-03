@@ -8,12 +8,12 @@ import scala.collection.immutable
 import scala.collection.JavaConverters._
 
 import akka.persistence._
-import akka.persistence.journal.{ SyncWriteJournal ⇒ SSyncWriteJournal }
+import akka.persistence.journal.{ SyncWriteJournal ⇒ ScalaSyncWriteJournal }
 
 /**
  * Java API: abstract journal, optimized for synchronous writes.
  */
-abstract class SyncWriteJournal extends AsyncRecovery with SSyncWriteJournal with SyncWritePlugin {
+abstract class SyncWriteJournal extends AsyncRecovery with ScalaSyncWriteJournal with SyncWritePlugin {
   final def writeMessages(messages: immutable.Seq[PersistentRepr]) =
     doWriteMessages(messages.asJava)
 

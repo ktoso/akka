@@ -4,10 +4,11 @@
 
 package akka.persistence
 
-import java.lang.{Iterable => JIterable}
-import java.util.{List => JList}
+import java.lang.{ Iterable ⇒ JIterable }
+import java.util.{ List ⇒ JList }
 
-import akka.actor.{ActorContext, ActorRef}
+import akka.actor.ActorContext
+import akka.actor.ActorRef
 import akka.pattern.PromiseActorRef
 import akka.persistence.serialization.Message
 
@@ -31,17 +32,13 @@ private[persistence] sealed trait PersistentEnvelope {
  */
 private[persistence] final case class NonPersistentRepr(payload: Any, sender: ActorRef) extends PersistentEnvelope
 
-/** Plugin API: Extends [[PersistentRepr]] with additional tags obtained by applying an [[TagMapper]] to the payload */
-trait TaggedPersistentRepr extends PersistentRepr {
-  def tags: immutable.Set[String]
-}
-
 /**
  * Plugin API: representation of a persistent message in the journal plugin API.
  *
  * @see [[journal.SyncWriteJournal]]
  * @see [[journal.AsyncWriteJournal]]
  * @see [[journal.AsyncRecovery]]
+ * @see [[journal.Tagger]]
  */
 trait PersistentRepr extends PersistentEnvelope with Message {
 
@@ -64,6 +61,11 @@ trait PersistentRepr extends PersistentEnvelope with Message {
    * Creates a new persistent message with the specified `payload`.
    */
   def withPayload(payload: Any): PersistentRepr
+
+  /**
+   * Set by [[akka.persistence.journal.Tagger]] for the given payload
+   */
+  def tags: immutable.Set[String]
 
   /**
    * `true` if this message is marked as deleted.
@@ -93,7 +95,9 @@ trait PersistentRepr extends PersistentEnvelope with Message {
     sequenceNr: Long = sequenceNr,
     persistenceId: String = persistenceId,
     deleted: Boolean = deleted,
-    sender: ActorRef = sender): PersistentRepr
+    sender: ActorRef = sender,
+    tags: immutable.Set[String] = tags): PersistentRepr
+
 }
 
 object PersistentRepr {
@@ -133,20 +137,21 @@ private[persistence] final case class PersistentImpl(
   sequenceNr: Long,
   override val persistenceId: String,
   deleted: Boolean,
-  sender: ActorRef) extends PersistentRepr {
+  sender: ActorRef,
+  tags: immutable.Set[String] = Set.empty) extends PersistentRepr {
 
-  def withPayload(payload: Any): PersistentRepr =
+  override def withPayload(payload: Any): PersistentRepr =
     copy(payload = payload)
 
-  def prepareWrite(sender: ActorRef) =
+  override def prepareWrite(sender: ActorRef) =
     copy(sender = sender)
 
-  def update(
-    sequenceNr: Long,
-    persistenceId: String,
-    deleted: Boolean,
-    sender: ActorRef) =
-    copy(sequenceNr = sequenceNr, persistenceId = persistenceId, deleted = deleted, sender = sender)
-
+  override def update(
+    sequenceNr: Long = sequenceNr,
+    persistenceId: String = persistenceId,
+    deleted: Boolean = deleted,
+    sender: ActorRef = sender,
+    tags: immutable.Set[String] = tags): PersistentRepr =
+    copy(sequenceNr = sequenceNr, persistenceId = persistenceId, deleted = deleted, sender = sender, tags = tags)
 }
 

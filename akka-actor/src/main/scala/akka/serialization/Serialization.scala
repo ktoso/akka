@@ -4,15 +4,18 @@
 
 package akka.serialization
 
-import com.typesafe.config.Config
+import java.io.NotSerializableException
+import java.util.concurrent.ConcurrentHashMap
+
 import akka.actor._
 import akka.event.Logging
-import java.util.concurrent.ConcurrentHashMap
-import scala.collection.mutable.ArrayBuffer
-import java.io.NotSerializableException
-import scala.util.{ Try, DynamicVariable, Failure }
+import com.typesafe.config.Config
+
 import scala.collection.immutable
+import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
+import scala.util.DynamicVariable
+import scala.util.Try
 
 object Serialization {
 
@@ -34,7 +37,7 @@ object Serialization {
 
     private final def configToMap(path: String): Map[String, String] = {
       import scala.collection.JavaConverters._
-      config.getConfig(path).root.unwrapped.asScala.toMap map { case (k, v) ⇒ (k -> v.toString) }
+      config.getConfig(path).root.unwrapped.asScala.toMap map { case (k, v) ⇒ (k, v.toString) }
     }
   }
 

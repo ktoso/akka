@@ -76,6 +76,9 @@ private[persistence] trait Eventsourced extends Snapshotter with Stash with Stas
    */
   override def snapshotterId: String = persistenceId
 
+  // TODO do we want to expose it? Maybe users want to use this mechanism for "if it's X then fire off to pub-sub of X"?
+  def tagsFor(message: Any): immutable.Set[String] = extension.tagsFor(message)
+  
   /**
    * Highest received sequence number so far or `0L` if this actor hasn't replayed
    * or stored any persistent events yet.
