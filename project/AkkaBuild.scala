@@ -76,8 +76,13 @@ object AkkaBuild extends Build {
       },
       validatePullRequest <<= (Unidoc.unidoc, SphinxSupport.generate in Sphinx in docs) map { (_, _) => }
     ),
-    aggregate = Seq(actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
-      persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, contrib, samples, multiNodeTestkit)
+    aggregate =
+      if (System.getProperty("akka.build.includeSamples") == "true")
+        Seq(actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
+            persistence, persistenceTck, mailboxes, zeroMQ, kernel, samples, osgi, docs, contrib, multiNodeTestkit)
+      else
+          Seq(actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
+              persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, contrib, multiNodeTestkit)
   )
 
   lazy val akkaScalaNightly = Project(
@@ -402,7 +407,8 @@ object AkkaBuild extends Build {
     id = "akka-samples",
     base = file("akka-samples"),
     settings = parentSettings ++ ActivatorDist.settings,
-    aggregate = Seq(camelSampleJava, camelSampleScala, mainSampleJava, mainSampleScala, 
+    aggregate =
+      Seq(camelSampleJava, camelSampleScala, mainSampleJava, mainSampleScala,
           remoteSampleJava, remoteSampleScala, clusterSampleJava, clusterSampleScala,
           fsmSampleScala, persistenceSampleJava, persistenceSampleScala,
           multiNodeSampleScala, osgiDiningHakkersSample)
