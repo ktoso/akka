@@ -28,8 +28,8 @@ object Release {
     val state1 = extracted.runAggregated(publishSigned in projectRef, state)
     val (state2, (api, japi)) = extracted.runTask(Unidoc.unidoc, state1)
     val (state3, docs) = extracted.runTask(generate in Sphinx, state2)
-    val (state4, _) = extracted.runTask(Dist.dist, state3)
-    val (state5, activatorDist) = extracted.runTask(ActivatorDist.activatorDist in LocalProject(AkkaBuild.samples.id), state4)
+    val (state4, activatorDist) = extracted.runTask(Dist.dist, state3)
+//    val (state5, activatorDist) = extracted.runTask(ActivatorDist.activatorDist in LocalProject(AkkaBuild.samples.id), state4)
 
     IO.delete(release)
     IO.createDirectory(release)
@@ -45,7 +45,7 @@ object Release {
     }
     for (f <- (activatorDist * "*.zip").get)
       IO.copyFile(f, release / "downloads" / f.name)
-    state5
+    state4
   }
 
   def buildSubprojectReleaseCommand = Command.single("build-subproject-release") { 
