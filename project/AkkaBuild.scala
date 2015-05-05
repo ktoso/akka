@@ -55,12 +55,12 @@ object AkkaBuild extends Build {
       testMailbox in GlobalScope := System.getProperty("akka.testMailbox", "false").toBoolean,
       parallelExecution in GlobalScope := System.getProperty("akka.parallelExecution", "false").toBoolean,
       Publish.defaultPublishTo in ThisBuild <<= crossTarget / "repository",
-      unidocExclude := Seq(remoteTests.id),
+      unidocExclude := Seq(samples.id, remoteTests.id),
       sources in JavaDoc <<= junidocSources,
       javacOptions in JavaDoc := Seq(),
       artifactName in packageDoc in JavaDoc := ((sv, mod, art) => "" + mod.name + "_" + sv.binary + "-" + mod.revision + "-javadoc.jar"),
       packageDoc in Compile <<= packageDoc in JavaDoc,
-      Dist.distExclude := Seq(actorTests.id, docs.id, osgi.id),
+      Dist.distExclude := Seq(actorTests.id, docs.id, samples.id, osgi.id),
       // generate online version of docs
       sphinxInputs in Sphinx <<= sphinxInputs in Sphinx in LocalProject(docs.id) map { inputs => inputs.copy(tags = inputs.tags :+ "online") },
       // don't regenerate the pdf, just reuse the akka-docs version
@@ -76,9 +76,8 @@ object AkkaBuild extends Build {
       },
       validatePullRequest <<= (Unidoc.unidoc, SphinxSupport.generate in Sphinx in docs) map { (_, _) => }
     ),
-    aggregate =
-          Seq(actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
-              persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, contrib, multiNodeTestkit)
+    aggregate = Seq(actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
+      persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, contrib, multiNodeTestkit)
   )
 
   lazy val akkaScalaNightly = Project(
@@ -399,6 +398,15 @@ object AkkaBuild extends Build {
     )
   )
 
+  lazy val samples = Project(
+    id = "akka-samples",
+    base = file("akka-samples"),
+    settings = parentSettings ++ ActivatorDist.settings,
+    aggregate = Seq(camelSampleJava, camelSampleScala, mainSampleJava, mainSampleScala, 
+          remoteSampleJava, remoteSampleScala, clusterSampleJava, clusterSampleScala,
+          fsmSampleScala, persistenceSampleJava, persistenceSampleScala,
+          multiNodeSampleScala, osgiDiningHakkersSample)
+  )
 
   lazy val camelSampleJava = Project(
     id = "akka-sample-camel-java",
