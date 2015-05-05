@@ -404,10 +404,7 @@ object AkkaBuild extends Build {
     id = "akka-samples",
     base = file("akka-samples"),
     settings = parentSettings ++ ActivatorDist.settings,
-    aggregate = Seq(camelSampleJava, camelSampleScala, mainSampleJava, mainSampleScala, 
-          remoteSampleJava, remoteSampleScala, clusterSampleJava, clusterSampleScala,
-          fsmSampleScala, persistenceSampleJava, persistenceSampleScala,
-          multiNodeSampleScala, osgiDiningHakkersSample)
+    aggregate = Seq()
   )
 
   lazy val camelSampleJava = Project(
