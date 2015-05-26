@@ -11,6 +11,7 @@ import com.typesafe.config.{ Config, ConfigFactory }
 import akka.event._
 import akka.dispatch._
 import akka.dispatch.sysmsg.{ SystemMessageList, EarliestFirstSystemMessageList, LatestFirstSystemMessageList, SystemMessage }
+import akka.instrument.Instrumentation
 import akka.japi.Util.immutableSeq
 import akka.actor.dungeon.ChildrenContainer
 import akka.util._
@@ -205,6 +206,8 @@ object ActorSystem {
     final val JvmExitOnFatalError: Boolean = getBoolean("akka.jvm-exit-on-fatal-error")
 
     final val DefaultVirtualNodesFactor: Int = getInt("akka.actor.deployment.default.virtual-nodes-factor")
+
+    final val Instrumentation: String = getString("akka.instrumentation")
 
     if (ConfigVersion != Version)
       throw new akka.ConfigurationException("Akka JAR version [" + Version + "] does not match the provided config version [" + ConfigVersion + "]")
@@ -485,6 +488,16 @@ abstract class ExtendedActorSystem extends ActorSystem {
   def dynamicAccess: DynamicAccess
 
   /**
+   * Returns whether or not instrumentation is attached.
+   */
+  def hasInstrumentation: Boolean
+
+  /**
+   * Access to the instrumentation SPI.
+   */
+  def instrumentation: Instrumentation
+
+  /**
    * For debugging: traverse actor hierarchy and make string representation.
    * Careful, this may OOM on large actor systems, and it is only meant for
    * helping debugging in case something already went terminally wrong.
@@ -565,6 +578,8 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
     }
   }
 
+  final val (instrumentation, hasInstrumentation) = Instrumentation(settings.Instrumentation, dynamicAccess, settings.config)
+
   import settings._
 
   // this provides basic logging (to stdout) until .start() is called below
@@ -622,6 +637,11 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
       logDeadLetterListener = Some(systemActorOf(Props[DeadLetterListener], "deadLetterListener"))
     loadExtensions()
     if (LogConfigOnStart) logConfiguration()
+    if (hasInstrumentation) {
+      instrumentation.systemStarted(this)
+      new InstrumentationEventStreamListener(this, this.instrumentation)
+      registerOnTermination { instrumentation.systemShutdown(this) }
+    }
     this
   } catch {
     case NonFatal(e) ⇒
@@ -824,5 +844,25 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
     final def result(atMost: Duration)(implicit permit: CanAwait): Unit = ready(atMost)
 
     final def isTerminated: Boolean = latch.getCount == 0
+  }
+
+  final class InstrumentationEventStreamListener(system: ExtendedActorSystem, instrumentation: Instrumentation) extends MinimalActorRef {
+    import akka.event.Logging
+
+    override def provider: ActorRefProvider = system.provider
+    override val path: ActorPath = system.systemGuardian.path / "instrumentation-stream-listener"
+
+    override def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = message match {
+      case e: Logging.Error ⇒ instrumentation.eventLogError(sender, e)
+      case w: Logging.Warning ⇒ instrumentation.eventLogWarning(sender, w)
+      case UnhandledMessage(message, sender, recipient) ⇒ instrumentation.eventUnhandled(recipient, message, sender)
+      case DeadLetter(message, sender, recipient) ⇒ instrumentation.eventDeadLetter(recipient, message, sender)
+      case _ ⇒
+    }
+
+    eventStream.subscribe(this, classOf[UnhandledMessage])
+    eventStream.subscribe(this, classOf[DeadLetter])
+    eventStream.subscribe(this, classOf[Logging.Error])
+    eventStream.subscribe(this, classOf[Logging.Warning])
   }
 }
