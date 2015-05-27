@@ -4,18 +4,17 @@
 
 package akka.persistence
 
-import scala.collection.immutable.Seq
-import scala.concurrent.duration._
-import com.typesafe.config.Config
-import akka.actor._
-import akka.testkit.{ ImplicitSender, AkkaSpec }
-import akka.testkit.EventFilter
-import akka.testkit.TestProbe
 import java.util.concurrent.atomic.AtomicInteger
+
+import akka.actor._
+import akka.testkit.{ AkkaSpec, ImplicitSender, TestLatch, TestProbe }
+import com.typesafe.config.Config
+
+import scala.collection.immutable.Seq
+import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.util.Random
 import scala.util.control.NoStackTrace
-import akka.testkit.TestLatch
-import scala.concurrent.Await
 
 object PersistentActorSpec {
   final case class Cmd(data: Any)
@@ -26,7 +25,9 @@ object PersistentActorSpec {
     var events: List[Any] = Nil
 
     val updateState: Receive = {
-      case Evt(data) ⇒ events = data :: events
+      case Evt(data) ⇒
+        System.err.println("data = " + data + " @ " + lastSequenceNr)
+        events = data :: events
     }
 
     val commonBehavior: Receive = {
@@ -142,7 +143,60 @@ object PersistentActorSpec {
     def receiveCommand: Receive = commonBehavior orElse {
       case c: Cmd                 ⇒ handleCmd(c)
       case SaveSnapshotSuccess(_) ⇒ probe ! "saved"
-      case "snap"                 ⇒ saveSnapshot(events)
+    }
+  }
+  class PersistingThenSnapshottingPersistentActor(name: String, probe: ActorRef) extends ExamplePersistentActor(name) {
+    override def receiveRecover = super.receiveRecover orElse {
+      case offer @ SnapshotOffer(meta, events: List[_]) ⇒
+        probe ! s"offered-${meta.sequenceNr}"
+        System.err.println("offered = " + offer)
+        this.events = events
+    }
+
+    private def handleCmd(cmd: Cmd): Unit = {
+      System.err.println(cmd + ", events = " + events + ", name: " + name)
+      persist(Evt(s"${cmd.data}"))(updateState)
+    }
+
+    def receiveCommand: Receive = commonBehavior orElse {
+      case c @ Cmd("snap") ⇒
+        handleCmd(c)
+        sender() ! s"snap-$snapshotSequenceNr"
+        saveSnapshot(events)
+      case c: Cmd                 ⇒ handleCmd(c)
+      case SaveSnapshotSuccess(_) ⇒ probe ! "saved"
+    }
+  }
+  class PersistingAsyncThenSnapshottingPersistentActor(name: String, probe: ActorRef) extends ExamplePersistentActor(name) {
+
+
+    /**
+     * Configuration id of the journal plugin servicing this persistent actor or view.
+     * When empty, looks in `akka.persistence.journal.plugin` to find configuration entry path.
+     * When configured, uses `journalPluginId` as absolute path to the journal configuration entry.
+     * Configuration entry must contain few required fields, such as `class`. See `src/main/resources/reference.conf`.
+     */
+    override def journalPluginId: String = super.journalPluginId
+
+    override def receiveRecover = super.receiveRecover orElse {
+      case offer @ SnapshotOffer(meta, events: List[_]) ⇒
+        probe ! s"offered-${meta.sequenceNr}"
+        System.err.println("offered = " + offer)
+        this.events = events
+    }
+
+    private def handleCmd(cmd: Cmd): Unit = {
+      System.err.println(cmd + ", events = " + events + ", name: " + name)
+      persistAsync(Evt(s"${cmd.data}"))(updateState)
+    }
+
+    def receiveCommand: Receive = commonBehavior orElse {
+      case c @ Cmd("snap") ⇒
+        handleCmd(c)
+        sender() ! s"snap-$snapshotSequenceNr"
+        saveSnapshot(events)
+      case c: Cmd                    ⇒ handleCmd(c)
+      case SaveSnapshotSuccess(meta) ⇒ probe ! s"saved-${meta.sequenceNr}"
     }
   }
 
@@ -658,6 +712,34 @@ abstract class PersistentActorSpec(config: Config) extends AkkaSpec(config) with
       val persistentActor = namedPersistentActor[AnyValEventPersistentActor]
       persistentActor ! Cmd("a")
       expectMsg(5)
+    }
+    "work with snapshot when persists are still underway" in {
+      val persistentActor = system.actorOf(Props(classOf[PersistingThenSnapshottingPersistentActor], name, testActor))
+      persistentActor ! Cmd("a")
+      persistentActor ! Cmd("b")
+      persistentActor ! Cmd("snap")
+      expectMsg("snap-4")
+      expectMsg("saved")
+      persistentActor ! GetState
+      expectMsg(List("a-1", "a-2", "a", "b", "snap"))
+
+      val recovered = system.actorOf(Props(classOf[PersistingThenSnapshottingPersistentActor], name, testActor))
+      expectMsg("offered-4")
+      recovered ! GetState
+      expectMsg(List("a-1", "a-2", "a", "b", "snap"))
+    }
+    "work with snapshot when persistAsyncs are still underway" in {
+      val persistentActor = system.actorOf(Props(classOf[PersistingAsyncThenSnapshottingPersistentActor], name, testActor))
+      persistentActor ! Cmd("a")
+      persistentActor ! Cmd("b")
+      persistentActor ! Cmd("snap")
+      expectMsg("snap-2")
+      expectMsg("saved-2")
+
+      val recovered = system.actorOf(Props(classOf[PersistingAsyncThenSnapshottingPersistentActor], name, testActor))
+      expectMsg("offered-2")
+      recovered ! GetState
+      expectMsg(List("a-1", "a-2", "a", "b", "snap"))
     }
     "be able to opt-out from stashing messages until all events have been processed" in {
       val persistentActor = namedPersistentActor[AsyncPersistPersistentActor]

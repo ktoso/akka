@@ -80,7 +80,6 @@ trait SnapshotStore extends Actor {
    *
    * @param metadata snapshot metadata.
    */
-
   def delete(metadata: SnapshotMetadata)
 
   /**
