@@ -133,6 +133,7 @@ stream, for example if it's finite or infinite, strictly ordered or not ordered 
 is defined as the ``M`` type parameter of a query (``Query[T,M]``), which allows journals to provide users with their
 specialised query object, as demonstrated in the sample below:
 
+.. includecode:: code/docs/persistence/PersistenceQueryDocTest.java#materialized-query-metadata-classes
 .. includecode:: code/docs/persistence/PersistenceQueryDocTest.java#materialized-query-metadata
 
 .. _materialized values: http://doc.akka.io/docs/akka-stream-and-http-experimental/1.0/java/stream-quickstart.html#Materialized_values
@@ -179,6 +180,7 @@ you may have to implement the write logic using plain functions or Actors instea
 In case your write logic is state-less and you just need to convert the events from one data data type to another
 before writing into the alternative datastore, then the projection is as simple as:
 
+.. includecode:: code/docs/persistence/PersistenceQueryDocTest.java#projection-into-different-store-simple-classes
 .. includecode:: code/docs/persistence/PersistenceQueryDocTest.java#projection-into-different-store-simple
 
 Resumable projections
