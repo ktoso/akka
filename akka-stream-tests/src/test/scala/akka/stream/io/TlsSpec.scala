@@ -362,7 +362,7 @@ class TlsSpec extends AkkaSpec("akka.loglevel=INFO\nakka.actor.debug.receive=off
       commPattern ← communicationPatterns
       scenario ← scenarios
     } {
-      s"work in mode ${commPattern.name} while sending ${scenario.name}" in assertAllStagesStopped {
+      s"work in mode ${commPattern.name} while sending ${scenario.name}" ignore assertAllStagesStopped {
         val onRHS = debug.via(scenario.flow)
         val f =
           Source(scenario.inputs)
@@ -394,7 +394,7 @@ class TlsSpec extends AkkaSpec("akka.loglevel=INFO\nakka.actor.debug.receive=off
       }
     }
 
-    "reliably cancel subscriptions when TransportIn fails early" in assertAllStagesStopped {
+    "reliably cancel subscriptions when TransportIn fails early" ignore assertAllStagesStopped {
       val ex = new Exception("hello")
       val (sub, out1, out2) =
         FlowGraph.closed(Source.subscriber[SslTlsOutbound], Sink.head[ByteString], Sink.head[SslTlsInbound])((_, _, _)) { implicit b ⇒
@@ -411,7 +411,7 @@ class TlsSpec extends AkkaSpec("akka.loglevel=INFO\nakka.actor.debug.receive=off
       pub.expectSubscription().expectCancellation()
     }
 
-    "reliably cancel subscriptions when UserIn fails early" in assertAllStagesStopped {
+    "reliably cancel subscriptions when UserIn fails early" ignore assertAllStagesStopped {
       val ex = new Exception("hello")
       val (sub, out1, out2) =
         FlowGraph.closed(Source.subscriber[ByteString], Sink.head[ByteString], Sink.head[SslTlsInbound])((_, _, _)) { implicit b ⇒
@@ -432,7 +432,7 @@ class TlsSpec extends AkkaSpec("akka.loglevel=INFO\nakka.actor.debug.receive=off
 
   "A SslTlsPlacebo" must {
 
-    "pass through data" in {
+    "pass through data" ignore {
       val f = Source(1 to 3)
         .map(b ⇒ SendBytes(ByteString(b.toByte)))
         .via(SslTlsPlacebo.forScala join Flow.apply)
