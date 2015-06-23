@@ -610,9 +610,13 @@ object AkkaBuild extends Build {
 
   lazy val contrib = Project(
     id = "akka-contrib",
-    base = file("akka-contrib"),
-    dependencies = Seq(remote, remoteTests % "test->test", cluster, persistence),
+    base = file("akka-contrib"),    
+    dependencies = Seq(remoteTests % "test->test", testkit % "test->test"),
     settings = defaultSettings ++ formatSettings ++ scaladocSettings ++ javadocSettings ++ multiJvmSettings ++ Seq(
+      version := Dependencies.Versions.rp,
+      resolvers += "RP" at "https://dl.bintray.com/typesafe/for-subscribers-only/DFDB5DD187A28462DDAF7AB39A95A6AE65983B23",
+      publishTo := Some("bintray-rp-repo" at 
+        "https://api.bintray.com/content/typesafe/for-subscribers-only/akka-contrib-15v01/15v01p05/DFDB5DD187A28462DDAF7AB39A95A6AE65983B23/"),
       libraryDependencies ++= Dependencies.contrib,
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-v"),
       reportBinaryIssues := (), // disable bin comp check
@@ -1222,13 +1226,14 @@ object Dependencies {
   import DependencyHelpers.ScalaVersionDependentModuleID._
 
   object Versions {
-    val crossScala = Seq("2.10.4", "2.11.5")
+    val crossScala = Seq("2.10.4", "2.11.6")
     val scala = crossScala.head
     val scalaStmVersion  = System.getProperty("akka.build.scalaStmVersion", "0.7")
     val genJavaDocVersion = System.getProperty("akka.build.genJavaDocVersion", "0.8")
     val scalaTestVersion = System.getProperty("akka.build.scalaTestVersion", "2.1.3")
     val scalaCheckVersion = System.getProperty("akka.build.scalaCheckVersion", "1.11.3")
     val scalaContinuationsVersion = System.getProperty("akka.build.scalaContinuationsVersion", "1.0.2")
+    val rp = "2.3-bin-rp-15v01p05"
   }
 
   object Compile {
@@ -1301,6 +1306,7 @@ object Dependencies {
       val reactiveStreams = "org.reactivestreams"      % "reactive-streams-tck"         % "0.3"              % "test" // CC0
       val scalaXml     = post210Dependency("org.scala-lang.modules"      %% "scala-xml"                   % "1.0.1"            % "test")
     }
+
   }
 
   import Compile._
@@ -1360,7 +1366,12 @@ object Dependencies {
 
   val clusterSample = Seq(Test.scalatest, sigar)
 
-  val contrib = Seq(Test.junitIntf, Test.commonsIo)
+  val contrib = Seq(
+    "com.typesafe.akka" %% "akka-cluster" % Versions.rp,
+    "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.11",
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % "2.3.11" % "test",
+    Test.junitIntf, 
+    Test.commonsIo)
 
   val multiNodeSample = Seq(Test.scalatest)
 }
