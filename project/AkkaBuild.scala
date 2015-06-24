@@ -1008,10 +1008,7 @@ object AkkaBuild extends Build {
     Seq(
       // add filters here, see release-2.2 branch
       FilterAnyProblem("akka.remote.testconductor.Terminate"),
-      FilterAnyProblem("akka.remote.testconductor.TerminateMsg"),
-      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.testconductor.Conductor.shutdown"),
-      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.testkit.MultiNodeSpec.akka$remote$testkit$MultiNodeSpec$$deployer"),
-      FilterAnyProblem("akka.remote.EndpointManager$Pass"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.resendLimit")
       FilterAnyProblem("akka.remote.EndpointManager$EndpointRegistry"),
       FilterAnyProblem("akka.remote.EndpointWriter"),
       FilterAnyProblem("akka.remote.EndpointWriter$StopReading"),
