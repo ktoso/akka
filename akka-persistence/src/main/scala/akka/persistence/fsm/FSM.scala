@@ -507,7 +507,7 @@ trait FSM[S, D, E] extends Actor with Listeners with ActorLogging {
    *
    * @see [[#startWith]]
    */
-  final def initialize(): Unit = makeTransition(currentState)
+  final def initialize(): Unit = makeTransition(currentState.withNotification(false))
 
   /**
    * Return current state name (i.e. object of type S)
