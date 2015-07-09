@@ -27,7 +27,7 @@ import akka.stream.impl.StreamLayout
 import scala.annotation.varargs
 
 /** Java API */
-object Source {
+object Source extends JSourceBase {
 
   val factory: SourceCreate = new SourceCreate {}
 
@@ -145,12 +145,6 @@ object Source {
    */
   def single[T](element: T): Source[T, Unit] =
     new Source(scaladsl.Source.single(element))
-
-  /**
-   * Create a `Source` with the given elements.
-   */
-  def elements[T](elems: T*): Source[T, Unit] =
-    new Source(scaladsl.Source(() ⇒ elems.iterator))
 
   /**
    * Create a `Source` that will continually emit the given element.

@@ -155,6 +155,27 @@ public class SourceTest extends StreamTest {
   }
 
   @Test
+  public void mustBeAbleToUseElements() {
+    final JavaTestKit probe = new JavaTestKit(system);
+    Source
+      .elements("0", "1", "2", "3", "4", "5", "6", "7")
+      .runForeach(new Procedure<String>() {
+        public void apply(String elem) {
+          probe.getRef().tell(elem, ActorRef.noSender());
+        }
+      }, materializer);
+
+    probe.expectMsgEquals("0");
+    probe.expectMsgEquals("1");
+    probe.expectMsgEquals("2");
+    probe.expectMsgEquals("3");
+    probe.expectMsgEquals("4");
+    probe.expectMsgEquals("5");
+    probe.expectMsgEquals("6");
+    probe.expectMsgEquals("7");
+  }
+
+  @Test
   public void mustBeAbleToUseGroupBy() {
     final JavaTestKit probe = new JavaTestKit(system);
     final Iterable<String> input = Arrays.asList("Aaa", "Abb", "Bcc", "Cdd", "Cee");
