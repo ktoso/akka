@@ -5,8 +5,6 @@
 package akka.http.scaladsl.server
 package directives
 
-import akka.http.scaladsl.model.StatusCodes._
-
 class SchemeDirectivesSpec extends RoutingSpec {
   "the extractScheme directive" should {
     "extract the Uri scheme" in {
@@ -22,9 +20,11 @@ class SchemeDirectivesSpec extends RoutingSpec {
       Get("https://localhost/") ~> scheme("http") { completeOk } ~> check { rejections shouldEqual List(SchemeRejection("http")) }
     }
     "cancel SchemeRejection if other scheme passed" in {
-      val route =
+      val route: Route =
         scheme("https") { completeOk } ~
           scheme("http") { reject }
+
+      akka.http.scaladsl.Http().bindAndHandle(route, "")
 
       Put("http://localhost/", "Hello") ~> route ~> check {
         rejections should be(Nil)

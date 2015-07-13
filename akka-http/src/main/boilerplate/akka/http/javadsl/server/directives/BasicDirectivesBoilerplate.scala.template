@@ -1,0 +1,15 @@
+package akka.http.javadsl.server.directives
+
+import akka.http.javadsl.server.{RequestContext, Route, RouteResult, RequestVal}
+
+abstract class BasicDirectivesBoilerplate {
+  private[http] def handle(extractions: RequestVal[_]*)(f: RequestContext ⇒ RouteResult): Route
+
+  def handleWith1[T1](v: RequestVal[T1], fn: akka.japi.function.Function2[RequestContext, T1, RouteResult]): Route =
+    handle(v)(ctx => fn(ctx, v.get(ctx)))
+
+  [2..21#def handleWith1[[#T1#]]([#v1: RequestVal[T1]#], fn: akka.japi.function.Function2[RequestContext, [#T1#], RouteResult]): Route =
+    handle([#v1#])(ctx => fn(ctx, [#v1.get(ctx)#]))#
+  ]
+
+}
