@@ -1006,9 +1006,13 @@ object AkkaBuild extends Build {
   lazy val mimaIgnoredProblems = {
     import com.typesafe.tools.mima.core._
     Seq(
-      // add filters here, see release-2.2 branch
+       // add filters here, see release-2.2 branch
       FilterAnyProblem("akka.remote.testconductor.Terminate"),
-      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.resendLimit")
+      FilterAnyProblem("akka.remote.testconductor.TerminateMsg"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.testconductor.Conductor.shutdown"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.testkit.MultiNodeSpec.akka$remote$testkit$MultiNodeSpec$$deployer"),
+      FilterAnyProblem("akka.remote.EndpointManager"),
+      FilterAnyProblem("akka.remote.EndpointManager$Pass"),
       FilterAnyProblem("akka.remote.EndpointManager$EndpointRegistry"),
       FilterAnyProblem("akka.remote.EndpointWriter"),
       FilterAnyProblem("akka.remote.EndpointWriter$StopReading"),
@@ -1062,7 +1066,7 @@ object AkkaBuild extends Build {
       ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.lastCumulativeAck"),
       ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.remote.ReliableDeliverySupervisor.bailoutAt"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.lastCumulativeAck_="),
-      
+
       // Change to improve cluster heartbeat sender, #16638
       FilterAnyProblem("akka.cluster.HeartbeatNodeRing"),
       FilterAnyProblem("akka.cluster.ClusterHeartbeatSenderState"),
@@ -1077,7 +1081,7 @@ object AkkaBuild extends Build {
       ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor#Batch.this"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor.akka$dispatch$BatchingExecutor$_setter_$akka$dispatch$BatchingExecutor$$_blockContext_="),
       ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor.akka$dispatch$BatchingExecutor$$_blockContext"),
-      
+
       // Exclude observations from downed, #13875
       ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.ClusterEvent.diffReachable"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.ClusterEvent.diffSeen"),
@@ -1088,10 +1092,20 @@ object AkkaBuild extends Build {
       ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.akka$cluster$Gossip$$convergenceMemberStatus"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.isLeader"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.leader"),
-      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.roleLeader")
-      
-      // #16736
-      ProblemFilters.exclude[MissingClassProblem]("akka.cluster.OnMemberUpListener")
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.roleLeader"),
+
+      // issue #16736
+      ProblemFilters.exclude[MissingClassProblem]("akka.cluster.OnMemberUpListener"),
+
+      // issue #17554
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.maxResendRate"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.resendLimit"),
+
+      // toString is available on any object, mima is confused due to a generated toString appearing #17722
+      ProblemFilters.exclude[MissingMethodProblem]("akka.japi.Pair.toString"),
+
+      // issue #17805
+      ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ActorCell.clearActorFields")
     )
   }
 
