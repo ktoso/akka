@@ -50,14 +50,14 @@ object AkkaBuild extends Build {
     base = file("."),
     settings = parentSettings ++ Release.settings ++ Unidoc.settings ++ Publish.versionSettings ++
       SphinxSupport.settings ++ Dist.settings ++ s3Settings ++ mimaSettings ++ unidocScaladocSettings ++
-      StatsDMetrics.settings ++ 
+      StatsDMetrics.settings ++
       Protobuf.settings ++ inConfig(JavaDoc)(Defaults.configSettings) ++ Seq(
       testMailbox in GlobalScope := System.getProperty("akka.testMailbox", "false").toBoolean,
       parallelExecution in GlobalScope := System.getProperty("akka.parallelExecution", "false").toBoolean,
       Publish.defaultPublishTo in ThisBuild <<= crossTarget / "repository",
       unidocExclude := Seq(samples.id, remoteTests.id),
       sources in JavaDoc <<= junidocSources,
-      javacOptions in JavaDoc := Seq(),
+      javacOptions in JavaDoc := (if (sys.props("java.version").startsWith("1.8")) Seq("-Xdoclint:none") else Seq()),
       artifactName in packageDoc in JavaDoc := ((sv, mod, art) => "" + mod.name + "_" + sv.binary + "-" + mod.revision + "-javadoc.jar"),
       packageDoc in Compile <<= packageDoc in JavaDoc,
       Dist.distExclude := Seq(actorTests.id, docs.id, samples.id, osgi.id),
@@ -76,8 +76,11 @@ object AkkaBuild extends Build {
       },
       validatePullRequest <<= (Unidoc.unidoc, SphinxSupport.generate in Sphinx in docs) map { (_, _) => }
     ),
-    aggregate = Seq(actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
-      persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, contrib, samples, multiNodeTestkit)
+    aggregate = Seq[ProjectReference](actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
+      persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, samples, multiNodeTestkit) ++ (
+        if (System.getProperty("akka.build.includeContrib", "false").toBoolean) Seq(contrib) else Seq.empty[sbt.Project]
+      ).map(sbt.Project.projectToRef) // implicit conversion does not apply on this collection for some reason (due to ++)
+      
   )
 
   lazy val akkaScalaNightly = Project(
@@ -126,7 +129,7 @@ object AkkaBuild extends Build {
   lazy val actor = Project(
     id = "akka-actor",
     base = file("akka-actor"),
-    settings = defaultSettings ++ formatSettings ++ scaladocSettings ++ javadocSettings ++ OSGi.actor ++ 
+    settings = defaultSettings ++ formatSettings ++ scaladocSettings ++ javadocSettings ++ OSGi.actor ++
       spray.boilerplate.BoilerplatePlugin.Boilerplate.settings ++ Seq(
       // to fix scaladoc generation
       fullClasspath in doc in Compile <<= fullClasspath in Compile,
@@ -381,7 +384,7 @@ object AkkaBuild extends Build {
     id = "akka-samples",
     base = file("akka-samples"),
     settings = parentSettings ++ ActivatorDist.settings,
-    aggregate = Seq(camelSampleJava, camelSampleScala, mainSampleJava, mainSampleScala, 
+    aggregate = Seq(camelSampleJava, camelSampleScala, mainSampleJava, mainSampleScala,
           remoteSampleJava, remoteSampleScala, clusterSampleJava, clusterSampleScala,
           fsmSampleScala, persistenceSampleJava, persistenceSampleScala,
           multiNodeSampleScala, osgiDiningHakkersSample)
@@ -393,7 +396,7 @@ object AkkaBuild extends Build {
     dependencies = Seq(actor, camel),
     settings = sampleSettings ++ Seq(libraryDependencies ++= Dependencies.camelSample)
   ).setSbtFiles()
-  
+
   lazy val camelSampleScala = Project(
     id = "akka-sample-camel-scala",
     base = file("akka-samples/akka-sample-camel-scala"),
@@ -414,7 +417,7 @@ object AkkaBuild extends Build {
     dependencies = Seq(actor),
     settings = sampleSettings
   ).setSbtFiles()
-  
+
   lazy val mainSampleScala = Project(
     id = "akka-sample-main-scala",
     base = file("akka-samples/akka-sample-main-scala"),
@@ -439,7 +442,7 @@ object AkkaBuild extends Build {
     dependencies = Seq(actor, remote),
     settings = sampleSettings
   ).setSbtFiles()
-  
+
   lazy val remoteSampleScala = Project(
     id = "akka-sample-remote-scala",
     base = file("akka-samples/akka-sample-remote-scala"),
@@ -478,7 +481,7 @@ object AkkaBuild extends Build {
       }
     )
   ) configs (MultiJvm) setSbtFiles ()
-  
+
   lazy val clusterSampleScala = Project(
     id = "akka-sample-cluster-scala",
     base = file("akka-samples/akka-sample-cluster-scala"),
@@ -496,7 +499,7 @@ object AkkaBuild extends Build {
       }
     )
   ) configs (MultiJvm) setSbtFiles ()
-  
+
   lazy val multiNodeSampleScala = Project(
     id = "akka-sample-multi-node-scala",
     base = file("akka-samples/akka-sample-multi-node-scala"),
@@ -568,7 +571,7 @@ object AkkaBuild extends Build {
         }},
         // force publication of artifacts to local maven repo
         compile in Compile <<=
-          (publishM2 in actor, publishM2 in testkit, publishM2 in remote, publishM2 in cluster, publishM2 in osgi, 
+          (publishM2 in actor, publishM2 in testkit, publishM2 in remote, publishM2 in cluster, publishM2 in osgi,
               publishM2 in slf4j, publishM2 in persistence, compile in Compile) map
             ((_, _, _, _, _, _, _, c) => c))
       else Seq.empty
@@ -762,7 +765,8 @@ object AkkaBuild extends Build {
     // compile options
     scalacOptions in Compile ++= Seq("-encoding", "UTF-8", "-target:jvm-1.6", "-deprecation", "-feature", "-unchecked", "-Xlog-reflective-calls", "-Xlint"),
     javacOptions in compile ++= Seq("-encoding", "UTF-8", "-source", "1.6", "-target", "1.6", "-Xlint:unchecked", "-Xlint:deprecation"),
-    javacOptions in doc ++= Seq("-encoding", "UTF-8", "-source", "1.6"),
+    javacOptions in doc ++= Seq("-encoding", "UTF-8", "-source", "1.6") ++
+                            (if (sys.props("java.version").startsWith("1.8")) Seq("-Xdoclint:none") else Seq()),
 
     crossVersion := CrossVersion.binary,
 
@@ -817,7 +821,7 @@ object AkkaBuild extends Build {
 
     // don't save test output to a file
     testListeners in (Test, test) := Seq(TestLogger(streams.value.log, {_ => streams.value.log }, logBuffered.value)),
-    
+
     validatePullRequestTask,
     validatePullRequest <<= validatePullRequest.dependsOn(test in Test),
     // add reportBinaryIssues to validatePullRequest on minor version maintenance branch
@@ -873,7 +877,7 @@ object AkkaBuild extends Build {
     ScalariformKeys.preferences in Compile  := formattingPreferences,
     ScalariformKeys.preferences in Test     := formattingPreferences
   )
-  
+
   lazy val docFormatSettings = SbtScalariform.scalariformSettings ++ Seq(
     ScalariformKeys.preferences in Compile  := docFormattingPreferences,
     ScalariformKeys.preferences in Test     := docFormattingPreferences,
@@ -887,7 +891,7 @@ object AkkaBuild extends Build {
     .setPreference(AlignParameters, true)
     .setPreference(AlignSingleLineCaseStatements, true)
   }
-  
+
   def docFormattingPreferences = {
     import scalariform.formatter.preferences._
     FormattingPreferences()
@@ -945,7 +949,7 @@ object AkkaBuild extends Build {
     scaladocSettingsNoVerificationOfDiagrams ++
     (if (scaladocDiagramsEnabled) Seq(doc in Compile ~= scaladocVerifier) else Seq.empty)
   }
-  
+
   // for projects with few (one) classes there might not be any diagrams
   lazy val scaladocSettingsNoVerificationOfDiagrams: Seq[sbt.Setting[_]] = {
     inTask(doc)(Seq(
@@ -953,7 +957,7 @@ object AkkaBuild extends Build {
       autoAPIMappings := scaladocAutoAPI
     ))
   }
-  
+
   lazy val unidocScaladocSettings: Seq[sbt.Setting[_]]= {
     inTask(doc)(Seq(
       scalacOptions <++= (version, baseDirectory in akka) map scaladocOptions,
@@ -1001,11 +1005,11 @@ object AkkaBuild extends Build {
       case m: MemberProblem => m.ref.owner.fullName != name && m.ref.owner.fullName != (name + '$')
     }
   }
-    
+
   lazy val mimaIgnoredProblems = {
     import com.typesafe.tools.mima.core._
     Seq(
-      // add filters here, see release-2.2 branch
+       // add filters here, see release-2.2 branch
       FilterAnyProblem("akka.remote.testconductor.Terminate"),
       FilterAnyProblem("akka.remote.testconductor.TerminateMsg"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.remote.testconductor.Conductor.shutdown"),
@@ -1065,7 +1069,7 @@ object AkkaBuild extends Build {
       ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.lastCumulativeAck"),
       ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.remote.ReliableDeliverySupervisor.bailoutAt"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.lastCumulativeAck_="),
-      
+
       // Change to improve cluster heartbeat sender, #16638
       FilterAnyProblem("akka.cluster.HeartbeatNodeRing"),
       FilterAnyProblem("akka.cluster.ClusterHeartbeatSenderState"),
@@ -1080,7 +1084,7 @@ object AkkaBuild extends Build {
       ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor#Batch.this"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor.akka$dispatch$BatchingExecutor$_setter_$akka$dispatch$BatchingExecutor$$_blockContext_="),
       ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor.akka$dispatch$BatchingExecutor$$_blockContext"),
-      
+
       // Exclude observations from downed, #13875
       ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.ClusterEvent.diffReachable"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.ClusterEvent.diffSeen"),
@@ -1092,9 +1096,19 @@ object AkkaBuild extends Build {
       ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.isLeader"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.leader"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.roleLeader"),
-      
-      // #16736
-      ProblemFilters.exclude[MissingClassProblem]("akka.cluster.OnMemberUpListener")
+
+      // issue #16736
+      ProblemFilters.exclude[MissingClassProblem]("akka.cluster.OnMemberUpListener"),
+
+      // issue #17554
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.maxResendRate"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.resendLimit"),
+
+      // toString is available on any object, mima is confused due to a generated toString appearing #17722
+      ProblemFilters.exclude[MissingMethodProblem]("akka.japi.Pair.toString"),
+
+      // issue #17805
+      ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ActorCell.clearActorFields")
     )
   }
 
@@ -1106,19 +1120,12 @@ object AkkaBuild extends Build {
 
   def akkaPreviousArtifact(id: String): Def.Initialize[Option[sbt.ModuleID]] = Def.setting {
     if (enableMiMa) {
-      // Note: This is a little gross because we don't have a 2.3.0 release on Scala 2.11.x
-      // This should be expanded if there are more deviations.
-      val version: String = 
-        scalaBinaryVersion.value match {
-          case "2.11" => "2.3.2"
-          case _ =>      "2.3.0"
-        }
       val fullId = crossVersion.value match {
          case _ : CrossVersion.Binary => id + "_" + scalaBinaryVersion.value
          case _ : CrossVersion.Full => id + "_" + scalaVersion.value
-         case CrossVersion.Disabled => id 
+         case CrossVersion.Disabled => id
        }
-      Some(organization.value % fullId % version) // the artifact to compare binary compatibility with
+      Some(organization.value % fullId % "2.3.11") // the artifact to compare binary compatibility with
     }
     else None
   }
@@ -1154,8 +1161,8 @@ object AkkaBuild extends Build {
       OsgiKeys.importPackage := (osgiOptionalImports map optionalResolution) ++ Seq("!sun.misc", scalaVersion(scalaImport).value, configImport(), "*"),
       // dynamicImportPackage needed for loading classes defined in configuration
       OsgiKeys.dynamicImportPackage := Seq("*")
-     ) 
-      
+     )
+
     val agent = exports(Seq("akka.agent.*"))
 
     val camel = exports(Seq("akka.camel.*"))
@@ -1196,7 +1203,7 @@ object AkkaBuild extends Build {
       // needed because testkit is normally not used in the application bundle,
       // but it should still be included as transitive dependency and used by BundleDelegatingClassLoader
       // to be able to find refererence.conf
-      "akka.testkit", 
+      "akka.testkit",
       "com.google.protobuf")
 
     def exports(packages: Seq[String] = Seq(), imports: Seq[String] = Nil) = osgiSettings ++ Seq(
@@ -1226,14 +1233,14 @@ object Dependencies {
   import DependencyHelpers.ScalaVersionDependentModuleID._
 
   object Versions {
-    val crossScala = Seq("2.10.4", "2.11.6")
+    val crossScala = Seq("2.11.6")
     val scala = crossScala.head
     val scalaStmVersion  = System.getProperty("akka.build.scalaStmVersion", "0.7")
-    val genJavaDocVersion = System.getProperty("akka.build.genJavaDocVersion", "0.8")
+    val genJavaDocVersion = System.getProperty("akka.build.genJavaDocVersion", "0.9")
     val scalaTestVersion = System.getProperty("akka.build.scalaTestVersion", "2.1.3")
     val scalaCheckVersion = System.getProperty("akka.build.scalaCheckVersion", "1.11.3")
     val scalaContinuationsVersion = System.getProperty("akka.build.scalaContinuationsVersion", "1.0.2")
-    val rp = "2.3-bin-rp-15v01p05"
+    val rp = "2.3-bin-rp-15v01p05" // TODO: Bump after 07 RP released, then release contrib
   }
 
   object Compile {
@@ -1310,7 +1317,7 @@ object Dependencies {
   }
 
   import Compile._
-  
+
   val actor = Seq(config)
 
   val testkit = Seq(Test.junit, Test.scalatest)
@@ -1368,8 +1375,9 @@ object Dependencies {
 
   val contrib = Seq(
     "com.typesafe.akka" %% "akka-cluster" % Versions.rp,
-    "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.11",
-    "com.typesafe.akka" %% "akka-multi-node-testkit" % "2.3.11" % "test",
+    "com.typesafe.akka" %% "akka-actor" % "2.3.12" force(),
+    "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.12",
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % "2.3.12" % "test",
     Test.junitIntf, 
     Test.commonsIo)
 
