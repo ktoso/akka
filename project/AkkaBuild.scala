@@ -76,8 +76,11 @@ object AkkaBuild extends Build {
       },
       validatePullRequest <<= (Unidoc.unidoc, SphinxSupport.generate in Sphinx in docs) map { (_, _) => }
     ),
-    aggregate = Seq(actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
-      persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, contrib, samples, multiNodeTestkit)
+    aggregate = Seq[ProjectReference](actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
+      persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, samples, multiNodeTestkit) ++ (
+        if (System.getProperty("akka.build.includeContrib", "false").toBoolean) Seq(contrib) else Seq.empty[sbt.Project]
+      ).map(sbt.Project.projectToRef) // implicit conversion does not apply on this collection for some reason (due to ++)
+      
   )
 
   lazy val akkaScalaNightly = Project(
@@ -1237,7 +1240,7 @@ object Dependencies {
     val scalaTestVersion = System.getProperty("akka.build.scalaTestVersion", "2.1.3")
     val scalaCheckVersion = System.getProperty("akka.build.scalaCheckVersion", "1.11.3")
     val scalaContinuationsVersion = System.getProperty("akka.build.scalaContinuationsVersion", "1.0.2")
-    val rp = "2.3-bin-rp-15v01p05"
+    val rp = "2.3-bin-rp-15v01p05" // TODO: Bump after 07 RP released, then release contrib
   }
 
   object Compile {
@@ -1372,8 +1375,9 @@ object Dependencies {
 
   val contrib = Seq(
     "com.typesafe.akka" %% "akka-cluster" % Versions.rp,
-    "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.11",
-    "com.typesafe.akka" %% "akka-multi-node-testkit" % "2.3.11" % "test",
+    "com.typesafe.akka" %% "akka-actor" % "2.3.12" force(),
+    "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.12",
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % "2.3.12" % "test",
     Test.junitIntf, 
     Test.commonsIo)
 
