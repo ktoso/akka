@@ -5,6 +5,8 @@ package akka.persistence.journal.leveldb
 
 import akka.persistence.journal.AsyncWriteTarget
 import akka.pattern.pipe
+import akka.persistence.journal.leveldb.SharedLeveldbStore.ExposedUnderlyingLevelDB
+import org.iq80.leveldb.DB
 import scala.util.Try
 import scala.util.Success
 import scala.util.Failure
@@ -65,5 +67,16 @@ class SharedLeveldbStore extends { val configPath = "akka.persistence.journal.le
       }.recover {
         case e ⇒ ReplayFailure(e)
       }.pipeTo(replyTo)
+
+    case ExposedUnderlyingLevelDB =>
+      sender() ! ExposedUnderlyingLevelDB(leveldb)
   }
+}
+
+private[persistence] object SharedLeveldbStore {
+  /** INTERNAL API */
+  private[akka] object ExposeUnderlyingLevelDB
+  /** INTERNAL API */
+  private[akka] final case class ExposedUnderlyingLevelDB(db: DB)
+
 }
