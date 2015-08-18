@@ -10,12 +10,14 @@ import java.nio.ByteBuffer
 /**
  * LevelDB key.
  */
-private[leveldb] final case class Key(
+private[persistence] final case class Key(
   persistenceId: Int,
   sequenceNr: Long,
-  mappingId: Int)
+  mappingId: Int) {
+  def toBytes = Key.keyToBytes(this)
+}
 
-private[leveldb] object Key {
+private[persistence] object Key {
   def keyToBytes(key: Key): Array[Byte] = {
     val bb = ByteBuffer.allocate(20)
     bb.putInt(key.persistenceId)

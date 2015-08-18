@@ -1,11 +1,11 @@
 package akka.persistence.query.journal.leveldb
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.persistence.journal.leveldb.{SharedLeveldbJournal, SharedLeveldbStore}
-import akka.persistence.query.{MockReadJournal, PersistenceQuery}
-import akka.persistence.{Persistence, PersistentActor}
-import com.typesafe.config.{Config, ConfigFactory}
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import akka.actor.{ ActorRef, ActorSystem, Props }
+import akka.persistence.journal.leveldb.{ SharedLeveldbJournal, SharedLeveldbStore }
+import akka.persistence.query.{ MockReadJournal, PersistenceQuery }
+import akka.persistence.{ Persistence, PersistentActor }
+import com.typesafe.config.{ Config, ConfigFactory }
+import org.scalatest.{ BeforeAndAfterAll, Matchers, WordSpecLike }
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -14,11 +14,11 @@ object LeveldbReadJournalSpec {
   final class LeveldbPersistentActor(name: String, probe: ActorRef) extends PersistentActor {
     override def persistenceId = ""
     override def receiveRecover: Receive = {
-      case m => probe ! m
+      case m ⇒ probe ! m
     }
 
     override def receiveCommand: Receive = {
-      case m => persist(m) { probe ! _ }
+      case m ⇒ persist(m) { probe ! _ }
     }
   }
 }
@@ -60,13 +60,12 @@ class LeveldbReadJournalSpec(config: Config) extends PersistenceQueryLeveldbSpec
   def this() {
     this(ConfigFactory.parseString(s"""
       """.stripMargin))
+  }
+
+  "LeveldbReadJournal" must {
+    "work with shared leveldb WriteJournal" in {
+      PersistenceQuery.get(system).readJournalFor(MockReadJournal.Identifier)
     }
+  }
 
-
-   "LeveldbReadJournal" must {
-     "work with shared leveldb WriteJournal" in {
-         PersistenceQuery.get(system).readJournalFor(MockReadJournal.Identifier)
-     }
-   }
-
- }
+}

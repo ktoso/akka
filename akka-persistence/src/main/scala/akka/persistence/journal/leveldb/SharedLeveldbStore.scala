@@ -68,7 +68,7 @@ class SharedLeveldbStore extends { val configPath = "akka.persistence.journal.le
         case e ⇒ ReplayFailure(e)
       }.pipeTo(replyTo)
 
-    case ExposedUnderlyingLevelDB =>
+    case ExposedUnderlyingLevelDB ⇒
       sender() ! ExposedUnderlyingLevelDB(leveldb)
   }
 }

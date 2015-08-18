@@ -6,21 +6,23 @@
 package akka.persistence.journal.leveldb
 
 import java.io.File
+
 import akka.actor._
 import akka.persistence._
-import akka.persistence.journal.{ WriteJournalBase, AsyncWriteTarget }
+import akka.persistence.journal.WriteJournalBase
 import akka.serialization.SerializationExtension
 import org.iq80.leveldb._
+
 import scala.collection.immutable
-import scala.util._
 import scala.concurrent.Future
+import scala.util._
 import scala.util.control.NonFatal
-import akka.persistence.journal.AsyncWriteJournal
 
 /**
  * INTERNAL API.
  */
-private[persistence] trait LeveldbStore extends Actor with WriteJournalBase with LeveldbIdMapping with LeveldbRecovery {
+private[persistence] trait LeveldbStore extends Actor with WriteJournalBase
+  with LeveldbIdMapping with LeveldbRecovery {
   val configPath: String
 
   val config = context.system.settings.config.getConfig(configPath)
@@ -110,4 +112,3 @@ private[persistence] trait LeveldbStore extends Actor with WriteJournalBase with
     super.postStop()
   }
 }
-
