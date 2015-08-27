@@ -418,6 +418,7 @@ object AkkaBuild extends Build {
     settings = sampleSettings
   ).setSbtFiles()
 
+
   lazy val mainSampleScala = Project(
     id = "akka-sample-main-scala",
     base = file("akka-samples/akka-sample-main-scala"),
@@ -1107,7 +1108,14 @@ object AkkaBuild extends Build {
       // toString is available on any object, mima is confused due to a generated toString appearing #17722
       ProblemFilters.exclude[MissingMethodProblem]("akka.japi.Pair.toString"),
 
-      // issue #17805
+      // issue #17554
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.maxResendRate"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.resendLimit"),
+      
+      // toString is available on any object, mima is confused due to a generated toString appearing #17722
+      ProblemFilters.exclude[MissingMethodProblem]("akka.japi.Pair.toString"),
+      
+      // #17805
       ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ActorCell.clearActorFields")
     )
   }
