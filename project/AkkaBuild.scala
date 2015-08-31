@@ -617,9 +617,9 @@ object AkkaBuild extends Build {
     dependencies = Seq(remoteTests % "test->test", testkit % "test->test"),
     settings = defaultSettings ++ formatSettings ++ scaladocSettings ++ javadocSettings ++ multiJvmSettings ++ Seq(
       version := Dependencies.Versions.rp,
-      resolvers += "RP" at "https://dl.bintray.com/typesafe/for-subscribers-only/DFDB5DD187A28462DDAF7AB39A95A6AE65983B23",
-      publishTo := Some("bintray-rp-repo" at 
-        "https://api.bintray.com/content/typesafe/for-subscribers-only/akka-contrib-15v01/15v01p05/DFDB5DD187A28462DDAF7AB39A95A6AE65983B23/"),
+      resolvers += "RP" at "https://repo.typesafe.com/typesafe/for-subscribers-only/AEE4D829FC38A3247F251ED25BA45ADD675D48EB",
+      publishTo := Some("bintray-rp-repo" at
+        "https://api.bintray.com/content/typesafe/for-subscribers-only/akka-contrib-15v09/15v09p01/AEE4D829FC38A3247F251ED25BA45ADD675D48EB/"),
       libraryDependencies ++= Dependencies.contrib,
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-v"),
       reportBinaryIssues := (), // disable bin comp check
@@ -1233,14 +1233,14 @@ object Dependencies {
   import DependencyHelpers.ScalaVersionDependentModuleID._
 
   object Versions {
-    val crossScala = Seq("2.11.6")
+    val crossScala = Seq("2.11.7")
     val scala = crossScala.head
     val scalaStmVersion  = System.getProperty("akka.build.scalaStmVersion", "0.7")
     val genJavaDocVersion = System.getProperty("akka.build.genJavaDocVersion", "0.9")
     val scalaTestVersion = System.getProperty("akka.build.scalaTestVersion", "2.1.3")
     val scalaCheckVersion = System.getProperty("akka.build.scalaCheckVersion", "1.11.3")
     val scalaContinuationsVersion = System.getProperty("akka.build.scalaContinuationsVersion", "1.0.2")
-    val rp = "2.3-bin-rp-15v01p05" // TODO: Bump after 07 RP released, then release contrib
+    val rp = "2.3-bin-rp-15v09p01"
   }
 
   object Compile {
