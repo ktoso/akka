@@ -1375,7 +1375,6 @@ object Dependencies {
 
   val contrib = Seq(
     "com.typesafe.akka" %% "akka-cluster" % Versions.rp,
-    "com.typesafe.akka" %% "akka-actor" % "2.3.12" force(),
     "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.12",
     "com.typesafe.akka" %% "akka-multi-node-testkit" % "2.3.12" % "test",
     Test.junitIntf, 
