@@ -6,14 +6,14 @@ val project = Project(
   base = file("."),
   settings = Project.defaultSettings ++ SbtMultiJvm.multiJvmSettings ++ Seq(
     name := "akka-sample-cluster-java",
-    version := "15v01p02",
+    version := "15v09p01",
     // scalaVersion := provided by Typesafe Reactive Platform
     scalacOptions in Compile ++= Seq("-encoding", "UTF-8", "-target:jvm-1.6", "-deprecation", "-feature", "-unchecked", "-Xlog-reflective-calls", "-Xlint"),
     javacOptions in Compile ++= Seq("-source", "1.6", "-target", "1.6", "-Xlint:unchecked", "-Xlint:deprecation"),
     libraryDependencies ++= Seq(
       TypesafeLibrary.akkaCluster.value,
       TypesafeLibrary.akkaMultiNodeTestkit.value,
-      "com.typesafe.akka" %% "akka-contrib" % "2.3.7", // akka-contrib is not part of the RP
+      "com.typesafe.akka" %% "akka-contrib" % "2.3-bin-rp-15v09p01", // akka-contrib is not part of the RP
       "org.scalatest" %% "scalatest" % "2.2.1" % "test",
       "org.fusesource" % "sigar" % "1.6.4"),
     javaOptions in run ++= Seq(

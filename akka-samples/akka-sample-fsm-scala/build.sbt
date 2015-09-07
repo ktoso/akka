@@ -1,6 +1,6 @@
 name := "akka-sample-fsm-scala"
 
-version := "15v01p02"
+version := "15v09p01"
 
 libraryDependencies ++= Seq(
   TypesafeLibrary.akkaActor.value

@@ -1,6 +1,6 @@
 name := "akka-sample-camel-java"
 
-version := "15v01p02"
+version := "15v09p01"
 
 // scalaVersion := provided by Typesafe Reactive Platform
 
