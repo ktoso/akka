@@ -135,7 +135,6 @@ private[remote] class Remoting(_system: ExtendedActorSystem, _provider: RemoteAc
     eventPublisher.notifyListeners(RemotingErrorEvent(new RemoteTransportException(msg, cause)))
 
   override def shutdown(): Future[Unit] = {
-    import scala.concurrent.ExecutionContext.Implicits.global
     endpointManager match {
       case Some(manager) ⇒
         implicit val timeout = ShutdownTimeout
@@ -145,6 +144,7 @@ private[remote] class Remoting(_system: ExtendedActorSystem, _provider: RemoteAc
           endpointManager = None
         }
 
+        import system.dispatcher
         (manager ? ShutdownAndFlush).mapTo[Boolean].andThen {
           case Success(flushSuccessful) ⇒
             if (!flushSuccessful)
@@ -559,6 +559,35 @@ private[remote] class EndpointManager(conf: Config, log: LoggingAdapter) extends
         case (Some((endpoint, currentUid)), Some(quarantineUid)) if currentUid == quarantineUid ⇒ context.stop(endpoint)
         case _ ⇒ // nothing to stop
       }
+
+      def matchesQuarantine(handle: AkkaProtocolHandle): Boolean = {
+        handle.remoteAddress == address &&
+          uidToQuarantineOption.forall(_ == handle.handshakeInfo.uid)
+      }
+
+      // Stop all matching pending read handoffs
+      pendingReadHandoffs = pendingReadHandoffs.filter {
+        case (pendingActor, pendingHandle) ⇒
+          val drop = matchesQuarantine(pendingHandle)
+          // Side-effecting here
+          if (drop) {
+            pendingHandle.disassociate()
+            context.stop(pendingActor)
+          }
+          !drop
+      }
+
+      // Stop all matching stashed connections
+      stashedInbound = stashedInbound.map {
+        case (writer, associations) ⇒
+          writer -> associations.filter { assoc ⇒
+            val handle = assoc.association.asInstanceOf[AkkaProtocolHandle]
+            val drop = matchesQuarantine(handle)
+            if (drop) handle.disassociate()
+            !drop
+          }
+      }
+
       uidToQuarantineOption foreach { uid ⇒
         endpoints.markAsQuarantined(address, uid, Deadline.now + settings.QuarantineDuration)
         eventPublisher.notifyListeners(QuarantinedEvent(address, uid))
