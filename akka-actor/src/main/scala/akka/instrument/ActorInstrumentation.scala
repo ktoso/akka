@@ -4,9 +4,11 @@
 
 package akka.instrument
 
-import akka.actor.{ ExtendedActorSystem, ActorSystem, ActorRef, DynamicAccess }
+import akka.actor.{ ActorRef, ActorSystem, DynamicAccess, ExtendedActorSystem }
 import akka.event.Logging.{ Error, Warning }
+import akka.event.LoggingAdapter
 import com.typesafe.config.Config
+
 import scala.reflect.ClassTag
 
 /**
@@ -59,10 +61,10 @@ object ActorInstrumentation {
    *   - If there is no instrumentation then a default empty implementation
    *     with final methods is used ([[akka.instrument.NoActorInstrumentation]]).
    */
-  private[akka] def apply(instrumentation: String, dynamicAccess: DynamicAccess, config: Config): (ActorInstrumentation, Boolean) = {
+  private[akka] def apply(instrumentation: String, dynamicAccess: DynamicAccess, config: Config, log: LoggingAdapter): (ActorInstrumentation, Boolean) = {
     instrumentation.length match {
-      case 0 ⇒ create("akka.instrument.NoActorInstrumentation", dynamicAccess, config) -> false // Use reflection to allow JIT optimizations
-      case _ ⇒ create(instrumentation, dynamicAccess, config) -> true
+      case 0 ⇒ create("akka.instrument.NoActorInstrumentation", dynamicAccess, config, log) -> false // Use reflection to allow JIT optimizations
+      case _ ⇒ create(instrumentation, dynamicAccess, config, log) -> true
     }
   }
 
@@ -74,14 +76,19 @@ object ActorInstrumentation {
    * @param instrumentation fully qualified class name of an instrumentation implementation
    * @param dynamicAccess the dynamic access instance used to load the instrumentation class
    * @param config the config object used to initialize the instrumentation
+   * @param log a logging adapter that is used to signal exceptions - defaults to null since there might not always be a logging adapter around
    */
-  def create(instrumentation: String, dynamicAccess: DynamicAccess, config: Config): ActorInstrumentation = {
+  def create(instrumentation: String, dynamicAccess: DynamicAccess, config: Config, log: LoggingAdapter = null): ActorInstrumentation = {
     val dynamicAndConfigArg = List(classOf[DynamicAccess] -> dynamicAccess, classOf[Config] -> config)
     val configArg = List(classOf[Config] -> config)
     dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, dynamicAndConfigArg).recoverWith({
       case _: NoSuchMethodException ⇒ dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, configArg)
     }).recoverWith({
       case _: NoSuchMethodException ⇒ dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, Nil)
+    }).recoverWith({
+      case e: Exception ⇒
+        if (log != null) log.warning(s"Cannot create actor instrumentation", e)
+        dynamicAccess.createInstanceFor[ActorInstrumentation]("akka.instrument.NoActorInstrumentation", Nil)
     }).get
   }
 

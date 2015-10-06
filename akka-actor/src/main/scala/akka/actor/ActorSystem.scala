@@ -578,8 +578,6 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
     }
   }
 
-  final val (instrumentation, hasInstrumentation) = ActorInstrumentation(settings.Instrumentation, dynamicAccess, settings.config)
-
   import settings._
 
   // this provides basic logging (to stdout) until .start() is called below
@@ -587,6 +585,8 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
   eventStream.startStdoutLogger(settings)
 
   val log: LoggingAdapter = new BusLogging(eventStream, "ActorSystem(" + name + ")", this.getClass)
+
+  final val (instrumentation, hasInstrumentation) = ActorInstrumentation(settings.Instrumentation, dynamicAccess, settings.config, log)
 
   val scheduler: Scheduler = createScheduler()
 
