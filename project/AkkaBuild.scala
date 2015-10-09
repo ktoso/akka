@@ -60,7 +60,7 @@ object AkkaBuild extends Build {
       javacOptions in JavaDoc := (if (sys.props("java.version").startsWith("1.8")) Seq("-Xdoclint:none") else Seq()),
       artifactName in packageDoc in JavaDoc := ((sv, mod, art) => "" + mod.name + "_" + sv.binary + "-" + mod.revision + "-javadoc.jar"),
       packageDoc in Compile <<= packageDoc in JavaDoc,
-      Dist.distExclude := Seq(actorTests.id, docs.id, samples.id, osgi.id),
+      Dist.distExclude := Seq(actorTests.id, docs.id, samples.id, osgi.id, checkerTests.id),
       // generate online version of docs
       sphinxInputs in Sphinx <<= sphinxInputs in Sphinx in LocalProject(docs.id) map { inputs => inputs.copy(tags = inputs.tags :+ "online") },
       // don't regenerate the pdf, just reuse the akka-docs version
@@ -77,7 +77,7 @@ object AkkaBuild extends Build {
       validatePullRequest <<= (Unidoc.unidoc, SphinxSupport.generate in Sphinx in docs) map { (_, _) => }
     ),
     aggregate = Seq[ProjectReference](actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
-      persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, samples, multiNodeTestkit) ++ (
+      persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, samples, multiNodeTestkit, checkerTests) ++ (
         if (System.getProperty("akka.build.includeContrib", "false").toBoolean) Seq(contrib) else Seq.empty[sbt.Project]
       ).map(sbt.Project.projectToRef) // implicit conversion does not apply on this collection for some reason (due to ++)
       
@@ -636,6 +636,15 @@ object AkkaBuild extends Build {
                         |""".stripMargin
     )
   ) configs (MultiJvm)
+
+  lazy val checkerTests = Project(
+    id = "akka-diagnostics-tests",
+    base = file("akka-diagnostics-tests"),
+    dependencies = Seq(cluster, testkit % "compile;test->test"),
+    settings = defaultSettings ++ formatSettings ++ scaladocSettings ++ Seq(
+      publishArtifact in Compile := false
+    )
+  )
 
   // // this issue will be fixed in M8, for now we need to exclude M6, M7 modules used to compile the compiler
   def excludeOldModules(m: ModuleID) = List("M6", "M7").foldLeft(m) { (mID, mStone) =>

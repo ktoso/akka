@@ -50,6 +50,13 @@ object MultiNodeClusterSpec {
     akka.test {
       single-expect-default = 5 s
     }
+
+    akka.diagnostics.checker.disabled-checks = [
+      enabled-transports,
+      hostname,
+      power-user-settings,
+      auto-down,
+      cluster-failure-detector]
     """)
 
   // sometimes we need to coordinate test shutdown with messages instead of barriers
