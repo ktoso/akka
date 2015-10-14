@@ -5,9 +5,9 @@ package akka.stream.io
 
 import java.nio.ByteOrder
 
-import akka.stream.scaladsl.{ Keep, BidiFlow, Flow }
+import akka.stream.scaladsl.{BidiFlow, Flow, Keep}
 import akka.stream.stage._
-import akka.util.{ ByteIterator, ByteStringBuilder, ByteString }
+import akka.util.{ByteIterator, ByteString}
 
 import scala.annotation.tailrec
 
@@ -57,6 +57,11 @@ object Framing {
     Flow[ByteString].transform(() ⇒ new LengthFieldFramingStage(fieldLength, fieldOffset, maximumFrameLength, byteOrder))
       .named("lengthFieldFraming")
   }
+
+  def jsonCurlybraceCounting(): Flow[ByteString, ByteString, Unit] = {
+    Flow[ByteString].transform(() => JsonCurlybraceCountingStage())
+  }
+
 
   /**
    * Returns a BidiFlow that implements a simple framing protocol. This is a convenience wrapper over [[Framing#lengthField]]
@@ -133,6 +138,27 @@ object Framing {
       }
       decoded & Mask
     }
+  }
+
+  private class JsonCurlybraceCountingStage() extends PushPullStage[ByteString, ByteString] {
+    // TODO support [{},{},{},{},{}]
+    private var seenBraces = 0
+    private val Open = "{"
+    private val Close = "}"
+
+    private var buffer = ByteString.empty
+
+    val maxLength = Int.MaxValue
+
+    override def onPush(chunk: ByteString, ctx: Context[ByteString]): SyncDirective = {
+      buffer ++= chunk
+      doParse(ctx)
+    }
+
+    override def onPull(ctx: Context[ByteString]): SyncDirective =
+      doParse(ctx)
+
+    def doParse(ctx: Context[ByteString]) = ???
   }
 
   private class DelimiterFramingStage(val separatorBytes: ByteString, val maximumLineBytes: Int, val allowTruncation: Boolean)
