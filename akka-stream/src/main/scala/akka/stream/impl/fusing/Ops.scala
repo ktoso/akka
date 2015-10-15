@@ -267,6 +267,9 @@ private[akka] final case class Intersperse[T](start: Option[T], inject: T, end: 
       emit(Iterator(inject, elem), ctx)
   }
 
+/**
+ * INTERNAL API
+ */
   override def onUpstreamFinish(ctx: Context[T]): TerminationDirective = {
     end match {
       case Some(e) if needsToEmitStart ⇒
