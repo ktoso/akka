@@ -604,6 +604,9 @@ trait FlowOps[+Out, +Mat] {
    */
   def fold[T](zero: T)(f: (T, Out) ⇒ T): Repr[T, Mat] = andThen(Fold(zero, f.asInstanceOf[(Any, Any) ⇒ Any]))
 
+  def intersperse(inject: Any): Repr[Out, Mat] = // TODO fix types
+    andThen(Intersperse(inject))
+
   /**
    * Chunk up this stream into groups of elements received within a time window,
    * or limited by the given number of elements, whatever happens first.

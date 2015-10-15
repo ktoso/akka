@@ -239,6 +239,19 @@ private[akka] final case class Fold[In, Out](zero: Out, f: (Out, In) ⇒ Out, de
 /**
  * INTERNAL API
  */
+private[akka] final case class Intersperse(inject: Any) extends StatefulStage[Any, Any] {
+  // TODO FIX TYPES
+  override def initial: StageState[Any, Any] = new StageState[Any, Any] {
+    override def onPush(elem: Any, ctx: Context[Any]): SyncDirective = {
+      emit(List(elem, inject).iterator, ctx)
+      ctx.pull()
+    }
+  }
+}
+
+/**
+ * INTERNAL API
+ */
 private[akka] final case class Grouped[T](n: Int) extends PushPullStage[T, immutable.Seq[T]] {
   private val buf = {
     val b = Vector.newBuilder[T]
