@@ -34,6 +34,21 @@ class PathDirectivesSpec extends RoutingSpec with Inside {
     "accept [/] and clear the unmatchedPath" in test("")
   }
 
+  """exactPathPrefix("foo")""" should {
+    val test = testFor {
+      exactPathPrefix("foo") { echoUnmatchedPath } ~
+        exactPathPrefix("boo") {
+          path(Segment) { s ⇒ complete(s) }
+        }
+    }
+    "reject [/bar]" in test()
+    "reject [/foobar]" in test()
+    "accept [/foo/bar]" in test("/bar")
+    "accept [/boo/inner]" in test("inner")
+    "accept [/foo] and clear the unmatchedPath" in test("")
+    "accept [/foo/] and clear the unmatchedPath" in test("/")
+  }
+
   """pathPrefix("foo")""" should {
     val test = testFor(pathPrefix("foo") { echoUnmatchedPath })
     "reject [/bar]" in test()

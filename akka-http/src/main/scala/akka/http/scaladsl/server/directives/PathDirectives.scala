@@ -6,13 +6,13 @@ package akka.http.scaladsl.server
 package directives
 
 import akka.http.scaladsl.common.ToNameReceptacleEnhancements
-import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.{ Uri, StatusCodes }
 import akka.http.scaladsl.model.Uri.Path
 
 trait PathDirectives extends PathMatchers with ImplicitPathMatcherConstruction with ToNameReceptacleEnhancements {
   import BasicDirectives._
-  import RouteDirectives._
   import PathMatcher._
+  import RouteDirectives._
 
   /**
    * Applies the given [[PathMatcher]] to the remaining unmatched path after consuming a leading slash.
@@ -27,6 +27,19 @@ trait PathDirectives extends PathMatchers with ImplicitPathMatcherConstruction w
    * If matched the value extracted by the PathMatcher is extracted on the directive level.
    */
   def pathPrefix[L](pm: PathMatcher[L]): Directive[L] = rawPathPrefix(Slash ~ pm)
+
+  /**
+   * TODO possible to make it use PathMatcher?
+   */
+  def exactPathPrefix(pm: String): Directive0 =
+    //    rawPathPrefix(Slash ~ pm ~ PathEnd) |
+    //      rawPathPrefix(Slash ~ pm ~ Slash)
+    extract(_.unmatchedPath) flatMap { p ⇒
+      val up = Uri.Path("/" + pm)
+      if (p.startsWith(up + "/") || p == up) {
+        mapRequestContext(_ withUnmatchedPath p.dropChars(pm.length + 1))
+      } else reject
+    }
 
   /**
    * Applies the given matcher directly to a prefix of the unmatched path of the
