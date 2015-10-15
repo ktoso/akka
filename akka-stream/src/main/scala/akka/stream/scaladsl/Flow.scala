@@ -611,6 +611,9 @@ trait FlowOps[+Out, +Mat] {
    */
   def fold[T](zero: T)(f: (T, Out) ⇒ T): Repr[T, Mat] = andThen(Fold(zero, f.asInstanceOf[(Any, Any) ⇒ Any]))
 
+  def intersperse(inject: Any): Repr[Out, Mat] = // TODO fix types
+    andThen(Intersperse(inject))
+
   /**
    * Intersperses stream with provided element, similar to how [[scala.collection.immutable.List.mkString]]
    * injects a separator between a List's elements.
