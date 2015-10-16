@@ -44,70 +44,64 @@ class JsonCollectingBuffer {
   private var objectDepthLevel = 0
 
   def append(input: ByteString): Unit =
-    if (isValid)
-      if (input.length > 1)
-        input.foreach(c ⇒ append(ByteString(c)))
-      else {
-        input.head match {
-          case ByteValue.SquareBraceStart if !isStartOfObject ⇒
-          // do nothing
-
-          case ByteValue.SquareBraceEnd if !isStartOfObject   ⇒
-          // do nothing
-
-          case ByteValue.Comma if !isStartOfObject            ⇒
-          // do nothing
-
-          case ByteValue.Backslash ⇒
-            isStartOfEscapeSequence = true
-            buffer ++= input
-
-          case ByteValue.DoubleQuote ⇒
-            if (!isStartOfEscapeSequence) isStartOfStringExpression = !isStartOfStringExpression
-            isStartOfEscapeSequence = false
-            buffer ++= input
-
-          case ByteValue.CurlyBraceStart if !isStartOfStringExpression ⇒
-            isStartOfEscapeSequence = false
-            objectDepthLevel += 1
-            buffer ++= input
-
-          case ByteValue.CurlyBraceEnd if !isStartOfStringExpression ⇒
-            isStartOfEscapeSequence = false
-            objectDepthLevel -= 1
-            buffer ++= input
-            if (objectDepthLevel == 0)
-              completedObjectIndexes :+= buffer.length
-
-          case otherValue if ByteValue.Whitespace.isWhitespace(otherValue) && !isStartOfStringExpression ⇒
-          // skip
-
-          case otherValue if isStartOfObject ⇒
-            isStartOfEscapeSequence = false
-            buffer ++= input
-
-          case _ ⇒
-            isValid = false
-        }
+    if (isValid && input.nonEmpty) {
+      var idx = 0
+      val length = input.length
+      while (idx < length) {
+        appendByte(input(idx))
+        idx += 1
       }
+    }
 
   def pop: BufferPopResult =
-    (isValid, completedObjectIndexes.headOption) match {
-      case (true, Some(index)) ⇒
+    if (isValid) {
+      val possibleResult = completedObjectIndexes.headOption
+      if (possibleResult.isDefined) {
+        val index = possibleResult.get
         val result = buffer.slice(0, index)
         buffer = buffer.slice(index, buffer.length)
         completedObjectIndexes = completedObjectIndexes.tail.map(_ - index)
         Success(Some(result))
-
-      case (true, _) ⇒
+      } else
         Success(None)
-
-      case (false, _) ⇒
-        Failure(InvalidJson(buffer))
-    }
+    } else
+      Failure(InvalidJson(buffer))
 
   def valid: Boolean =
     isValid
+
+  private def appendByte(input: Byte): Unit =
+    if (input == ByteValue.SquareBraceStart && !isStartOfObject) {
+      // do nothing
+    } else if (input == ByteValue.SquareBraceEnd && !isStartOfObject) {
+      // do nothing
+    } else if (input == ByteValue.Comma && !isStartOfObject) {
+      // do nothing
+    } else if (input == ByteValue.Backslash) {
+      isStartOfEscapeSequence = true
+      buffer ++= ByteString(input)
+    } else if (input == ByteValue.DoubleQuote) {
+      if (!isStartOfEscapeSequence) isStartOfStringExpression = !isStartOfStringExpression
+      isStartOfEscapeSequence = false
+      buffer ++= ByteString(input)
+    } else if (input == ByteValue.CurlyBraceStart && !isStartOfStringExpression) {
+      isStartOfEscapeSequence = false
+      objectDepthLevel += 1
+      buffer ++= ByteString(input)
+    } else if (input == ByteValue.CurlyBraceEnd && !isStartOfStringExpression) {
+      isStartOfEscapeSequence = false
+      objectDepthLevel -= 1
+      buffer ++= ByteString(input)
+      if (objectDepthLevel == 0)
+        completedObjectIndexes :+= buffer.length
+    } else if (ByteValue.Whitespace.isWhitespace(input) && !isStartOfStringExpression) {
+      // skip
+    } else if (isStartOfObject) {
+      isStartOfEscapeSequence = false
+      buffer ++= ByteString(input)
+    } else {
+      isValid = false
+    }
 
   private def isStartOfObject: Boolean =
     objectDepthLevel > 0
