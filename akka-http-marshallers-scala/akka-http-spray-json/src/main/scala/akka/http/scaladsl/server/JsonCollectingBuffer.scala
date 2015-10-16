@@ -44,52 +44,14 @@ class JsonCollectingBuffer {
   private var objectDepthLevel = 0
 
   def append(input: ByteString): Unit =
-    if (isValid)
-      if (input.length > 1)
-        input.foreach(c ⇒ append(ByteString(c)))
-      else {
-        input.head match {
-          case ByteValue.SquareBraceStart if !isStartOfObject ⇒
-          // do nothing
-
-          case ByteValue.SquareBraceEnd if !isStartOfObject   ⇒
-          // do nothing
-
-          case ByteValue.Comma if !isStartOfObject            ⇒
-          // do nothing
-
-          case ByteValue.Backslash ⇒
-            isStartOfEscapeSequence = true
-            buffer ++= input
-
-          case ByteValue.DoubleQuote ⇒
-            if (!isStartOfEscapeSequence) isStartOfStringExpression = !isStartOfStringExpression
-            isStartOfEscapeSequence = false
-            buffer ++= input
-
-          case ByteValue.CurlyBraceStart if !isStartOfStringExpression ⇒
-            isStartOfEscapeSequence = false
-            objectDepthLevel += 1
-            buffer ++= input
-
-          case ByteValue.CurlyBraceEnd if !isStartOfStringExpression ⇒
-            isStartOfEscapeSequence = false
-            objectDepthLevel -= 1
-            buffer ++= input
-            if (objectDepthLevel == 0)
-              completedObjectIndexes :+= buffer.length
-
-          case otherValue if ByteValue.Whitespace.isWhitespace(otherValue) && !isStartOfStringExpression ⇒
-          // skip
-
-          case otherValue if isStartOfObject ⇒
-            isStartOfEscapeSequence = false
-            buffer ++= input
-
-          case _ ⇒
-            isValid = false
-        }
+    if (isValid && input.nonEmpty) {
+      var idx = 0
+      val length = input.length
+      while (idx < length) {
+        appendByte(input(idx))
+        idx += 1
       }
+    }
 
   def pop: BufferPopResult =
     if (isValid) {
@@ -107,6 +69,49 @@ class JsonCollectingBuffer {
 
   def valid: Boolean =
     isValid
+
+  private def appendByte(input: Byte): Unit =
+    input match {
+      case ByteValue.SquareBraceStart if !isStartOfObject ⇒
+      // do nothing
+
+      case ByteValue.SquareBraceEnd if !isStartOfObject   ⇒
+      // do nothing
+
+      case ByteValue.Comma if !isStartOfObject            ⇒
+      // do nothing
+
+      case ByteValue.Backslash ⇒
+        isStartOfEscapeSequence = true
+        buffer ++= ByteString(input)
+
+      case ByteValue.DoubleQuote ⇒
+        if (!isStartOfEscapeSequence) isStartOfStringExpression = !isStartOfStringExpression
+        isStartOfEscapeSequence = false
+        buffer ++= ByteString(input)
+
+      case ByteValue.CurlyBraceStart if !isStartOfStringExpression ⇒
+        isStartOfEscapeSequence = false
+        objectDepthLevel += 1
+        buffer ++= ByteString(input)
+
+      case ByteValue.CurlyBraceEnd if !isStartOfStringExpression ⇒
+        isStartOfEscapeSequence = false
+        objectDepthLevel -= 1
+        buffer ++= ByteString(input)
+        if (objectDepthLevel == 0)
+          completedObjectIndexes :+= buffer.length
+
+      case otherValue if ByteValue.Whitespace.isWhitespace(otherValue) && !isStartOfStringExpression ⇒
+      // skip
+
+      case otherValue if isStartOfObject ⇒
+        isStartOfEscapeSequence = false
+        buffer ++= ByteString(input)
+
+      case _ ⇒
+        isValid = false
+    }
 
   private def isStartOfObject: Boolean =
     objectDepthLevel > 0
