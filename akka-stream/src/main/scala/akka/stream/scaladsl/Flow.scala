@@ -611,8 +611,61 @@ trait FlowOps[+Out, +Mat] {
    */
   def fold[T](zero: T)(f: (T, Out) ⇒ T): Repr[T, Mat] = andThen(Fold(zero, f.asInstanceOf[(Any, Any) ⇒ Any]))
 
-  def intersperse(inject: Any): Repr[Out, Mat] = // TODO fix types
-    andThen(Intersperse(inject))
+  /**
+   * Itersperses stream with provided element, similar to how [[scala.collection.immutable.List.mkString]]
+   * injects a separator between a List's elements.
+   *
+   * Additionally can inject start and end marker elements to stream.
+   *
+   * Examples:
+   *
+   * {{{
+   * val nums = Source(List(1,2,3)).map(_.toString)
+   * nums.intersperse(",")            //   1 , 2 , 3
+   * nums.intersperse("[", ",", "]")  // [ 1 , 2 , 3 ]
+   * }}}
+   *
+   * '''Emits when''' upstream emits (or before with the `start` element if provided)
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' upstream completes
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def intersperse[T >: Out](start: T, inject: T, end: T): Repr[Out, Mat] = {
+    ReactiveStreamsCompliance.requireNonNullElement(start)
+    ReactiveStreamsCompliance.requireNonNullElement(inject)
+    ReactiveStreamsCompliance.requireNonNullElement(end)
+    andThen(Intersperse(Some(start), inject, Some(end)))
+  }
+
+  /**
+   * Itersperses stream with provided element, similar to how [[scala.collection.immutable.List.mkString]]
+   * injects a separator between a List's elements.
+   *
+   * Additionally can inject start and end marker elements to stream.
+   *
+   * Examples:
+   *
+   * {{{
+   * val nums = Source(List(1,2,3)).map(_.toString)
+   * nums.intersperse(",")            //   1 , 2 , 3
+   * nums.intersperse("[", ",", "]")  // [ 1 , 2 , 3 ]
+   * }}}
+   *
+   * '''Emits when''' upstream emits (or before with the `start` element if provided)
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' upstream completes
+   *
+   * '''Cancels when''' downstream cancels
+   */
+  def intersperse[T >: Out](inject: T): Repr[Out, Mat] = {
+    ReactiveStreamsCompliance.requireNonNullElement(inject)
+    andThen(Intersperse(None, inject, None))
+  }
 
   /**
    * Intersperses stream with provided element, similar to how [[scala.collection.immutable.List.mkString]]
