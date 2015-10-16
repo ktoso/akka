@@ -92,19 +92,18 @@ class JsonCollectingBuffer {
       }
 
   def pop: BufferPopResult =
-    (isValid, completedObjectIndexes.headOption) match {
-      case (true, Some(index)) ⇒
-        val result = buffer.slice(0, index)
-        buffer = buffer.slice(index, buffer.length)
-        completedObjectIndexes = completedObjectIndexes.tail.map(_ - index)
-        Success(Some(result))
-
-      case (true, _) ⇒
-        Success(None)
-
-      case (false, _) ⇒
-        Failure(InvalidJson(buffer))
-    }
+    if (isValid) {
+      Success(
+        for {
+          index ← completedObjectIndexes.headOption
+        } yield {
+          val result = buffer.slice(0, index)
+          buffer = buffer.slice(index, buffer.length)
+          completedObjectIndexes = completedObjectIndexes.tail.map(_ - index)
+          result
+        })
+    } else
+      Failure(InvalidJson(buffer))
 
   def valid: Boolean =
     isValid
