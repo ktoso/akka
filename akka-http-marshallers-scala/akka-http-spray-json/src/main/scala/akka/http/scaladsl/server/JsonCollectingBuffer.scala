@@ -95,10 +95,8 @@ class JsonCollectingBuffer {
     (isValid, completedObjectIndexes.headOption) match {
       case (true, Some(index)) ⇒
         val result = buffer.slice(0, index)
-
         buffer = buffer.slice(index, buffer.length)
         completedObjectIndexes = completedObjectIndexes.tail.map(_ - index)
-
         Success(Some(result))
 
       case (true, _) ⇒
