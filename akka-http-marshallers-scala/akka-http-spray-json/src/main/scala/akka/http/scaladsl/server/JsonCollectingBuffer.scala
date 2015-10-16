@@ -71,46 +71,36 @@ class JsonCollectingBuffer {
     isValid
 
   private def appendByte(input: Byte): Unit =
-    input match {
-      case ByteValue.SquareBraceStart if !isStartOfObject ⇒
+    if (input == ByteValue.SquareBraceStart && !isStartOfObject) {
       // do nothing
-
-      case ByteValue.SquareBraceEnd if !isStartOfObject   ⇒
+    } else if (input == ByteValue.SquareBraceEnd && !isStartOfObject) {
       // do nothing
-
-      case ByteValue.Comma if !isStartOfObject            ⇒
+    } else if (input == ByteValue.Comma && !isStartOfObject) {
       // do nothing
-
-      case ByteValue.Backslash ⇒
-        isStartOfEscapeSequence = true
-        buffer ++= ByteString(input)
-
-      case ByteValue.DoubleQuote ⇒
-        if (!isStartOfEscapeSequence) isStartOfStringExpression = !isStartOfStringExpression
-        isStartOfEscapeSequence = false
-        buffer ++= ByteString(input)
-
-      case ByteValue.CurlyBraceStart if !isStartOfStringExpression ⇒
-        isStartOfEscapeSequence = false
-        objectDepthLevel += 1
-        buffer ++= ByteString(input)
-
-      case ByteValue.CurlyBraceEnd if !isStartOfStringExpression ⇒
-        isStartOfEscapeSequence = false
-        objectDepthLevel -= 1
-        buffer ++= ByteString(input)
-        if (objectDepthLevel == 0)
-          completedObjectIndexes :+= buffer.length
-
-      case otherValue if ByteValue.Whitespace.isWhitespace(otherValue) && !isStartOfStringExpression ⇒
+    } else if (input == ByteValue.Backslash) {
+      isStartOfEscapeSequence = true
+      buffer ++= ByteString(input)
+    } else if (input == ByteValue.DoubleQuote) {
+      if (!isStartOfEscapeSequence) isStartOfStringExpression = !isStartOfStringExpression
+      isStartOfEscapeSequence = false
+      buffer ++= ByteString(input)
+    } else if (input == ByteValue.CurlyBraceStart && !isStartOfStringExpression) {
+      isStartOfEscapeSequence = false
+      objectDepthLevel += 1
+      buffer ++= ByteString(input)
+    } else if (input == ByteValue.CurlyBraceEnd && !isStartOfStringExpression) {
+      isStartOfEscapeSequence = false
+      objectDepthLevel -= 1
+      buffer ++= ByteString(input)
+      if (objectDepthLevel == 0)
+        completedObjectIndexes :+= buffer.length
+    } else if (ByteValue.Whitespace.isWhitespace(input) && !isStartOfStringExpression) {
       // skip
-
-      case otherValue if isStartOfObject ⇒
-        isStartOfEscapeSequence = false
-        buffer ++= ByteString(input)
-
-      case _ ⇒
-        isValid = false
+    } else if (isStartOfObject) {
+      isStartOfEscapeSequence = false
+      buffer ++= ByteString(input)
+    } else {
+      isValid = false
     }
 
   private def isStartOfObject: Boolean =
