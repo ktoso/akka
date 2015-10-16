@@ -26,7 +26,7 @@ trait JsonStreamingDirectives extends SprayJsonSupport {
   }
 
   // TODO enable this on complete()
-  def complete[T](ts: Source[T, Any])(implicit m: ToEntityMarshaller[T]): Route = {
+  def completeStreamingJson[T](ts: Source[T, Any])(implicit m: ToEntityMarshaller[T]): Route = {
     extractExecutionContext { implicit ec ⇒
       val marshalledSource = ts
         .mapAsync(1)(t ⇒ Marshal(t).to[HttpEntity])
@@ -42,3 +42,4 @@ trait JsonStreamingDirectives extends SprayJsonSupport {
   //    Marshaller.
   //  }
 }
+object JsonStreamingDirectives extends JsonStreamingDirectives

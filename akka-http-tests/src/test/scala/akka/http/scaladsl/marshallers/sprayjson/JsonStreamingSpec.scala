@@ -47,7 +47,7 @@ class JsonStreamingSpec extends WordSpec with Matchers with ScalatestRouteTest
       val frank = Employee.simple
 
       val route = get {
-        complete(Source.repeat(frank).take(3))
+        completeStreamingJson(Source.repeat(frank).take(3))
       }
 
       val json =
