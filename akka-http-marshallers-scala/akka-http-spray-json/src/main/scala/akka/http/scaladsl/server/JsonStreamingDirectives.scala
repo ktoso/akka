@@ -16,7 +16,7 @@ trait JsonStreamingDirectives extends SprayJsonSupport {
   import akka.http.scaladsl.server.directives.BasicDirectives._
   import akka.http.scaladsl.server.directives.RouteDirectives._
 
-  def JsonFraming = Flow[ByteString]
+  def JsonFraming = Flow[ByteString].transform(() ⇒ new JsonCollectingStage)
 
   def jsonStream[T](implicit um: Unmarshaller[ByteString, T]): Directive1[Source[T, Any]] = {
     extractRequestContext.flatMap { ctx ⇒

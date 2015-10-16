@@ -35,11 +35,13 @@ class JsonStreamingSpec extends WordSpec with Matchers with ScalatestRouteTest
       }
 
       val json =
-        """|{"fname":"Frank","name":"Smith","age":42,"id":1337,"boardMember":false}
+        """|{"fname":"Frank","name":"Smith","age":42,"id":1337,"boardMember":false},
+           |{"fname":"Bob","name":"Smith","age":42,"id":1337,"boardMember":false},
+           |{"fname":"Hank","name":"Smith","age":42,"id":1337,"boardMember":false}
         """.stripMargin
 
       Post("/", json) ~> route ~> check {
-        responseAs[String] shouldEqual "Frank,"
+        responseAs[String] shouldEqual "Frank,Bob,Hank,"
       }
     }
 
