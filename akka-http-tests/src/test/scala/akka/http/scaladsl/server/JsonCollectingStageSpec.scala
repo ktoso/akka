@@ -20,7 +20,8 @@ class JsonCollectingStageSpec extends FunSpec with Matchers with ScalaFutures {
           """
             |[
             | { "name": "john" },
-            | { "name": "jack" }
+            | { "name": "jack" },
+            | { "name": "katie" }
             |]
           """.stripMargin
 
@@ -32,7 +33,8 @@ class JsonCollectingStageSpec extends FunSpec with Matchers with ScalaFutures {
 
         result.futureValue shouldBe Seq(
           """{"name":"john"}""",
-          """{"name":"jack"}""")
+          """{"name":"jack"}""",
+          """{"name":"katie"}""")
       }
     }
 
@@ -42,6 +44,7 @@ class JsonCollectingStageSpec extends FunSpec with Matchers with ScalaFutures {
           """
             | { "name": "john" }
             | { "name": "jack" }
+            | { "name": "katie" }
           """.stripMargin
 
         val result = Source.single(ByteString(input))
@@ -52,7 +55,8 @@ class JsonCollectingStageSpec extends FunSpec with Matchers with ScalaFutures {
 
         result.futureValue shouldBe Seq(
           """{"name":"john"}""",
-          """{"name":"jack"}""")
+          """{"name":"jack"}""",
+          """{"name":"katie"}""")
       }
     }
 
@@ -60,7 +64,7 @@ class JsonCollectingStageSpec extends FunSpec with Matchers with ScalaFutures {
       it("produces source of valid json string sequences") {
         val input =
           """
-            | { "name": "john" }, { "name": "jack" }
+            | { "name": "john" }, { "name": "jack" }, { "name": "katie" }
           """.stripMargin
 
         val result = Source.single(ByteString(input))
@@ -71,7 +75,8 @@ class JsonCollectingStageSpec extends FunSpec with Matchers with ScalaFutures {
 
         result.futureValue shouldBe Seq(
           """{"name":"john"}""",
-          """{"name":"jack"}""")
+          """{"name":"jack"}""",
+          """{"name":"katie"}""")
       }
     }
   }
