@@ -17,12 +17,10 @@ class JsonCollectingStage extends PushPullStage[ByteString, ByteString] {
     popBuffer(ctx)
 
   def popBuffer(ctx: Context[ByteString]): SyncDirective =
-    buffer.pop match {
-      case Success(Some(value)) ⇒
-        ctx.push(value)
-      case Success(None) ⇒
-        ctx.pull()
-      case Failure(e) ⇒
-        ctx.fail(e)
-    }
+    buffer.pop
+      .map(_.fold[SyncDirective](ctx.pull())(ctx.push))
+      .recover {
+        case e ⇒ ctx.fail(e)
+      }
+      .get
 }
