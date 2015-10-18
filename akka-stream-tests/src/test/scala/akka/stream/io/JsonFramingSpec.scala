@@ -1,16 +1,19 @@
-package akka.http.scaladsl.server
+/*
+ * Copyright (C) 2009-2015 Typesafe Inc. <http://www.typesafe.com>
+ */
+package akka.stream.io
 
 import akka.util.ByteString
-import org.scalatest.{ WordSpec, Matchers, FunSpec }
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success
 
-class JsonCollectingBufferSpec extends WordSpec with Matchers {
+class JsonFramingSpec extends WordSpec with Matchers {
   "collecting json buffer" when {
     "nothing is supplied" should {
       "return nothing" in {
         val buffer = new JsonCollectingBuffer()
-        buffer.pop shouldBe Success(None)
+        buffer.poll() shouldBe Success(None)
       }
     }
 
@@ -19,21 +22,21 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
         "successfully parse empty object" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{}"""))
-          buffer.pop.get.get.utf8String shouldBe """{}"""
+          buffer.poll().get.get.utf8String shouldBe """{}"""
           buffer.valid shouldBe true
         }
 
         "successfully parse single field having string value" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "name": "john"}"""))
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john"}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john"}"""
           buffer.valid shouldBe true
         }
 
         "successfully parse single field having string value containing space" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "name": "john doe"}"""))
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john doe"}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john doe"}"""
           buffer.valid shouldBe true
         }
 
@@ -45,7 +48,7 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
           buffer.append(ByteString("\""))
           buffer.append(ByteString("}"))
 
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john{}"}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john{}"}"""
           buffer.valid shouldBe true
         }
 
@@ -62,21 +65,21 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
           buffer.append(ByteString("\""))
 
           buffer.append(ByteString("}"))
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john\"{}\" hey"}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john\"{}\" hey"}"""
           buffer.valid shouldBe true
         }
 
         "successfully parse single field having integer value" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "age": 101}"""))
-          buffer.pop.get.get.utf8String shouldBe """{"age":101}"""
+          buffer.poll().get.get.utf8String shouldBe """{"age":101}"""
           buffer.valid shouldBe true
         }
 
         "successfully parse single field having decimal value" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "age": 101}"""))
-          buffer.pop.get.get.utf8String shouldBe """{"age":101}"""
+          buffer.poll().get.get.utf8String shouldBe """{"age":101}"""
           buffer.valid shouldBe true
         }
 
@@ -92,7 +95,7 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
               |   }
               |}
               |""".stripMargin))
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john","age":101,"address":{"street":"Straight Street","postcode":1234}}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john","age":101,"address":{"street":"Straight Street","postcode":1234}}"""
           buffer.valid shouldBe true
         }
 
@@ -110,7 +113,7 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
                                      |   }
                                      |}
                                      |""".stripMargin))
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john","age":101,"address":{"street":{"name":"Straight","type":"Avenue"},"postcode":1234}}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john","age":101,"address":{"street":{"name":"Straight","type":"Avenue"},"postcode":1234}}"""
           buffer.valid shouldBe true
         }
       }
@@ -129,7 +132,7 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
               |   ]
               |}
               |""".stripMargin))
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john","things":[1,"hey",3,"there"]}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john","things":[1,"hey",3,"there"]}"""
           buffer.valid shouldBe true
         }
       }
@@ -162,7 +165,7 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
               |  ]
               |}
               |""".stripMargin))
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john","addresses":[{"street":"3 Hopson Street","postcode":"ABC-123","tags":["work","office"],"contactTime":[{"time":"0900-1800","timezone","UTC"}]},{"street":"12 Adielie Road","postcode":"ZZY-888","tags":["home"],"contactTime":[{"time":"0800-0830","timezone","UTC"},{"time":"1800-2000","timezone","UTC"}]}]}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john","addresses":[{"street":"3 Hopson Street","postcode":"ABC-123","tags":["work","office"],"contactTime":[{"time":"0900-1800","timezone","UTC"}]},{"street":"12 Adielie Road","postcode":"ZZY-888","tags":["home"],"contactTime":[{"time":"0800-0830","timezone","UTC"},{"time":"1800-2000","timezone","UTC"}]}]}"""
           buffer.valid shouldBe true
         }
       }
@@ -171,7 +174,7 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
         "parse successfully" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "name": "john", "age": 101}"""))
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john","age":101}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john","age":101}"""
           buffer.valid shouldBe true
         }
 
@@ -183,7 +186,7 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
               |
               |{"name":   "john"
               |, "age": 101}""".stripMargin))
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john","age":101}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john","age":101}"""
           buffer.valid shouldBe true
         }
       }
@@ -207,15 +210,15 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString(input))
 
-          buffer.pop.get.get.utf8String shouldBe """{"name":"john","age":32}"""
-          buffer.pop.get.get.utf8String shouldBe """{"name":"katie","age":25}"""
-          buffer.pop.get shouldBe None
+          buffer.poll().get.get.utf8String shouldBe """{"name":"john","age":32}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"katie","age":25}"""
+          buffer.poll().get shouldBe None
 
           buffer.append(ByteString("""{"name":"jenkins","age": 65"""))
-          buffer.pop.get shouldBe None
+          buffer.poll().get shouldBe None
 
           buffer.append(ByteString("}"))
-          buffer.pop.get.get.utf8String shouldBe """{"name":"jenkins","age":65}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"jenkins","age":65}"""
         }
       }
 
@@ -224,11 +227,11 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
 
         """{ "name": "john"""".stripMargin.foreach { c ⇒
           buffer.append(ByteString(c))
-          buffer.pop.get shouldBe None
+          buffer.poll().get shouldBe None
         }
 
         buffer.append(ByteString("}"))
-        buffer.pop.get.get.utf8String shouldBe """{"name":"john"}"""
+        buffer.poll().get.get.utf8String shouldBe """{"name":"john"}"""
         buffer.valid shouldBe true
       }
 
@@ -236,14 +239,14 @@ class JsonCollectingBufferSpec extends WordSpec with Matchers {
         "fail if it's broken from the start" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""THIS IS NOT VALID { "name": "john"}"""))
-          buffer.pop.isFailure shouldBe true
+          buffer.poll().isFailure shouldBe true
           buffer.valid shouldBe false
         }
 
         "fail if it's broken at the end" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "name": "john"} THIS IS NOT VALID"""))
-          buffer.pop.isFailure shouldBe true
+          buffer.poll().isFailure shouldBe true
           buffer.valid shouldBe false
         }
       }

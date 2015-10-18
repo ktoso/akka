@@ -1,11 +1,15 @@
+/**
+ * Copyright (C) 2014-2015 Typesafe Inc. <http://www.typesafe.com>
+ */
 package akka.http.scaladsl.server
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import akka.stream.io.Framing
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ WordSpec, Matchers, FunSpec }
+import org.scalatest.{ Matchers, WordSpec }
 
 import scala.collection.immutable.Seq
 
@@ -25,7 +29,7 @@ class JsonCollectingStageSpec extends WordSpec with Matchers with ScalaFutures {
         """.stripMargin
 
       val result = Source.single(ByteString(input))
-        .transform(() ⇒ new JsonCollectingStage())
+        .via(Framing.json(Int.MaxValue))
         .runFold(Seq.empty[String]) {
           case (acc, entry) ⇒ acc ++ Seq(entry.utf8String)
         }
@@ -45,7 +49,7 @@ class JsonCollectingStageSpec extends WordSpec with Matchers with ScalaFutures {
         """.stripMargin
 
       val result = Source.single(ByteString(input))
-        .transform(() ⇒ new JsonCollectingStage())
+        .via(Framing.json(Int.MaxValue))
         .runFold(Seq.empty[String]) {
           case (acc, entry) ⇒ acc ++ Seq(entry.utf8String)
         }
@@ -63,7 +67,7 @@ class JsonCollectingStageSpec extends WordSpec with Matchers with ScalaFutures {
         """.stripMargin
 
       val result = Source.single(ByteString(input))
-        .transform(() ⇒ new JsonCollectingStage())
+        .via(Framing.json(Int.MaxValue))
         .runFold(Seq.empty[String]) {
           case (acc, entry) ⇒ acc ++ Seq(entry.utf8String)
         }
@@ -88,7 +92,7 @@ class JsonCollectingStageSpec extends WordSpec with Matchers with ScalaFutures {
         """"}]"""").map(ByteString(_))
 
       val result = Source.apply(input)
-        .transform(() ⇒ new JsonCollectingStage())
+        .via(Framing.json(Int.MaxValue))
         .runFold(Seq.empty[String]) {
           case (acc, entry) ⇒ acc ++ Seq(entry.utf8String)
         }

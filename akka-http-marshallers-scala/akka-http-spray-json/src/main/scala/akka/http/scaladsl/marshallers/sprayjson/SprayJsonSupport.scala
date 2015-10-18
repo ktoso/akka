@@ -7,6 +7,7 @@ package akka.http.scaladsl.marshallers.sprayjson
 import akka.http.scaladsl.marshalling.{ Marshaller, ToEntityMarshaller }
 import akka.http.scaladsl.model.MediaTypes.`application/json`
 import akka.http.scaladsl.model.{ ContentTypes, HttpCharsets }
+import akka.http.scaladsl.server.JsonEntityStreamingSupport
 import akka.http.scaladsl.unmarshalling.{ FromEntityUnmarshaller, Unmarshaller }
 import akka.http.scaladsl.util.FastFuture
 import akka.util.ByteString
@@ -17,7 +18,8 @@ import scala.language.implicitConversions
 /**
  * A trait providing automatic to and from JSON marshalling/unmarshalling using an in-scope *spray-json* protocol.
  */
-trait SprayJsonSupport {
+trait SprayJsonSupport extends JsonEntityStreamingSupport {
+
   implicit def sprayJsonUnmarshallerConverter[T](reader: RootJsonReader[T]): FromEntityUnmarshaller[T] =
     sprayJsonUnmarshaller(reader)
   implicit def sprayJsonUnmarshaller[T](implicit reader: RootJsonReader[T]): FromEntityUnmarshaller[T] =

@@ -263,13 +263,11 @@ private[akka] final case class Intersperse[T](start: Option[T], inject: T, end: 
   }
 
   def running = new StageState[T, T] {
-    override def onPush(elem: T, ctx: Context[T]): SyncDirective =
+    override def onPush(elem: T, ctx: Context[T]): SyncDirective = {
       emit(Iterator(inject, elem), ctx)
+    }
   }
 
-/**
- * INTERNAL API
- */
   override def onUpstreamFinish(ctx: Context[T]): TerminationDirective = {
     end match {
       case Some(e) if needsToEmitStart ⇒
@@ -277,7 +275,7 @@ private[akka] final case class Intersperse[T](start: Option[T], inject: T, end: 
       case Some(e) ⇒
         terminationEmit(Iterator(end.get), ctx)
       case _ ⇒
-        terminationEmit(Iterator(), ctx)
+        terminationEmit(Iterator.empty, ctx)
     }
   }
 }
