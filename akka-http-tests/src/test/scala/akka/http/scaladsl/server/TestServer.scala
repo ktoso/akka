@@ -12,7 +12,6 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.unmarshalling._
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.typesafe.config.{ Config, ConfigFactory }
 import spray.json.DefaultJsonProtocol
@@ -32,7 +31,6 @@ object TestServer extends App {
   implicit val materializer = ActorMaterializer()
 
   import Directives._
-  import JsonStreamingDirectives._
 
   object EmployeeJsonProtocol extends DefaultJsonProtocol {
     implicit val employeeFormat = jsonFormat5(Employee.apply)
@@ -44,19 +42,8 @@ object TestServer extends App {
 
   val bindingFuture = Http().bindAndHandle({
     get {
-      completeStreamingJson(Source.repeat(Employee.simple).map(delay))
-    } ~
-      post {
-        extractMaterializer { implicit mat ⇒
-          jsonStream[Employee](implicitly[Unmarshaller[ByteString, Employee]]) { employees ⇒
-            employees.runFold(0) { (sum, emp) ⇒
-              print(s"Employees received = ${sum}\r")
-              sum + 1
-            }
-            complete("OK")
-          }
-        }
-      }
+      complete("OK")
+    }
   }, interface = "localhost", port = 8080)
 
   println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
