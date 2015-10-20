@@ -4,45 +4,45 @@
 
 package akka.http.scaladsl.server
 
+import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport
+import akka.http.scaladsl.server.directives.Credentials
+import com.typesafe.config.{ ConfigFactory, Config }
 import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.marshallers.Employee
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import akka.http.scaladsl.marshalling.Marshaller
-import akka.http.scaladsl.unmarshalling._
 import akka.stream.ActorMaterializer
-import akka.util.ByteString
-import com.typesafe.config.{ Config, ConfigFactory }
-import spray.json.DefaultJsonProtocol
+import akka.http.scaladsl.Http
 
 object TestServer extends App {
-
   val testConf: Config = ConfigFactory.parseString("""
     akka.loglevel = INFO
     akka.log-dead-letters = off""")
-
-  val secondConfig = ConfigFactory.parseString("""
-    akka.loglevel = INFO
-    akka.log-dead-letters = off""")
-
   implicit val system = ActorSystem("ServerTest", testConf)
   import system.dispatcher
   implicit val materializer = ActorMaterializer()
 
+  import ScalaXmlSupport._
   import Directives._
 
-  object EmployeeJsonProtocol extends DefaultJsonProtocol {
-    implicit val employeeFormat = jsonFormat5(Employee.apply)
+  def auth: AuthenticatorPF[String] = {
+    case p @ Credentials.Provided(name) if p.verify(name + "-password") ⇒ name
   }
-  import EmployeeJsonProtocol._
-
-  implicit def marshaller: Marshaller[Employee, ByteString] = SprayJsonSupport.sprayByteStringMarshaller[Employee]
-  implicit def unmarshaller: FromEntityUnmarshaller[Employee] = SprayJsonSupport.sprayJsonUnmarshaller[Employee]
 
   val bindingFuture = Http().bindAndHandle({
     get {
-      complete("OK")
-    }
+      path("") {
+        complete(index)
+      } ~
+        path("secure") {
+          authenticateBasicPF("My very secure site", auth) { user ⇒
+            complete(<html><body>Hello <b>{ user }</b>. Access has been granted!</body></html>)
+          }
+        } ~
+        path("ping") {
+          complete("PONG!")
+        } ~
+        path("crash") {
+          complete(sys.error("BOOM!"))
+        }
+    } ~ pathPrefix("inner")(getFromResourceDirectory("someDir"))
   }, interface = "localhost", port = 8080)
 
   println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
@@ -50,8 +50,16 @@ object TestServer extends App {
 
   bindingFuture.flatMap(_.unbind()).onComplete(_ ⇒ system.shutdown())
 
-  def delay[T]: T ⇒ T = { in ⇒
-    Thread.sleep(300)
-    in
-  }
+  lazy val index =
+    <html>
+      <body>
+        <h1>Say hello to <i>akka-http-core</i>!</h1>
+        <p>Defined resources:</p>
+        <ul>
+          <li><a href="/ping">/ping</a></li>
+          <li><a href="/secure">/secure</a> Use any username and '&lt;username&gt;-password' as credentials</li>
+          <li><a href="/crash">/crash</a></li>
+        </ul>
+      </body>
+    </html>
 }

@@ -6,6 +6,7 @@ package akka.stream
 
 import java.util.concurrent.TimeUnit
 
+import akka.stream.io.JsonCollectingBuffer
 import akka.util.ByteString
 import org.openjdk.jmh.annotations._
 
@@ -26,6 +27,6 @@ class JsonFramingBenchmark {
   @Benchmark
   def split: Try[Option[ByteString]] = {
     buf.append(json)
-    buf.pop
+    buf.poll()
   }
 }

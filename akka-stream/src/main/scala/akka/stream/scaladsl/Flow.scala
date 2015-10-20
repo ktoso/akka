@@ -618,6 +618,15 @@ trait FlowOps[+Out, +Mat] {
    * nums.intersperse("[", ",", "]")  // [ 1 , 2 , 3 ]
    * }}}
    *
+   * In case you want to only prepend or only append an element (yet still use the `intercept` feature
+   * to inject a separator between elements, you may want to use the following pattern instead of the 3-argument
+   * version of intersperse (See [[Source.concat]] for semantics details):
+   *
+   * {{{
+   * Source.single(">> ") ++ Source(List("1", "2", "3")).intersperse(",")
+   * Source(List("1", "2", "3")).intersperse(",") ++ Source.single("END")
+   * }}}
+   *
    * '''Emits when''' upstream emits (or before with the `start` element if provided)
    *
    * '''Backpressures when''' downstream backpressures
@@ -626,7 +635,7 @@ trait FlowOps[+Out, +Mat] {
    *
    * '''Cancels when''' downstream cancels
    */
-  def intersperse[T >: Out](start: T, inject: T, end: T): Repr[Out, Mat] = {
+  def intersperse[T >: Out](start: T, inject: T, end: T): Repr[T, Mat] = {
     ReactiveStreamsCompliance.requireNonNullElement(start)
     ReactiveStreamsCompliance.requireNonNullElement(inject)
     ReactiveStreamsCompliance.requireNonNullElement(end)
@@ -655,7 +664,7 @@ trait FlowOps[+Out, +Mat] {
    *
    * '''Cancels when''' downstream cancels
    */
-  def intersperse[T >: Out](inject: T): Repr[Out, Mat] = {
+  def intersperse[T >: Out](inject: T): Repr[T, Mat] = {
     ReactiveStreamsCompliance.requireNonNullElement(inject)
     andThen(Intersperse(None, inject, None))
   }
