@@ -5,9 +5,9 @@
 package akka.http.scaladsl.marshallers.sprayjson
 
 import akka.http.scaladsl.marshallers.Employee
-import akka.http.scaladsl.marshalling.Marshaller
+import akka.http.scaladsl.marshalling._
 import akka.http.scaladsl.model.{ ContentTypes, StatusCodes }
-import akka.http.scaladsl.server.{ JsonStreamingRenderingMode, Directives, UnsupportedRequestContentTypeRejection }
+import akka.http.scaladsl.server._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import akka.stream.scaladsl.Source
@@ -17,6 +17,8 @@ import spray.json.{ DefaultJsonProtocol, JsObject }
 
 class JsonStreamingSpec extends WordSpec with Matchers with ScalatestRouteTest
   with Directives with SprayJsonSupport {
+
+  implicit val jsonRenderingMode = JsonSourceRenderingMode.LineByLine
 
   object EmployeeJsonProtocol extends DefaultJsonProtocol {
     implicit val employeeFormat = jsonFormat5(Employee.apply)
@@ -52,7 +54,7 @@ class JsonStreamingSpec extends WordSpec with Matchers with ScalatestRouteTest
     "read using entity(stream[T])" in {
       val route = post {
         entity(stream[Employee]) { employees ⇒
-          complete(employees.intersperse(",").runFold("")(_ + _))
+          complete(employees.map(_.fname).intersperse(",").runFold("")(_ + _))
         }
       }
 
@@ -98,11 +100,23 @@ class JsonStreamingSpec extends WordSpec with Matchers with ScalatestRouteTest
       }
     }
 
+    "read in parallel (unordered) explicit framing" in {
+      val route = post {
+        entity(streamAsyncUnordered[Employee](parallelism = 3)) { employees ⇒
+          complete(employees.map(_.fname).intersperse(",").runFold("")(_ + _))
+        }
+      }
+
+      PostJson("/", lineByLineCommaSeparated) ~> route ~> check {
+        responseAs[String] shouldEqual "Frank,Bob,Hank"
+      }
+    }
+
     "write streamed json line by line" in {
       val frank = Employee.simple
 
       val route = get {
-        completeStreaming(Source.repeat(frank).take(3))
+        complete(Source.repeat(frank).take(3))
       }
 
       val json =
@@ -112,34 +126,45 @@ class JsonStreamingSpec extends WordSpec with Matchers with ScalatestRouteTest
 
       Get("/") ~> route ~> check {
         responseAs[String] shouldEqual json
+        contentType shouldEqual ContentTypes.`application/json`
       }
     }
 
-    "write streaming json using given rendering mode" in {
+    "allow configuring parallelism using renderAsync() modifier" in {
       val frank = Employee.simple
 
-      implicit val renderingMode = JsonStreamingRenderingMode.CompactArray
-
-      val routeImplicitly = get {
-        completeStreaming(Source.repeat(frank).take(3))
-      }
-      val routeExplicitly = get {
-        completeStreaming(Source.repeat(frank).take(3), renderingMode)
+      val route = get {
+        complete(ToResponseMarshallable.apply(Source.repeat(frank).take(3).renderAsync(3)))
       }
 
       val json =
-        """[""" +
-          """{"name":"Smith","boardMember":false,"fname":"Frank","age":42,"id":12345},""" +
-          """{"name":"Smith","boardMember":false,"fname":"Frank","age":42,"id":12345},""" +
-          """{"name":"Smith","boardMember":false,"fname":"Frank","age":42,"id":12345}""" +
-          """]"""
+        """{"name":"Smith","boardMember":false,"fname":"Frank","age":42,"id":12345}""" + "\n" +
+          """{"name":"Smith","boardMember":false,"fname":"Frank","age":42,"id":12345}""" + "\n" +
+          """{"name":"Smith","boardMember":false,"fname":"Frank","age":42,"id":12345}""" // TODO what if someone wants eager newline?
 
-      Get("/") ~> routeExplicitly ~> check {
+      Get("/") ~> route ~> check {
         responseAs[String] shouldEqual json
-      }
-      Get("/") ~> routeImplicitly ~> check {
-        responseAs[String] shouldEqual json
+        contentType shouldEqual ContentTypes.`application/json`
       }
     }
+
+    "allow configuring parallelism using renderUnorderedAsync() modifier" in {
+      val frank = Employee.simple
+
+      val route = get {
+        complete(Source.repeat(frank).take(3).renderAsyncUnordered(3))
+      }
+
+      val json =
+        """{"name":"Smith","boardMember":false,"fname":"Frank","age":42,"id":12345}""" + "\n" +
+          """{"name":"Smith","boardMember":false,"fname":"Frank","age":42,"id":12345}""" + "\n" +
+          """{"name":"Smith","boardMember":false,"fname":"Frank","age":42,"id":12345}""" // TODO what if someone wants eager newline?
+
+      Get("/") ~> route ~> check {
+        responseAs[String] shouldEqual json
+        contentType shouldEqual ContentTypes.`application/json`
+      }
+    }
+
   }
 }

@@ -80,7 +80,8 @@ object Framing {
    *
    * Framing raw JSON values (such as integers or strings) is supported as well.
    *
-   * @param maximumObjectLength
+   * @param maximumObjectLength The maximum length of allowed frames while decoding. If the maximum length is exceeded
+      *                         this Flow will fail the stream.
    */
   def json(maximumObjectLength: Int): Flow[ByteString, ByteString, Unit] =
     Flow[ByteString].transform(() ⇒ new PushPullStage[ByteString, ByteString] {

@@ -27,21 +27,28 @@ object JsonCollectingBuffer {
   def isWhitespace(input: Byte): Boolean =
     Whitespace.contains(input)
 
+  // TODO merge those two
   final case class InvalidJsonException(value: ByteString) extends RuntimeException
 
-  final case class JsonObjectTooLargeException(maximumObjectLength: Long, value: ByteString) extends RuntimeException
+  // offendingFrame kept for in-code inspection, not automatically printing it (could contain sensitive data?)
+  final case class JsonObjectTooLargeException(maximumObjectLength: Long, offendingFrame: ByteString)
+    extends RuntimeException(s"""Json element exceeded maximumObjectLength ($maximumObjectLength bytes)!""")
 
 }
 
 /**
  * **Mutable** container of [[ByteString]] which can emit a valid JSON.
  */
+// FIXME needs some performance work; it can be simplified to only count the numbers of { and } (in one Int)
+// TODO then a proposed rename - JsonFrameCounting?
+// TODO remove default value of maxObjectLength
 class JsonCollectingBuffer(maximumObjectLength: Int = Int.MaxValue) {
   import JsonCollectingBuffer._
 
-  private var buffer: ByteString = ByteString("")
+  private var buffer: ByteString = ByteString.empty
   private var completedObjectIndexes: Seq[Int] = Seq.empty // TODO no need for lookahead (just one Int)
 
+  private var charsInObject = 0
   private var isValid = true
   private var isStartOfStringExpression = false
   private var isStartOfEscapeSequence = false
@@ -52,7 +59,9 @@ class JsonCollectingBuffer(maximumObjectLength: Int = Int.MaxValue) {
       var idx = 0
       val length = input.length
       while (idx < length) {
+        if (charsInObject > maximumObjectLength) throw new JsonObjectTooLargeException(maximumObjectLength, buffer)
         appendByte(input(idx)) // TODO optimise
+        charsInObject += 1
         idx += 1
       }
     }
@@ -97,8 +106,10 @@ class JsonCollectingBuffer(maximumObjectLength: Int = Int.MaxValue) {
       isStartOfEscapeSequence = false
       objectDepthLevel -= 1
       buffer ++= ByteString(input)
-      if (objectDepthLevel == 0)
+      if (objectDepthLevel == 0) {
+        charsInObject = 0
         completedObjectIndexes :+= buffer.length
+      }
     } else if (isWhitespace(input) && !isStartOfStringExpression) {
       // skip
     } else if (isStartOfObject) {
