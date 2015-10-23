@@ -71,8 +71,8 @@ class JsonCollectingBuffer(maximumObjectLength: Int = Int.MaxValue) {
       val possibleResult = completedObjectIndexes.headOption
       if (possibleResult.isDefined) {
         val index = possibleResult.get
-        val result = buffer.slice(0, index)
-        buffer = buffer.slice(index, buffer.length)
+        val (result, remainder) = buffer.splitAt(index)
+        buffer = remainder
         completedObjectIndexes = completedObjectIndexes.tail.map(_ - index)
         Success(Some(result))
       } else
@@ -93,19 +93,19 @@ class JsonCollectingBuffer(maximumObjectLength: Int = Int.MaxValue) {
       // do nothing
     } else if (input == Backslash) {
       isStartOfEscapeSequence = true
-      buffer ++= ByteString(input)
+      buffer :+= input
     } else if (input == DoubleQuote) {
       if (!isStartOfEscapeSequence) isStartOfStringExpression = !isStartOfStringExpression
       isStartOfEscapeSequence = false
-      buffer ++= ByteString(input)
+      buffer :+= input
     } else if (input == CurlyBraceStart && !isStartOfStringExpression) {
       isStartOfEscapeSequence = false
       objectDepthLevel += 1
-      buffer ++= ByteString(input)
+      buffer :+= input
     } else if (input == CurlyBraceEnd && !isStartOfStringExpression) {
       isStartOfEscapeSequence = false
       objectDepthLevel -= 1
-      buffer ++= ByteString(input)
+      buffer :+= input
       if (objectDepthLevel == 0) {
         charsInObject = 0
         completedObjectIndexes :+= buffer.length
@@ -114,7 +114,7 @@ class JsonCollectingBuffer(maximumObjectLength: Int = Int.MaxValue) {
       // skip
     } else if (isStartOfObject) {
       isStartOfEscapeSequence = false
-      buffer ++= ByteString(input)
+      buffer :+= input
     } else {
       isValid = false
     }
