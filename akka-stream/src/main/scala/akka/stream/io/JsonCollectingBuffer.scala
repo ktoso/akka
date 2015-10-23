@@ -111,7 +111,9 @@ class JsonCollectingBuffer(maximumObjectLength: Int = Int.MaxValue) {
         completedObjectIndexes :+= buffer.length
       }
     } else if (isWhitespace(input) && !isStartOfStringExpression) {
-      // skip
+      if (objectDepthLevel > 0) {
+        buffer :+= input
+      }
     } else if (isStartOfObject) {
       isStartOfEscapeSequence = false
       buffer :+= input
