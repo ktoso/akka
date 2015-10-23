@@ -38,9 +38,9 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
         }
 
       result.futureValue shouldBe Seq(
-        """{"name":"john"}""",
-        """{"name":"jack"}""",
-        """{"name":"katie"}""")
+        """{ "name": "john" }""".stripMargin,
+        """{ "name": "jack" }""".stripMargin,
+        """{ "name": "katie" }""".stripMargin)
     }
 
     "parse line delimited" in {
@@ -58,9 +58,9 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
         }
 
       result.futureValue shouldBe Seq(
-        """{"name":"john"}""",
-        """{"name":"jack"}""",
-        """{"name":"katie"}""")
+        """{ "name": "john" }""".stripMargin,
+        """{ "name": "jack" }""".stripMargin,
+        """{ "name": "katie" }""".stripMargin)
     }
 
     "parse comma delimited" in {
@@ -76,17 +76,16 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
         }
 
       result.futureValue shouldBe Seq(
-        """{"name":"john"}""",
-        """{"name":"jack"}""",
-        """{"name":"katie"}""")
+        """{ "name": "john" }""".stripMargin,
+        """{ "name": "jack" }""",
+        """{ "name": "katie" }""")
     }
 
     "parse chunks successfully" in {
       val input: Seq[ByteString] = Seq(
         """
           |[
-          |  { "name": "john"
-        """.stripMargin,
+          |  { "name": "john"""".stripMargin,
         """
           |},
         """.stripMargin,
@@ -101,8 +100,9 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
         }
 
       result.futureValue shouldBe Seq(
-        """{"name":"john"}""",
-        """{"name":"jack"}""")
+        """{ "name": "john"
+          |}""".stripMargin,
+        """{ "name": "jack"}""")
     }
   }
 
@@ -127,14 +127,14 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
         "successfully parse single field having string value" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "name": "john"}"""))
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john"}"""
+          buffer.poll().get.get.utf8String shouldBe """{ "name": "john"}"""
           buffer.valid shouldBe true
         }
 
         "successfully parse single field having string value containing space" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "name": "john doe"}"""))
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john doe"}"""
+          buffer.poll().get.get.utf8String shouldBe """{ "name": "john doe"}"""
           buffer.valid shouldBe true
         }
 
@@ -146,7 +146,7 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
           buffer.append(ByteString("\""))
           buffer.append(ByteString("}"))
 
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john{}"}"""
+          buffer.poll().get.get.utf8String shouldBe """{ "name": "john{}"}"""
           buffer.valid shouldBe true
         }
 
@@ -163,21 +163,21 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
           buffer.append(ByteString("\""))
 
           buffer.append(ByteString("}"))
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john\"{}\" hey"}"""
+          buffer.poll().get.get.utf8String shouldBe """{ "name": "john\"{}\" hey"}"""
           buffer.valid shouldBe true
         }
 
         "successfully parse single field having integer value" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "age": 101}"""))
-          buffer.poll().get.get.utf8String shouldBe """{"age":101}"""
+          buffer.poll().get.get.utf8String shouldBe """{ "age": 101}"""
           buffer.valid shouldBe true
         }
 
         "successfully parse single field having decimal value" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "age": 101}"""))
-          buffer.poll().get.get.utf8String shouldBe """{"age":101}"""
+          buffer.poll().get.get.utf8String shouldBe """{ "age": 101}"""
           buffer.valid shouldBe true
         }
 
@@ -193,7 +193,13 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
               |   }
               |}
               | """.stripMargin))
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john","age":101,"address":{"street":"Straight Street","postcode":1234}}"""
+          buffer.poll().get.get.utf8String shouldBe """{  "name": "john",
+                                                      |   "age": 101,
+                                                      |   "address": {
+                                                      |     "street": "Straight Street",
+                                                      |     "postcode": 1234
+                                                      |   }
+                                                      |}""".stripMargin
           buffer.valid shouldBe true
         }
 
@@ -212,7 +218,16 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
               |   }
               |}
               | """.stripMargin))
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john","age":101,"address":{"street":{"name":"Straight","type":"Avenue"},"postcode":1234}}"""
+          buffer.poll().get.get.utf8String shouldBe """{  "name": "john",
+                                                      |   "age": 101,
+                                                      |   "address": {
+                                                      |     "street": {
+                                                      |       "name": "Straight",
+                                                      |       "type": "Avenue"
+                                                      |     },
+                                                      |     "postcode": 1234
+                                                      |   }
+                                                      |}""".stripMargin
           buffer.valid shouldBe true
         }
       }
@@ -231,7 +246,14 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
               |   ]
               |}
               | """.stripMargin))
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john","things":[1,"hey",3,"there"]}"""
+          buffer.poll().get.get.utf8String shouldBe """{  "name": "john",
+                                                      |   "things": [
+                                                      |     1,
+                                                      |     "hey",
+                                                      |     3,
+                                                      |     "there"
+                                                      |   ]
+                                                      |}""".stripMargin
           buffer.valid shouldBe true
         }
       }
@@ -264,7 +286,28 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
               |  ]
               |}
               | """.stripMargin))
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john","addresses":[{"street":"3 Hopson Street","postcode":"ABC-123","tags":["work","office"],"contactTime":[{"time":"0900-1800","timezone","UTC"}]},{"street":"12 Adielie Road","postcode":"ZZY-888","tags":["home"],"contactTime":[{"time":"0800-0830","timezone","UTC"},{"time":"1800-2000","timezone","UTC"}]}]}"""
+          buffer.poll().get.get.utf8String shouldBe """{
+                                                      |  "name": "john",
+                                                      |  "addresses": [
+                                                      |    {
+                                                      |      "street": "3 Hopson Street",
+                                                      |      "postcode": "ABC-123",
+                                                      |      "tags": ["work", "office"],
+                                                      |      "contactTime": [
+                                                      |        {"time": "0900-1800", "timezone", "UTC"}
+                                                      |      ]
+                                                      |    },
+                                                      |    {
+                                                      |      "street": "12 Adielie Road",
+                                                      |      "postcode": "ZZY-888",
+                                                      |      "tags": ["home"],
+                                                      |      "contactTime": [
+                                                      |        {"time": "0800-0830", "timezone", "UTC"},
+                                                      |        {"time": "1800-2000", "timezone", "UTC"}
+                                                      |      ]
+                                                      |    }
+                                                      |  ]
+                                                      |}""".stripMargin
           buffer.valid shouldBe true
         }
       }
@@ -273,7 +316,7 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
         "parse successfully" in {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString("""{ "name": "john", "age": 101}"""))
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john","age":101}"""
+          buffer.poll().get.get.utf8String shouldBe """{ "name": "john", "age": 101}"""
           buffer.valid shouldBe true
         }
 
@@ -285,7 +328,9 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
               |
               |{"name":   "john"
               |, "age": 101}""".stripMargin))
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john","age":101}"""
+          buffer.poll().get.get.utf8String shouldBe
+            """{"name":   "john"
+              |, "age": 101}""".stripMargin
           buffer.valid shouldBe true
         }
       }
@@ -309,15 +354,23 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
           val buffer = new JsonCollectingBuffer()
           buffer.append(ByteString(input))
 
-          buffer.poll().get.get.utf8String shouldBe """{"name":"john","age":32}"""
-          buffer.poll().get.get.utf8String shouldBe """{"name":"katie","age":25}"""
+          buffer.poll().get.get.utf8String shouldBe
+            """{
+              |    "name": "john",
+              |    "age": 32
+              |  }""".stripMargin
+          buffer.poll().get.get.utf8String shouldBe
+            """{
+              |    "name": "katie",
+              |    "age": 25
+              |  }""".stripMargin
           buffer.poll().get shouldBe None
 
           buffer.append(ByteString("""{"name":"jenkins","age": 65"""))
           buffer.poll().get shouldBe None
 
           buffer.append(ByteString("}"))
-          buffer.poll().get.get.utf8String shouldBe """{"name":"jenkins","age":65}"""
+          buffer.poll().get.get.utf8String shouldBe """{"name":"jenkins","age": 65}"""
         }
       }
 
@@ -331,7 +384,7 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
         }
 
         buffer.append(ByteString("}"))
-        buffer.poll().get.get.utf8String shouldBe """{"name":"john"}"""
+        buffer.poll().get.get.utf8String shouldBe """{ "name": "john"}"""
         buffer.valid shouldBe true
       }
 
@@ -382,9 +435,9 @@ class JsonFramingSpec extends AkkaSpec with ScalaFutures {
       probe.ensureSubscription()
       probe
         .request(1)
-        .expectNext(ByteString("""{"name":"john"}""")) // FIXME we should not impact the given json in Framing
+        .expectNext(ByteString("""{ "name": "john" }""")) // FIXME we should not impact the given json in Framing
         .request(1)
-        .expectNext(ByteString("""{"name":"jack"}"""))
+        .expectNext(ByteString("""{ "name": "jack" }"""))
         .request(1)
         .expectError().getMessage should include("exceeded")
     }
