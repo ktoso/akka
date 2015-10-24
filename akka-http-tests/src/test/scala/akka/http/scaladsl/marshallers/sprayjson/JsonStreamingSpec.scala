@@ -18,7 +18,7 @@ import spray.json.{ DefaultJsonProtocol, JsObject }
 class JsonStreamingSpec extends WordSpec with Matchers with ScalatestRouteTest
   with Directives with SprayJsonSupport {
 
-  implicit val jsonRenderingMode = JsonSourceRenderingMode.LineByLine
+  implicit override def jsonRenderingMode = JsonSourceRenderingMode.LineByLine
 
   object EmployeeJsonProtocol extends DefaultJsonProtocol {
     implicit val employeeFormat = jsonFormat5(Employee.apply)

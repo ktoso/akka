@@ -7,7 +7,7 @@ package akka.http.scaladsl.marshallers.sprayjson
 import akka.http.scaladsl.marshalling.{ Marshaller, ToEntityMarshaller }
 import akka.http.scaladsl.model.MediaTypes.`application/json`
 import akka.http.scaladsl.model.{ ContentTypes, HttpCharsets }
-import akka.http.scaladsl.server.JsonEntityStreamingSupport
+import akka.http.scaladsl.server.{ JsonSourceRenderingMode, JsonEntityStreamingSupport }
 import akka.http.scaladsl.unmarshalling.{ FromEntityUnmarshaller, Unmarshaller }
 import akka.http.scaladsl.util.FastFuture
 import akka.util.ByteString
@@ -46,5 +46,9 @@ trait SprayJsonSupport extends JsonEntityStreamingSupport {
     sprayJsValueMarshaller
       .map(_.toString)
       .map(s ⇒ ByteString(s)) compose writer.write
+
+  // json streaming:
+  implicit def jsonRenderingMode = JsonSourceRenderingMode.LineByLine
+
 }
 object SprayJsonSupport extends SprayJsonSupport
