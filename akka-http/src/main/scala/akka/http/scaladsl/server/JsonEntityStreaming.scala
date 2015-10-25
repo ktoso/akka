@@ -2,14 +2,18 @@ package akka.http.scaladsl.server
 
 import akka.actor.ActorSystem
 import akka.http.impl.util.JavaMapping
+import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model.{ ContentType, ContentTypes }
 import akka.http.scaladsl.server.directives.EntityStreamingDirectives.SourceRenderingMode
+import akka.http.scaladsl.unmarshalling.{ Unmarshaller, Unmarshal }
+import akka.stream.Materializer
 import akka.stream.io.Framing
 import akka.stream.scaladsl.Flow
 import akka.util.ByteString
 import com.typesafe.config.Config
 
 import scala.collection.immutable
+import scala.concurrent.ExecutionContext
 
 /**
  * Same as [[Framing]] but additionally can express which [[ContentType]] it supports,
@@ -48,6 +52,10 @@ trait JsonEntityStreamingSupport {
 
     override def supported: Set[ContentType] = _supported
   }
+
+  // TODO explicitly pick JSON framing here?
+  def framingOf[T](implicit m: Unmarshaller[ByteString, T], framing: FramingWithContentType, ec: ExecutionContext, mat: Materializer): Flow[ByteString, T, Unit] =
+    Flow[ByteString].via(framing.flow).mapAsync(1)(el ⇒ Unmarshal(el).to[T])
 
 }
 
