@@ -30,9 +30,10 @@ object ClientDemo extends SampleApp
   with RequestBuilding {
 
   // Authorization: OAuth
-  val req = Get("https://stream.twitter.com/1.1/statuses/filter.json" +
-    """?track=javaone%2Cscala%2Cjava%2Cgroovy%2Cjruby%2Cruby""")
-    .withHeaders(twitterAuthorization)
+  //  val req = Get("https://stream.twitter.com/1.1/statuses/filter.json" +
+  //    """?track=javaone%2Cscala%2Cjava%2Cgroovy%2Cjruby%2Cruby""")
+  //    .withHeaders(twitterAuthorization)
+  val req = Get("http://localhost:8080/big")
 
   println("Request = " + req + "\n\n")
 

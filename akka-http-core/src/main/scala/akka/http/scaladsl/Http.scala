@@ -684,7 +684,7 @@ object Http extends ExtensionId[HttpExt] with ExtensionIdProvider {
 
   /**
    * Represents a prospective outgoing HTTP connection.
-   */
+   */ /**/
   final case class OutgoingConnection(localAddress: InetSocketAddress, remoteAddress: InetSocketAddress)
 
   /**

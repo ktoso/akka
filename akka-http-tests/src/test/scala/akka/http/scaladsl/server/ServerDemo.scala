@@ -6,13 +6,13 @@ package akka.http.scaladsl.server
 
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.scaladsl.{ Flow, Source }
 import spray.json.DefaultJsonProtocol
 
 import scala.concurrent.Future
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration.FiniteDuration
 
-final case class Tweet(from: String, text: String)
+final case class Tweet(id_str: String, text: String)
 
 trait MyJsonProtocols extends DefaultJsonProtocol with JsonEntityStreamingSupport {
   implicit val tweetFormat = jsonFormat2(Tweet)
@@ -33,7 +33,7 @@ object ServerDemo extends SampleApp
   with SampleDataGeneration {
 
   private val helloWorldRoutes = path("/") {
-    complete("Hello world!")
+    complete(Future("Hello world!"))
   }
 
   // format: OFF
@@ -41,16 +41,20 @@ object ServerDemo extends SampleApp
     path("tweets") {
       get {
         val tweets = randomTweetsSource()
-          .via(printlnDebug) // TODO show TCP buffers
+          .via(printlnDebug)
+        complete(tweets)
+
+          // TODO: renderAsync and un-ordered rendering
+          // TODO show TCP buffers
           // TODO show conflate
           // TODO show idle timeouts (in code, and config)
-        complete(tweets) // TODO: renderAsync and un-ordered rendering
       } ~
       post {
         entity(stream[Tweet]) { tweets: Source[Tweet, _] ⇒
           val eventualCount: Future[String] = // TODO explain future
             tweets
-              .via(delay(200.millis))
+              .via(printlnDebug)
+              .take(3)
               .runFold(0)((acc, t) ⇒ acc + 1)
               .map(n ⇒ s"Streamed $n tweets!")
 
@@ -85,3 +89,4 @@ object ServerDemo extends SampleApp
       in
     }
 }
+
