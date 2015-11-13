@@ -11,15 +11,13 @@ import com.typesafe.config.{ Config, ConfigFactory }
 
 object InstrumentationSpec {
   val testConfig: Config = ConfigFactory.parseString("""
-    akka.instrumentation = "akka.instrument.CountInstrumentation"
+    akka.instrumentations = ["akka.instrument.CountInstrumentation"]
   """)
 
   val printConfig: Config = ConfigFactory.parseString("""
-    akka.instrumentation = "akka.instrument.PrintInstrumentation"
-    akka.print-instrumentation.delegate = "akka.instrument.CountInstrumentation"
+    akka.instrumentations = ["akka.instrument.PrintInstrumentation", "akka.instrument.CountInstrumentation"]
     akka.print-instrumentation.muted = true
   """)
-
 }
 
 abstract class AbstractInstrumentationSpec(_config: Config) extends AkkaSpec(_config) with ImplicitSender with DefaultTimeout {

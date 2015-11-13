@@ -207,7 +207,7 @@ object ActorSystem {
 
     final val DefaultVirtualNodesFactor: Int = getInt("akka.actor.deployment.default.virtual-nodes-factor")
 
-    final val Instrumentation: String = getString("akka.instrumentation")
+    final val Instrumentations: List[String] = getStringList("akka.instrumentations").asScala.toList
 
     if (ConfigVersion != Version)
       throw new akka.ConfigurationException("Akka JAR version [" + Version + "] does not match the provided config version [" + ConfigVersion + "]")
@@ -586,7 +586,7 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
 
   val log: LoggingAdapter = new BusLogging(eventStream, "ActorSystem(" + name + ")", this.getClass)
 
-  final val (instrumentation, hasInstrumentation) = ActorInstrumentation(settings.Instrumentation, dynamicAccess, settings.config, log)
+  final val (instrumentation, hasInstrumentation) = ActorInstrumentation(settings.Instrumentations, dynamicAccess, settings.config, log)
 
   val scheduler: Scheduler = createScheduler()
 

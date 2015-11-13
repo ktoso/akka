@@ -61,10 +61,11 @@ object ActorInstrumentation {
    *   - If there is no instrumentation then a default empty implementation
    *     with final methods is used ([[akka.instrument.NoActorInstrumentation]]).
    */
-  private[akka] def apply(instrumentation: String, dynamicAccess: DynamicAccess, config: Config, log: LoggingAdapter): (ActorInstrumentation, Boolean) = {
-    instrumentation.length match {
+  private[akka] def apply(instrumentations: List[String], dynamicAccess: DynamicAccess, config: Config, log: LoggingAdapter): (ActorInstrumentation, Boolean) = {
+    instrumentations.length match {
       case 0 ⇒ create("akka.instrument.NoActorInstrumentation", dynamicAccess, config, log) -> false // Use reflection to allow JIT optimizations
-      case _ ⇒ create(instrumentation, dynamicAccess, config, log) -> true
+      case 1 ⇒ create(instrumentations.head, dynamicAccess, config, log) -> true
+      case _ ⇒ create("akka.instrument.Ensemble", dynamicAccess, config, log) -> true // Use reflection to allow JIT optimizations
     }
   }
 
@@ -79,15 +80,23 @@ object ActorInstrumentation {
    * @param log a logging adapter that is used to signal exceptions - defaults to null since there might not always be a logging adapter around
    */
   def create(instrumentation: String, dynamicAccess: DynamicAccess, config: Config, log: LoggingAdapter = null): ActorInstrumentation = {
-    val dynamicAndConfigArg = List(classOf[DynamicAccess] -> dynamicAccess, classOf[Config] -> config)
-    val configArg = List(classOf[Config] -> config)
-    dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, dynamicAndConfigArg).recoverWith({
-      case _: NoSuchMethodException ⇒ dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, configArg)
-    }).recoverWith({
+    val metaArgs = List(classOf[DynamicAccess] -> dynamicAccess, classOf[Config] -> config, classOf[MetadataAccessor.Factory] -> MetadataAccessor.Factory.DEFAULT)
+    val args = metaArgs.take(2)
+    ({
+      dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, metaArgs)
+    } recoverWith {
+      case _: NoSuchMethodException ⇒ dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, metaArgs.tail)
+    } recoverWith {
+      case _: NoSuchMethodException ⇒ dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, metaArgs.tail.tail)
+    } recoverWith {
+      case _: NoSuchMethodException ⇒ dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, args)
+    } recoverWith {
+      case _: NoSuchMethodException ⇒ dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, args.tail)
+    } recoverWith {
       case _: NoSuchMethodException ⇒ dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, Nil)
-    }).recoverWith({
+    } recoverWith {
       case e: Exception ⇒
-        if (log != null) log.warning(s"Cannot create actor instrumentation", e)
+        if (log != null) log.warning(s"""Cannot create actor instrumentation "$instrumentation"""", e)
         dynamicAccess.createInstanceFor[ActorInstrumentation]("akka.instrument.NoActorInstrumentation", Nil)
     }).get
   }
