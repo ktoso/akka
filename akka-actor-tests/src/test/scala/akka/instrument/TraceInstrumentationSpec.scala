@@ -12,12 +12,11 @@ import scala.concurrent.duration._
 
 object TraceInstrumentationSpec {
   val testConfig: Config = ConfigFactory.parseString("""
-    akka.instrumentation = "akka.instrument.TraceInstrumentation"
+    akka.instrumentations = ["akka.instrument.TraceInstrumentation"]
   """)
 
   val printConfig: Config = ConfigFactory.parseString("""
-    akka.instrumentation = "akka.instrument.PrintInstrumentation"
-    akka.print-instrumentation.delegate = "akka.instrument.TraceInstrumentation"
+    akka.instrumentations = ["akka.instrument.PrintInstrumentation", "akka.instrument.TraceInstrumentation"]
     akka.print-instrumentation.muted = true
   """)
 

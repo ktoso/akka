@@ -30,7 +30,7 @@ class RemoteTraceSpec extends MultiNodeSpec(RemoteTraceSpec) with RemoteTraceCom
 
 object RemoteTraceCommon {
   val instrumentationConfig = ConfigFactory.parseString("""
-      akka.instrumentation = "akka.remote.instrument.RemoteTraceInstrumentation"
+      akka.instrumentations = ["akka.remote.instrument.RemoteTraceInstrumentation"]
       akka.remote.log-remote-lifecycle-events = off
     """)
 
