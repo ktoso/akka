@@ -12,8 +12,7 @@
 .#*
 .*.swp
 .DS_Store
-.cache
-.cache
+.cache*
 .classpath
 .codefellow
 .ensime*
@@ -58,6 +57,7 @@ out
 project/akka-build.properties
 project/boot/*
 project/plugins/project
+project/typesafe.properties
 redis/
 reports
 run-codefellow
@@ -74,4 +74,5 @@ tm.out
 worker*.log
 *-shim.sbt
 test-output
+akka-diagnostics/
 
