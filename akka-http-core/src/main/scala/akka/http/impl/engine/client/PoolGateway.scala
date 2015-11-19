@@ -28,7 +28,7 @@ private object PoolGateway {
  *
  * A [[PoolGateway]] provides a layer of indirection between the pool cache and the actual
  * pools that is required to allow a pool incarnation to fully terminate (e.g. after an idle-timeout)
- * and be transparently replaced by a new incarnation if required.
+ * and be transparently replaced by a new incarnation if required. <<<< we need this.
  * Removal of cache entries for terminated pools is also supported, because old gateway references that
  * get reused will automatically forward requests directed at them to the latest pool incarnation from the cache.
  */
@@ -50,11 +50,13 @@ private[http] class PoolGateway(hcps: HostConnectionPoolSetup,
   def apply(request: HttpRequest, previousIncarnation: PoolGateway = null): Future[HttpResponse] =
     state.get match {
       case Running(ref, _, _) ⇒
+        println("request on Running = " + request.uri)
         val responsePromise = Promise[HttpResponse]()
         ref ! PoolInterfaceActor.PoolRequest(request, responsePromise)
         responsePromise.future
 
       case IsShutdown(shutdownCompleted) ⇒
+        println("isShowdown")
         // delay starting the next pool incarnation until the current pool has completed its shutdown
         shutdownCompleted.flatMap { _ ⇒
           val newGatewayFuture = Http().cachedGateway(hcps)
@@ -64,6 +66,7 @@ private[http] class PoolGateway(hcps: HostConnectionPoolSetup,
         }
 
       case x @ NewIncarnation(newGatewayFuture) ⇒
+        println("newIncatnation = " + x)
         if (previousIncarnation != null)
           previousIncarnation.state.set(x) // collapse incarnation chain
         newGatewayFuture.flatMap(_(request, this))

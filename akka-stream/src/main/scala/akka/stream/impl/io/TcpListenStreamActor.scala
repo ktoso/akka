@@ -15,6 +15,7 @@ import akka.util.ByteString
 import org.reactivestreams.Subscriber
 
 import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ Future, Promise }
 
 /**
@@ -155,11 +156,12 @@ private[akka] class TcpListenStreamActor(localAddressPromise: Promise[InetSocket
     val tcpStreamActor = context.watch(context.actorOf(TcpStreamActor.inboundProps(connection, halfClose, settings)))
     val processor = ActorProcessor[ByteString, ByteString](tcpStreamActor)
 
-    import scala.concurrent.duration.FiniteDuration
-    val handler = (idleTimeout match {
-      case d: FiniteDuration ⇒ Flow[ByteString].join(BidiFlow.bidirectionalIdleTimeout[ByteString, ByteString](d))
-      case _                 ⇒ Flow[ByteString]
-    }).via(Flow.fromProcessor(() ⇒ processor))
+    // TODO fix idleTimeout use here
+    val flow = Flow.fromProcessor(() ⇒ processor)
+    val handler = idleTimeout match {
+      case d: FiniteDuration ⇒ flow.join(BidiFlow.bidirectionalIdleTimeout[ByteString, ByteString](d))
+      case _                 ⇒ flow
+    }
 
     val conn = StreamTcp.IncomingConnection(
       connected.localAddress,

@@ -191,6 +191,7 @@ private[akka] final class ActorSubscriberSink[In](props: Props, val attributes: 
 
   override def create(context: MaterializationContext) = {
     val subscriberRef = ActorMaterializer.downcast(context.materializer).actorOf(context, props)
+    ActorMaterializer.downcast(context.materializer).system.log.debug(s"Materializing ActorSubscriberSink[$subscriberRef]")
     (akka.stream.actor.ActorSubscriber[In](subscriberRef), subscriberRef)
   }
 

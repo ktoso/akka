@@ -9,6 +9,7 @@ import akka.actor._
 import akka.event.Logging
 import akka.dispatch.Dispatchers
 import akka.pattern.ask
+import akka.stream.ActorMaterializer.SeqActorName
 import akka.stream._
 import akka.stream.impl.StreamLayout.Module
 import akka.stream.impl.fusing.{ ActorGraphInterpreter, GraphModule }
@@ -214,6 +215,9 @@ private[akka] class FlowNameCounter extends Extension {
 private[akka] object StreamSupervisor {
   def props(settings: ActorMaterializerSettings, haveShutDown: AtomicBoolean): Props =
     Props(new StreamSupervisor(settings, haveShutDown)).withDeploy(Deploy.local)
+
+  private val actorName = new SeqActorName("StreamSupervisor")
+  def nextName(): String = actorName.next()
 
   final case class Materialize(props: Props, name: String)
     extends DeadLetterSuppression with NoSerializationVerificationNeeded

@@ -5,7 +5,7 @@ package akka.stream
 
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.{ AtomicInteger, AtomicBoolean }
 
 import akka.actor.{ ActorContext, ActorRef, ActorRefFactory, ActorSystem, ExtendedActorSystem, Props }
 import akka.stream.impl._
@@ -57,7 +57,7 @@ object ActorMaterializer {
       system,
       materializerSettings,
       system.dispatchers,
-      context.actorOf(StreamSupervisor.props(materializerSettings, haveShutDown).withDispatcher(materializerSettings.dispatcher)),
+      context.actorOf(StreamSupervisor.props(materializerSettings, haveShutDown).withDispatcher(materializerSettings.dispatcher), StreamSupervisor.nextName()),
       haveShutDown,
       FlowNameCounter(system).counter,
       namePrefix)
@@ -133,6 +133,11 @@ object ActorMaterializer {
       case _ ⇒ throw new IllegalArgumentException(s"required [${classOf[ActorMaterializer].getName}] " +
         s"but got [${materializer.getClass.getName}]")
     }
+
+  // TODO DUPLICATED FROM HTTP // akka.http.impl.util/package.scala
+  private[akka] final class SeqActorName(prefix: String) extends AtomicInteger {
+    def next(): String = prefix + '-' + getAndIncrement()
+  }
 }
 
 /**

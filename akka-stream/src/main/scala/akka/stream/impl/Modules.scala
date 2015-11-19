@@ -3,6 +3,8 @@
  */
 package akka.stream.impl
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.actor._
 import akka.stream._
 import akka.stream.impl.AcknowledgePublisher.{ Ok, Rejected }
@@ -93,10 +95,13 @@ private[akka] final class ActorPublisherSource[Out](props: Props, val attributes
 
   override def create(context: MaterializationContext) = {
     val publisherRef = ActorMaterializer.downcast(context.materializer).actorOf(context, props)
+    ActorMaterializer.downcast(context.materializer).system.log.debug(s"Materializing ActorPublisherSource[$publisherRef]")
     (akka.stream.actor.ActorPublisher[Out](publisherRef), publisherRef)
   }
 
-  override protected def newInstance(shape: SourceShape[Out]): SourceModule[Out, ActorRef] = new ActorPublisherSource[Out](props, attributes, shape)
+  override protected def newInstance(shape: SourceShape[Out]): SourceModule[Out, ActorRef] = {
+    new ActorPublisherSource[Out](props, attributes, shape)
+  }
   override def withAttributes(attr: Attributes): Module = new ActorPublisherSource(props, attr, amendShape(attr))
 }
 
@@ -110,6 +115,7 @@ private[akka] final class ActorRefSource[Out](
   override def create(context: MaterializationContext) = {
     val ref = ActorMaterializer.downcast(context.materializer).actorOf(context,
       ActorRefSourceActor.props(bufferSize, overflowStrategy))
+    ActorMaterializer.downcast(context.materializer).system.log.debug(s"Materializing ActorRefSource[$ref]")
     (akka.stream.actor.ActorPublisher[Out](ref), ref)
   }
 

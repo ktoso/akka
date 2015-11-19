@@ -202,12 +202,7 @@ class Tcp(system: ExtendedActorSystem) extends akka.actor.Extension {
                          connectTimeout: Duration = Duration.Inf,
                          idleTimeout: Duration = Duration.Inf): Flow[ByteString, ByteString, Future[OutgoingConnection]] = {
 
-    val timeoutHandling = idleTimeout match {
-      case d: FiniteDuration ⇒ Flow[ByteString].join(BidiFlow.bidirectionalIdleTimeout[ByteString, ByteString](d))
-      case _                 ⇒ Flow[ByteString]
-    }
-
-    Flow[ByteString].deprecatedAndThenMat(() ⇒ {
+    val tcpFlow = Flow[ByteString].deprecatedAndThenMat(() ⇒ {
       val processorPromise = Promise[Processor[ByteString, ByteString]]()
       val localAddressPromise = Promise[InetSocketAddress]()
       manager ! StreamTcpManager.Connect(processorPromise, localAddressPromise, remoteAddress, localAddress, halfClose, options,
@@ -215,8 +210,12 @@ class Tcp(system: ExtendedActorSystem) extends akka.actor.Extension {
       import system.dispatcher
       val outgoingConnection = localAddressPromise.future.map(OutgoingConnection(remoteAddress, _))
       (new DelayedInitProcessor[ByteString, ByteString](processorPromise.future), outgoingConnection)
-    }).via(timeoutHandling)
+    })
 
+    idleTimeout match {
+      case d: FiniteDuration ⇒ tcpFlow.join(BidiFlow.bidirectionalIdleTimeout[ByteString, ByteString](d))
+      case _                 ⇒ tcpFlow
+    }
   }
 
   /**

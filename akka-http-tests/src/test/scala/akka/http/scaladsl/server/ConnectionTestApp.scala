@@ -4,12 +4,13 @@
 
 package akka.http.scaladsl.server
 
-import akka.actor.ActorSystem
+import akka.actor._
 import akka.dispatch.MessageDispatcher
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ HttpRequest, HttpResponse, Uri }
 import akka.stream.scaladsl.{ Flow, Sink, Source }
 import akka.stream.{ ActorMaterializer, OverflowStrategy }
+import akka.util.Index
 import com.typesafe.config.{ Config, ConfigFactory }
 
 import scala.concurrent.Future
@@ -17,7 +18,7 @@ import scala.util.{ Failure, Success, Try }
 
 object ConnectionTestApp {
   val testConf: Config = ConfigFactory.parseString("""
-    akka.loglevel = DEBUG
+    akka.loglevel = debug
     akka.log-dead-letters = off
 
     akka.http {
@@ -32,6 +33,7 @@ object ConnectionTestApp {
   implicit val materializer = ActorMaterializer()
 
   val clientFlow = Http().superPool[Int]()
+
   val sourceActor = {
     // Our superPool expects (HttpRequest, Int) as input
     val source = Source.actorRef[(HttpRequest, Int)](10000, OverflowStrategy.dropNew).buffer(20000, OverflowStrategy.fail)
@@ -44,7 +46,10 @@ object ConnectionTestApp {
     val sink = Sink.foreach[(Try[HttpResponse], Int)] {
       case (resp, id) ⇒ handleResponse(resp, id)
     }
-    source.map(r ⇒ { println(Console.YELLOW + "Delivering to client flow: " + r + Console.RESET); r }).via(clientFlow).to(sink).run()
+    source
+      .map(r ⇒ { println(Console.YELLOW + "Delivering to client flow: " + r + Console.RESET); r })
+      .via(clientFlow)
+      .to(sink).run()
   }
 
   def sendPoolFlow(uri: Uri, id: Int): Unit = {
@@ -84,7 +89,7 @@ object ConnectionTestApp {
   }
 
   def main(args: Array[String]): Unit = {
-    for (i ← 1 to 10000) {
+    for (i ← 1 to 3000) {
       val u = s"http://127.0.0.1:6666/test/$i"
       println(Console.RED + "u =>" + u + Console.RESET)
       sendPoolFlow(Uri(u), i)
@@ -92,9 +97,9 @@ object ConnectionTestApp {
       //sendSingle(uri, i)
     }
 
-    readLine()
-    MessageDispatcher.printActors()
-    readLine()
+    Thread.sleep(10000)
+    println("===================== \n\n" + system.asInstanceOf[ActorSystemImpl].printTree + "\n\n========================")
+
     system.shutdown()
   }
 

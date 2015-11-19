@@ -5,16 +5,18 @@
 package akka.http.impl.engine.client
 
 import java.net.InetSocketAddress
+import akka.event.Logging
+
 import scala.annotation.tailrec
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import akka.actor._
-import akka.stream.Materializer
+import akka.stream.{ ActorAttributes, Materializer }
 import akka.stream.actor.{ ActorPublisher, ActorSubscriber, ZeroRequestStrategy }
 import akka.stream.actor.ActorPublisherMessage._
 import akka.stream.actor.ActorSubscriberMessage._
 import akka.stream.impl.FixedSizeBuffer
-import akka.stream.scaladsl.{ Sink, Source }
+import akka.stream.scaladsl.{ Keep, Flow, Sink, Source }
 import akka.http.HostConnectionPoolSetup
 import akka.http.impl.util.SeqActorName
 import akka.http.scaladsl.model._
@@ -54,15 +56,31 @@ private class PoolInterfaceActor(hcps: HostConnectionPoolSetup,
 
   log.debug("(Re-)starting host connection pool to {}:{}", hcps.host, hcps.port)
 
-  { // start the pool flow with this actor acting as source as well as sink
+  initConnectionFlow()
+
+  def initConnectionFlow() = {
+    // start the pool flow with this actor acting as source as well as sink
     import context.system
     import hcps._
     import setup._
+
     val connectionFlow =
       if (httpsContext.isEmpty) Http().outgoingConnection(host, port, None, settings.connectionSettings, setup.log)
       else Http().outgoingConnectionTls(host, port, None, settings.connectionSettings, httpsContext, setup.log)
-    val poolFlow = PoolFlow(connectionFlow, new InetSocketAddress(host, port), settings, setup.log)
-    Source(ActorPublisher(self)).via(poolFlow).runWith(Sink(ActorSubscriber[ResponseContext](self)))
+
+    import scala.concurrent.duration._
+    val poolFlow = PoolFlow(
+      Flow[HttpRequest]
+        .log("BeforeConnectionFlow").withAttributes(ActorAttributes.createLogLevels(Logging.DebugLevel, Logging.DebugLevel, Logging.DebugLevel))
+        .viaMat(connectionFlow)(Keep.right)
+        .log("AfterConnectionFlowIn").withAttributes(ActorAttributes.createLogLevels(Logging.DebugLevel, Logging.DebugLevel, Logging.DebugLevel)), new InetSocketAddress(host, port), settings, setup.log)
+      .named("PoolFlow")
+
+    Source(ActorPublisher(self))
+      .log("BeforePoolFlow")
+      .via(poolFlow)
+      .log("AfterPoolFlow")
+      .runWith(Sink(ActorSubscriber[ResponseContext](self)))
   }
 
   activateIdleTimeoutIfNecessary()
@@ -82,6 +100,7 @@ private class PoolInterfaceActor(hcps: HostConnectionPoolSetup,
     /////////////// COMING DOWN FROM POOL (SINK SIDE) //////////////
 
     case OnNext(ResponseContext(rc, responseTry)) ⇒
+      log.debug("pool got response = " + ResponseContext(rc, responseTry))
       rc.responsePromise.complete(responseTry)
       activateIdleTimeoutIfNecessary()
 
@@ -98,6 +117,7 @@ private class PoolInterfaceActor(hcps: HostConnectionPoolSetup,
     /////////////// FROM CLIENT //////////////
 
     case x: PoolRequest if isActive ⇒
+      log.debug("pool request = " + x)
       activeIdleTimeout foreach { timeout ⇒
         timeout.cancel()
         activeIdleTimeout = None
@@ -122,7 +142,7 @@ private class PoolInterfaceActor(hcps: HostConnectionPoolSetup,
 
     case Shutdown ⇒ // signal coming in from gateway
       log.debug("Shutting down host connection pool to {}:{}", hcps.host, hcps.port)
-      onComplete()
+      onCompleteThenStop() // TODO maybe?
       while (!inputBuffer.isEmpty) {
         val PoolRequest(request, responsePromise) = inputBuffer.dequeue()
         responsePromise.completeWith(gateway(request))
