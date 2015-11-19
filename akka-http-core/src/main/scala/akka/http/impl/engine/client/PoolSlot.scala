@@ -4,6 +4,9 @@
 
 package akka.http.impl.engine.client
 
+import akka.stream.stage.{ InHandler, GraphStageLogic, GraphStage }
+import akka.util.Reflect
+
 import language.existentials
 import java.net.InetSocketAddress
 import scala.concurrent.Future
@@ -171,18 +174,34 @@ private object PoolSlot {
         val requestCompleted = SlotEvent.RequestCompletedFuture(whenCompleted.map(_ ⇒ SlotEvent.RequestCompleted(slotIx)))
         onNext(delivery :: requestCompleted :: Nil)
 
-      case FromConnection(OnComplete) ⇒ handleDisconnect(None)
-      case FromConnection(OnError(e)) ⇒ handleDisconnect(Some(e))
+      case FromConnection(OnComplete) ⇒ handleDisconnect(null, sender(), None)
+      case FromConnection(OnError(e)) ⇒ handleDisconnect(null, sender(), Some(e)) // TODO COME_FROM HERE IS OK
     }
 
     def handleDisconnect(error: Option[Throwable]): Unit = {
       log.debug("Slot {} disconnected after {}", slotIx, error getOrElse "regular connection close")
-      val results: List[ProcessorOut] = inflightRequests.map { rc ⇒
-        if (rc.retriesLeft == 0) {
-          val reason = error.fold[Throwable](new RuntimeException("Unexpected disconnect"))(identityFunc)
-          ResponseDelivery(ResponseContext(rc, Failure(reason)))
-        } else SlotEvent.RetryRequest(rc.copy(retriesLeft = rc.retriesLeft - 1))
-      }(collection.breakOut)
+
+      val results: List[ProcessorOut] = {
+        val res = inflightRequests.map { rc ⇒
+          if (rc.retriesLeft == 0) {
+            log.debug("retriesLeft = " + rc.retriesLeft)
+            val reason = error.fold[Throwable](new RuntimeException("Unexpected disconnect"))(identityFunc)
+            if (connInport ne null) {
+              log.warning(s"Tearing down $connInport")
+              connInport ! ActorPublisherMessage.Cancel
+            }
+            ResponseDelivery(ResponseContext(rc, Failure(reason)))
+          } else SlotEvent.RetryRequest(rc.copy(retriesLeft = rc.retriesLeft - 1))
+        }(collection.breakOut)
+
+        if (res.isEmpty && error.isDefined) {
+          log.warning("Empty response yet we should signal the failure!")
+          ResponseDelivery(ResponseContext(r, Failure(new RuntimeException("Unexpected (early) disconnect", error.get)))) :: res.toList
+        } else if (res.isEmpty) {
+          log.warning("Empty response yet we should signal the failure!")
+          ResponseDelivery(ResponseContext(r, Failure(new RuntimeException("Unexpected (early) disconnect")))) :: res.toList
+        } else res.toList
+      }
       inflightRequests = immutable.Queue.empty
       onNext(SlotEvent.Disconnected(slotIx, results.size) :: results)
       if (canceled) onComplete()
