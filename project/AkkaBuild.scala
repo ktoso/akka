@@ -1033,6 +1033,12 @@ object AkkaBuild extends Build {
       ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ExtendedActorSystem.instrumentation"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ExtendedActorSystem.hasInstrumentation"),
 
+      // Instrumentation context added to remote messages
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.getContext"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.hasContext"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.getInstrumentationId"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.hasInstrumentationId"),
+
        // add filters here, see release-2.2 branch
       FilterAnyProblem("akka.remote.testconductor.Terminate"),
       FilterAnyProblem("akka.remote.testconductor.TerminateMsg"),
