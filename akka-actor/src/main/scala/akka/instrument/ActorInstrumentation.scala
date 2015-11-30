@@ -90,8 +90,14 @@ object ActorInstrumentation {
         case _: NoSuchMethodException ⇒ dynamicAccess.createInstanceFor[ActorInstrumentation](instrumentation, nextArgs)
       }
     } recoverWith {
+      case d: DisabledException ⇒
+        val message = d.getMessage
+        // Allow the instrumentation to take care of all logging by setting the message to ""
+        if (message.length > 0)
+          log.info("Actor instrumentation is disabled. {}", d.getMessage)
+        dynamicAccess.createInstanceFor[ActorInstrumentation]("akka.instrument.NoActorInstrumentation", Nil)
       case e: Exception ⇒
-        log.warning("Cannot create actor instrumentation: {}", e.getMessage)
+        log.warning("Cannot create actor instrumentation. {}", e.getMessage)
         dynamicAccess.createInstanceFor[ActorInstrumentation]("akka.instrument.NoActorInstrumentation", Nil)
     }).get
   }
@@ -149,6 +155,10 @@ object ActorInstrumentation {
   def get[T <: ActorInstrumentation](system: ActorSystem, instrumentationClass: Class[T]): T =
     apply(system, instrumentationClass)
 
+  /**
+   * Exception thrown to signal that the instrumentation has been disabled in a controlled manner.
+   */
+  final class DisabledException(message: String) extends Exception(message)
 }
 
 /**
