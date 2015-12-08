@@ -88,29 +88,29 @@ final class Ensemble(dynamicAccess: DynamicAccess, config: Config, eventStream: 
   override def actorTold(actorRef: ActorRef, message: Any, sender: ActorRef): AnyRef = {
     val contexts = Array.ofDim[AnyRef](length)
     var i = 0
-    var nonEmpty = false
     while (i < length) {
-      val context = instrumentations(i).actorTold(actorRef, message, sender)
-      contexts(i) = context
-      if (context ne ActorInstrumentation.EmptyContext) nonEmpty = true
+      contexts(i) = instrumentations(i).actorTold(actorRef, message, sender)
       i += 1
     }
-    if (nonEmpty) contexts else ActorInstrumentation.EmptyContext
+    contexts
   }
 
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
+    val contexts = if (context eq ActorInstrumentation.EmptyContext) emptyContexts else context.asInstanceOf[Array[AnyRef]]
+    val localContexts = Array.ofDim[AnyRef](length)
+    var i = 0
+    while (i < length) {
+      localContexts(i) = instrumentations(i).actorReceived(actorRef, message, sender, contexts(i))
+      i += 1
+    }
+    localContexts
+  }
+
+  override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
     val contexts = if (context eq ActorInstrumentation.EmptyContext) emptyContexts else context.asInstanceOf[Array[AnyRef]]
     var i = 0
     while (i < length) {
-      instrumentations(i).actorReceived(actorRef, message, sender, contexts(i))
-      i += 1
-    }
-  }
-
-  override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef): Unit = {
-    var i = 0
-    while (i < length) {
-      instrumentations(i).actorCompleted(actorRef, message, sender)
+      instrumentations(i).actorCompleted(actorRef, message, sender, contexts(i))
       i += 1
     }
   }
@@ -168,18 +168,15 @@ final class Ensemble(dynamicAccess: DynamicAccess, config: Config, eventStream: 
   override def remoteActorTold(actorRef: ActorRef, message: Any, sender: ActorRef): AnyRef = {
     val contexts = Array.ofDim[AnyRef](length)
     var i = 0
-    var nonEmpty = false
     while (i < length) {
       instrumentations(i) match {
         case instrumentation: RemoteInstrumentation ⇒
-          val context = instrumentation.remoteActorTold(actorRef, message, sender)
-          contexts(i) = context
-          if (context ne ActorInstrumentation.EmptyContext) nonEmpty = true
+          contexts(i) = instrumentation.remoteActorTold(actorRef, message, sender)
         case _ ⇒ contexts(i) = ActorInstrumentation.EmptyContext
       }
       i += 1
     }
-    if (nonEmpty) contexts else ActorInstrumentation.EmptyContext
+    contexts
   }
 
   override def remoteMessageSent(actorRef: ActorRef, message: Any, sender: ActorRef, size: Int, context: AnyRef): Array[Byte] = {

@@ -252,9 +252,10 @@ abstract class ActorInstrumentation {
    * @param actorRef the self [[akka.actor.ActorRef]] of the actor
    * @param message the message object
    * @param sender the sender [[akka.actor.Actor]] (may be dead letters)
-   * @param context the context associated with this message
+   * @param context the context associated with this message (from `actorTold`)
+   * @return the context that will be transferred to `actorCompleted`
    */
-  def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit
+  def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef
 
   /**
    * Record actor completed - at the end of message processing.
@@ -262,8 +263,9 @@ abstract class ActorInstrumentation {
    * @param actorRef the self [[akka.actor.ActorRef]] of the actor
    * @param message the message object
    * @param sender the sender [[akka.actor.Actor]] (may be dead letters)
+   * @param context the context associated with this message processing (from `actorReceived`)
    */
-  def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef): Unit
+  def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit
 
   /**
    * Clear the current context - when message context is no longer in scope.
@@ -330,8 +332,8 @@ abstract class EmptyActorInstrumentation extends ActorInstrumentation {
   override def actorStopped(actorRef: ActorRef): Unit = ()
 
   override def actorTold(receiver: ActorRef, message: Any, sender: ActorRef): AnyRef = ActorInstrumentation.EmptyContext
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = ()
-  override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef): Unit = ()
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = ActorInstrumentation.EmptyContext
+  override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = ()
 
   override def clearContext(): Unit = ()
 

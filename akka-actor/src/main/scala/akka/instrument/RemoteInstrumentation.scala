@@ -87,8 +87,8 @@ abstract class EmptyRemoteInstrumentation extends RemoteInstrumentation {
   override def actorStopped(actorRef: ActorRef): Unit = ()
 
   override def actorTold(receiver: ActorRef, message: Any, sender: ActorRef): AnyRef = ActorInstrumentation.EmptyContext
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = ()
-  override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef): Unit = ()
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = ActorInstrumentation.EmptyContext
+  override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = ()
 
   override def clearContext(): Unit = ()
 

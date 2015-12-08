@@ -483,12 +483,12 @@ private[akka] class ActorCell(
     currentMessage = messageHandle
     cancelReceiveTimeout() // FIXME: leave this here???
     val context = Envelope.getContext(messageHandle)
-    systemImpl.instrumentation.actorReceived(self, messageHandle.message, messageHandle.sender, context)
+    val localContext = systemImpl.instrumentation.actorReceived(self, messageHandle.message, messageHandle.sender, context)
     messageHandle.message match {
       case msg: AutoReceivedMessage ⇒ autoReceiveMessage(messageHandle)
       case msg                      ⇒ receiveMessage(msg)
     }
-    systemImpl.instrumentation.actorCompleted(self, messageHandle.message, messageHandle.sender)
+    systemImpl.instrumentation.actorCompleted(self, messageHandle.message, messageHandle.sender, localContext)
     currentMessage = null // reset current message after successful invocation
   } catch handleNonFatalOrInterruptedException { e ⇒
     handleInvokeFailure(Nil, e)

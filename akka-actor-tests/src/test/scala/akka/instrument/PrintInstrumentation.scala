@@ -47,11 +47,12 @@ class PrintInstrumentation(dynamicAccess: DynamicAccess, config: Config) extends
     ActorInstrumentation.EmptyContext
   }
 
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
     print(s"actor received: $actorRef ! $message (sender = $sender, context = $context)")
+    ActorInstrumentation.EmptyContext
   }
 
-  override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef): Unit = {
+  override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
     print(s"actor completed: $actorRef ! $message (sender = $sender)")
   }
 

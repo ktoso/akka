@@ -45,9 +45,10 @@ object MultipleMetadataSpec {
     override def actorCreated(actorRef: ActorRef): Unit =
       metadataAccessor.attachTo(actorRef)
 
-    override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
+    override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
       val metadata = metadataAccessor.extractFrom(actorRef)
       if (metadata ne null) sender ! metadata.received(message)
+      ActorInstrumentation.EmptyContext
     }
   }
 
