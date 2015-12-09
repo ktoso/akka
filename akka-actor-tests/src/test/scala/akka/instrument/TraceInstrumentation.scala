@@ -44,8 +44,10 @@ class TraceInstrumentation(config: Config) extends EmptyActorInstrumentation {
   override def actorTold(actorRef: ActorRef, message: Any, sender: ActorRef): AnyRef =
     Trace.value.copy(identifier = s"${Trace.value.identifier} <- ${actorRef.path.name}")
 
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit =
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
     Trace.value = context.asInstanceOf[Trace].copy(actorRef = actorRef)
+    ActorInstrumentation.EmptyContext
+  }
 
   override def clearContext(): Unit = Trace.clear()
 }

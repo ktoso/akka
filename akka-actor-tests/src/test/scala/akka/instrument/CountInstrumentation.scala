@@ -71,10 +71,12 @@ class CountInstrumentation(config: Config) extends EmptyActorInstrumentation {
     ActorInstrumentation.EmptyContext
   }
 
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit =
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
     counts.actorReceived.incrementAndGet
+    ActorInstrumentation.EmptyContext
+  }
 
-  override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef): Unit =
+  override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit =
     counts.actorCompleted.incrementAndGet
 
   override def eventUnhandled(actorRef: ActorRef, message: Any, sender: ActorRef): Unit =
