@@ -26,7 +26,7 @@ final class Ensemble(dynamicAccess: DynamicAccess, config: Config, eventStream: 
     val classes = config.getStringList("akka.instrumentations").asScala
     classes.zipWithIndex.map({
       case (instrumentation, index) ⇒
-        ActorInstrumentation.create(instrumentation, dynamicAccess, config, eventStream, new Ensemble.MetadataAccessorFactory(index, classes.size))
+        ActorInstrumentation.create(instrumentation, dynamicAccess, config, eventStream, new Ensemble.MultiActorMetadata(index, classes.size))
     }).toArray
   }
 
@@ -246,58 +246,32 @@ final class Ensemble(dynamicAccess: DynamicAccess, config: Config, eventStream: 
 
 }
 
-private[akka] object Ensemble {
+object Ensemble {
 
   /**
-   * Wrap MetadataAccessors so that the underlying metadata is actually an array.
-   * The wrapped MetadataAccessor only accesses its own metadata element.
+   * ActorMetadata wrapper that accesses and stores at a particular index in an array.
    */
-  class MetadataAccessorFactory(index: Int, size: Int) extends MetadataAccessor.Factory {
-    override def create[T](accessor: MetadataAccessor[T]): MetadataAccessor[T] =
-      new MultiMetadataAccessor(accessor, index, size)
-  }
-
-  /**
-   * MetadataAccessor wrapper that accesses and stores at a particular index in an array.
-   */
-  class MultiMetadataAccessor[T](accessor: MetadataAccessor[T], index: Int, size: Int) extends MetadataAccessor[T] {
-    val arrayAccessor = new ArrayMetadataAccessor(accessor, index, size)
-
-    override def attachTo(actorRef: ActorRef): T = {
-      val array = arrayAccessor.attachTo(actorRef)
-      if (array ne null) extractMetadata(array(index))
-      else null.asInstanceOf[T]
+  class MultiActorMetadata(index: Int, size: Int) extends ActorMetadata {
+    override def attachTo(actorRef: ActorRef, metadata: AnyRef): Unit = super.extractFrom(actorRef) match {
+      case array: Array[AnyRef] ⇒ array(index) = metadata
+      case _ ⇒
+        val array = Array.ofDim[AnyRef](size)
+        array(index) = metadata
+        super.attachTo(actorRef, array)
     }
 
-    override def extractFrom(actorRef: ActorRef): T = {
-      val array = arrayAccessor.extractFrom(actorRef)
-      if (array ne null) extractMetadata(array(index))
-      else null.asInstanceOf[T]
-    }
-
-    override def createMetadata(actorRef: ActorRef, clazz: Class[_]): T =
-      accessor.createMetadata(actorRef, clazz)
-
-    override def extractMetadata(metadata: AnyRef): T =
-      accessor.extractMetadata(metadata)
-  }
-
-  /**
-   * Metadata accessor that initializes and extracts from object arrays.
-   */
-  final class ArrayMetadataAccessor[T](accessor: MetadataAccessor[T], index: Int, size: Int) extends MetadataAccessor[Array[AnyRef]] {
-    private def empty: Array[AnyRef] = Array.ofDim[AnyRef](size)
-
-    override def createMetadata(actorRef: ActorRef, clazz: Class[_]): Array[AnyRef] = {
-      val extracted: Array[AnyRef] = extractFrom(actorRef)
-      val array = if (extracted ne null) extracted else empty
-      array.update(index, accessor.createMetadata(actorRef, clazz).asInstanceOf[AnyRef])
-      array
-    }
-
-    override def extractMetadata(metadata: AnyRef): Array[AnyRef] = metadata match {
-      case array: Array[AnyRef] ⇒ array
+    override def extractFrom(actorRef: ActorRef): AnyRef = super.extractFrom(actorRef) match {
+      case array: Array[AnyRef] ⇒ array(index)
       case _                    ⇒ null
     }
+
+    override def removeFrom(actorRef: ActorRef): AnyRef = super.extractFrom(actorRef) match {
+      case array: Array[AnyRef] ⇒
+        val metadata = array(index)
+        array(index) = null
+        metadata
+      case _ ⇒ null
+    }
   }
+
 }
