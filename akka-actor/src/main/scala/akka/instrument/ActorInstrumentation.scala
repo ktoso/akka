@@ -4,7 +4,7 @@
 
 package akka.instrument
 
-import akka.actor.{ ActorRef, ActorSystem, DynamicAccess, ExtendedActorSystem }
+import akka.actor.{ Actor, ActorRef, ActorRefWithCell, ActorSystem, DynamicAccess, ExtendedActorSystem }
 import akka.event.Logging.{ Error, Warning }
 import akka.event.{ BusLogging, EventStream }
 import com.typesafe.config.Config
@@ -25,7 +25,7 @@ import scala.util.{ Failure, Try }
  * and have a public constructor which is either empty or optionally accepts
  * any of the following parameters, in order:
  * [[akka.actor.DynamicAccess]], [[com.typesafe.config.Config]],
- * [[akka.event.EventStream]], [[akka.instrument.MetadataAccessor.Factory]].
+ * [[akka.event.EventStream]], [[akka.instrument.ActorMetadata]].
  * The config object is the same one as used to create the actor system.
  *
  * There are methods to access attached instrumentations on actor systems,
@@ -81,9 +81,9 @@ object ActorInstrumentation {
    * @param config the config object used to initialize the instrumentation
    * @param log a logging adapter that is used to signal exceptions - defaults to null since there might not always be a logging adapter around
    */
-  def create(instrumentation: String, dynamicAccess: DynamicAccess, config: Config, eventStream: EventStream, metadata: MetadataAccessor.Factory = MetadataAccessor.Factory.DEFAULT): ActorInstrumentation = {
+  def create(instrumentation: String, dynamicAccess: DynamicAccess, config: Config, eventStream: EventStream, metadata: ActorMetadata = DefaultActorMetadata): ActorInstrumentation = {
     val log = new BusLogging(eventStream, instrumentation, this.getClass)
-    val args = List(classOf[DynamicAccess] -> dynamicAccess, classOf[Config] -> config, classOf[EventStream] -> eventStream, classOf[MetadataAccessor.Factory] -> metadata)
+    val args = List(classOf[DynamicAccess] -> dynamicAccess, classOf[Config] -> config, classOf[EventStream] -> eventStream, classOf[ActorMetadata] -> metadata)
     val combinations = (args.size to 0 by -1).flatMap(args.combinations) // in-order argument combinations from all to none
     (combinations.foldLeft(Failure(new NoSuchMethodException): Try[ActorInstrumentation]) {
       case (result, nextArgs) ⇒ result recoverWith {
@@ -348,3 +348,48 @@ abstract class EmptyActorInstrumentation extends ActorInstrumentation {
  * Final implementation of ActorInstrumentation that does nothing.
  */
 final class NoActorInstrumentation extends EmptyActorInstrumentation
+
+/**
+ * Convenience class to attach and extract metadata objects for ActorRefs.
+ */
+class ActorMetadata {
+  /**
+   * Extract the actor class from an ActorRef, if it has an underlying cell.
+   * @return actor class
+   */
+  def actorClass(actorRef: ActorRef): Class[_ <: Actor] = actorRef match {
+    case actorRefWithCell: ActorRefWithCell ⇒ actorRefWithCell.underlying.props.actorClass
+    case _                                  ⇒ classOf[Actor]
+  }
+
+  /**
+   * Attach a metadata object to an ActorRef, if it has an underlying cell.
+   */
+  def attachTo(actorRef: ActorRef, metadata: AnyRef): Unit = actorRef match {
+    case actorRefWithCell: ActorRefWithCell ⇒ actorRefWithCell.metadata = metadata
+    case _                                  ⇒
+  }
+
+  /**
+   * Extract the metadata object from an ActorRef, if it has an underlying cell.
+   * @return attached metadata, otherwise null
+   */
+  def extractFrom(actorRef: ActorRef): AnyRef = actorRef match {
+    case actorRefWithCell: ActorRefWithCell ⇒ actorRefWithCell.metadata
+    case _                                  ⇒ null
+  }
+
+  /**
+   * Clear the metadata object from an ActorRef, if it has an underlying cell.
+   * @return attached metadata, otherwise null
+   */
+  def removeFrom(actorRef: ActorRef): AnyRef = actorRef match {
+    case actorRefWithCell: ActorRefWithCell ⇒
+      val metadata = actorRefWithCell.metadata
+      actorRefWithCell.metadata = null
+      metadata
+    case _ ⇒ null
+  }
+}
+
+object DefaultActorMetadata extends ActorMetadata

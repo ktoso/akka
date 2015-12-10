@@ -41,42 +41,31 @@ object MultipleMetadataSpec {
     akka.instrumentations += "${classOf[Instrumentation2].getName}"
     """)
 
-  class TestInstrumentation(metadataAccessor: MetadataAccessor[TestMetadata]) extends EmptyActorInstrumentation {
+  class TestInstrumentation(name: String, metadata: ActorMetadata) extends EmptyActorInstrumentation {
     override def actorCreated(actorRef: ActorRef): Unit =
-      metadataAccessor.attachTo(actorRef)
+      metadata.attachTo(actorRef, createMetadata(actorRef, metadata.actorClass(actorRef)))
 
     override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
-      val metadata = metadataAccessor.extractFrom(actorRef)
-      if (metadata ne null) sender ! metadata.received(message)
+      metadata.extractFrom(actorRef) match {
+        case testMetadata: TestMetadata ⇒ sender ! testMetadata.received(message)
+        case _                          ⇒
+      }
       ActorInstrumentation.EmptyContext
     }
-  }
 
-  class Instrumentation1(metadataAccessor: MetadataAccessor[TestMetadata]) extends TestInstrumentation(metadataAccessor) {
-    def this(metadataAccessorFactory: MetadataAccessor.Factory) =
-      this(metadataAccessorFactory.create(new TestMetadataAccessor(Instrumentation1)))
-  }
-
-  class Instrumentation2(metadataAccessor: MetadataAccessor[TestMetadata]) extends TestInstrumentation(metadataAccessor) {
-    def this(metadataAccessorFactory: MetadataAccessor.Factory) =
-      this(metadataAccessorFactory.create(new TestMetadataAccessor(Instrumentation2)))
-  }
-
-  class TestMetadata(name: String) {
-    def received(message: Any): String = s"$name:$message"
-  }
-
-  class TestMetadataAccessor(name: String) extends MetadataAccessor[TestMetadata] {
-    override def createMetadata(actorRef: ActorRef, clazz: Class[_]): TestMetadata = {
+    def createMetadata(actorRef: ActorRef, clazz: Class[_]): TestMetadata = {
       if (clazz.getName startsWith classOf[MultipleMetadataSpec].getName) {
         new TestMetadata(s"$name:${clazz.getName}")
       } else null
     }
+  }
 
-    override def extractMetadata(metadata: AnyRef): TestMetadata = metadata match {
-      case testMetadata: TestMetadata ⇒ testMetadata
-      case _                          ⇒ null
-    }
+  class Instrumentation1(metadata: ActorMetadata) extends TestInstrumentation(Instrumentation1, metadata)
+
+  class Instrumentation2(metadata: ActorMetadata) extends TestInstrumentation(Instrumentation2, metadata)
+
+  class TestMetadata(name: String) {
+    def received(message: Any): String = s"$name:$message"
   }
 
   class EchoActor extends Actor {
