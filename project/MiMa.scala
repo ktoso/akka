@@ -581,6 +581,18 @@ object MiMa extends AutoPlugin {
 
         // #18328 optimize VersionVector for size 1
         FilterAnyProblem("akka.cluster.ddata.VersionVector")
+
+        ,
+        // ExtendedActorSystem has grown two new methods for instrumentation
+        ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ExtendedActorSystem.instrumentation"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ExtendedActorSystem.hasInstrumentation")
+
+        ,
+        // Instrumentation context added to remote messages
+        ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.getContext"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.hasContext"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.getInstrumentationId"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.hasInstrumentationId")
       )
     )
   }
