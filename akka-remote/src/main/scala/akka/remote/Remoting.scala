@@ -6,6 +6,7 @@ package akka.remote
 import akka.actor.SupervisorStrategy._
 import akka.actor._
 import akka.event.{ Logging, LoggingAdapter }
+import akka.instrument.{ ActorInstrumentation, RemoteInstrumentation }
 import akka.pattern.{ gracefulStop, pipe, ask }
 import akka.remote.EndpointManager._
 import akka.remote.Remoting.TransportSupervisor
@@ -208,8 +209,13 @@ private[remote] class Remoting(_system: ExtendedActorSystem, _provider: RemoteAc
   }
 
   override def send(message: Any, senderOption: Option[ActorRef], recipient: RemoteActorRef): Unit = endpointManager match {
-    case Some(manager) ⇒ manager.tell(Send(message, senderOption, recipient), sender = senderOption getOrElse Actor.noSender)
+    case Some(manager) ⇒ manager.tell(Send(message, senderOption, recipient, context(recipient, message, senderOption)), sender = senderOption getOrElse Actor.noSender)
     case None          ⇒ throw new RemoteTransportExceptionNoStackTrace("Attempted to send remote message but Remoting is not running.", null)
+  }
+
+  private def context(recipient: ActorRef, message: Any, senderOption: Option[ActorRef]): AnyRef = system.instrumentation match {
+    case instrumentation: RemoteInstrumentation ⇒ instrumentation.remoteActorTold(recipient, message, senderOption.getOrElse(system.deadLetters))
+    case _                                      ⇒ ActorInstrumentation.EmptyContext
   }
 
   override def managementCommand(cmd: Any): Future[Boolean] = endpointManager match {
@@ -250,7 +256,8 @@ private[remote] object EndpointManager {
   final case class Listen(addressesPromise: Promise[Seq[(AkkaProtocolTransport, Address)]]) extends RemotingCommand
   case object StartupFinished extends RemotingCommand
   case object ShutdownAndFlush extends RemotingCommand
-  final case class Send(message: Any, senderOption: Option[ActorRef], recipient: RemoteActorRef, seqOpt: Option[SeqNo] = None)
+
+  case class Send(message: Any, senderOption: Option[ActorRef], recipient: RemoteActorRef, seqOpt: Option[SeqNo] = None)
     extends RemotingCommand with HasSequenceNumber {
     override def toString = s"Remote message $senderOption -> $recipient"
 
@@ -258,6 +265,27 @@ private[remote] object EndpointManager {
     // acknowledged delivery buffers
     def seq = seqOpt.get
   }
+
+  object Send extends scala.runtime.AbstractFunction4[Any, Option[ActorRef], RemoteActorRef, Option[SeqNo], Send] {
+    override def toString = "Send"
+
+    def apply(message: Any, senderOption: Option[ActorRef], recipient: RemoteActorRef, context: AnyRef): Send = {
+      if (context eq ActorInstrumentation.EmptyContext) Send(message, senderOption, recipient)
+      else new InstrumentedSend(message, senderOption, recipient, None, context)
+    }
+
+    def getContext(send: Send): AnyRef = send match {
+      case s: InstrumentedSend ⇒ s.context
+      case _                   ⇒ ActorInstrumentation.EmptyContext
+    }
+
+    private final class InstrumentedSend(_message: Any, _senderOption: Option[ActorRef], _recipient: RemoteActorRef, _seqOpt: Option[SeqNo], @transient val context: AnyRef)
+      extends Send(_message, _senderOption, _recipient, _seqOpt) {
+      override def copy(message: Any = _message, senderOption: Option[ActorRef] = _senderOption, recipient: RemoteActorRef = _recipient, seqOpt: Option[SeqNo] = _seqOpt): Send =
+        new InstrumentedSend(message, senderOption, recipient, seqOpt, context)
+    }
+  }
+
   final case class Quarantine(remoteAddress: Address, uid: Option[Int]) extends RemotingCommand
   final case class ManagementCommand(cmd: Any) extends RemotingCommand
   final case class ManagementCommandAck(status: Boolean)
@@ -334,6 +362,8 @@ private[remote] object EndpointManager {
         addressToReadonly -= readonlyToAddress(endpoint)
         readonlyToAddress -= endpoint
       }
+
+    def addressForWriter(writer: ActorRef): Option[Address] = writableToAddress.get(writer)
 
     def writableEndpointWithPolicyFor(address: Address): Option[EndpointPolicy] = addressToWritable.get(address)
 
@@ -415,11 +445,10 @@ private[remote] class EndpointManager(conf: Config, log: LoggingAdapter) extends
   // Mapping between transports and the local addresses they listen to
   var transportMapping: Map[Address, AkkaProtocolTransport] = Map()
 
-  def retryGateEnabled = settings.RetryGateClosedFor > Duration.Zero
-  val pruneInterval: FiniteDuration = if (retryGateEnabled) settings.RetryGateClosedFor * 2 else Duration.Zero
-  val pruneTimerCancellable: Option[Cancellable] = if (retryGateEnabled)
-    Some(context.system.scheduler.schedule(pruneInterval, pruneInterval, self, Prune))
-  else None
+  val pruneInterval: FiniteDuration = (settings.RetryGateClosedFor * 2).max(1.second).min(10.seconds)
+
+  val pruneTimerCancellable: Cancellable =
+    context.system.scheduler.schedule(pruneInterval, pruneInterval, self, Prune)
 
   var pendingReadHandoffs = Map[ActorRef, AkkaProtocolHandle]()
   var stashedInbound = Map[ActorRef, Vector[InboundAssociation]]()
@@ -481,11 +510,11 @@ private[remote] class EndpointManager(conf: Config, log: LoggingAdapter) extends
         Stop
 
       case NonFatal(e) ⇒
-        // logging
         e match {
           case _: EndpointDisassociatedException | _: EndpointAssociationException ⇒ // no logging
           case _ ⇒ log.error(e, e.getMessage)
         }
+        endpoints.markAsFailed(sender(), Deadline.now + settings.RetryGateClosedFor)
         Stop
     }
 
@@ -833,7 +862,7 @@ private[remote] class EndpointManager(conf: Config, log: LoggingAdapter) extends
   private var normalShutdown = false
 
   override def postStop(): Unit = {
-    pruneTimerCancellable.foreach { _.cancel() }
+    pruneTimerCancellable.cancel()
     pendingReadHandoffs.valuesIterator foreach (_.disassociate(AssociationHandle.Shutdown))
 
     if (!normalShutdown) {

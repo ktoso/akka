@@ -14,9 +14,10 @@ import scala.annotation.{ switch, tailrec }
 import scala.collection.immutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
-import scala.concurrent.forkjoin.ThreadLocalRandom
+import java.util.concurrent.ThreadLocalRandom
 import scala.util.control.NonFatal
 import akka.dispatch.MessageDispatcher
+import akka.util.Reflect
 
 /**
  * The actor context - the view of the actor cell from the actor.
@@ -291,7 +292,7 @@ private[akka] trait Cell {
    * Is only allowed to throw Fatal Throwables.
    */
   final def sendMessage(message: Any, sender: ActorRef): Unit =
-    sendMessage(Envelope(message, sender, system))
+    sendMessage(Envelope(message, sender, systemImpl, systemImpl.instrumentation.actorTold(self, message, sender)))
 
   /**
    * Enqueue a message to be sent to the actor; may or may not actually
@@ -489,14 +490,18 @@ private[akka] class ActorCell(
       currentMessage = messageHandle
       if (influenceReceiveTimeout)
         cancelReceiveTimeout()
+      val context = Envelope.getContext(messageHandle)
+      val localContext = systemImpl.instrumentation.actorReceived(self, messageHandle.message, messageHandle.sender, context)
       messageHandle.message match {
         case msg: AutoReceivedMessage ⇒ autoReceiveMessage(messageHandle)
         case msg                      ⇒ receiveMessage(msg)
       }
+      systemImpl.instrumentation.actorCompleted(self, messageHandle.message, messageHandle.sender, localContext)
       currentMessage = null // reset current message after successful invocation
     } catch handleNonFatalOrInterruptedException { e ⇒
       handleInvokeFailure(Nil, e)
     } finally {
+      systemImpl.instrumentation.clearContext()
       if (influenceReceiveTimeout)
         checkReceiveTimeout // Reschedule receive timeout
     }
@@ -589,6 +594,7 @@ private[akka] class ActorCell(
       created.aroundPreStart()
       checkReceiveTimeout
       if (system.settings.DebugLifecycle) publish(Debug(self.path.toString, clazz(created), "started (" + created + ")"))
+      system.instrumentation.actorStarted(self)
     } catch {
       case e: InterruptedException ⇒
         clearOutActorIfNonNull()
@@ -624,28 +630,9 @@ private[akka] class ActorCell(
     case _                               ⇒
   }
 
-  @tailrec private final def lookupAndSetField(clazz: Class[_], instance: AnyRef, name: String, value: Any): Boolean = {
-    @tailrec def clearFirst(fields: Array[java.lang.reflect.Field], idx: Int): Boolean =
-      if (idx < fields.length) {
-        val field = fields(idx)
-        if (field.getName == name) {
-          field.setAccessible(true)
-          field.set(instance, value)
-          true
-        } else clearFirst(fields, idx + 1)
-      } else false
-
-    clearFirst(clazz.getDeclaredFields, 0) || {
-      clazz.getSuperclass match {
-        case null ⇒ false // clazz == classOf[AnyRef]
-        case sc   ⇒ lookupAndSetField(sc, instance, name, value)
-      }
-    }
-  }
-
   final protected def clearActorCellFields(cell: ActorCell): Unit = {
     cell.unstashAll()
-    if (!lookupAndSetField(classOf[ActorCell], cell, "props", ActorCell.terminatedProps))
+    if (!Reflect.lookupAndSetField(classOf[ActorCell], cell, "props", ActorCell.terminatedProps))
       throw new IllegalArgumentException("ActorCell has no props field")
   }
 
@@ -657,8 +644,8 @@ private[akka] class ActorCell(
 
   final protected def setActorFields(actorInstance: Actor, context: ActorContext, self: ActorRef): Unit =
     if (actorInstance ne null) {
-      if (!lookupAndSetField(actorInstance.getClass, actorInstance, "context", context)
-        || !lookupAndSetField(actorInstance.getClass, actorInstance, "self", self))
+      if (!Reflect.lookupAndSetField(actorInstance.getClass, actorInstance, "context", context)
+        || !Reflect.lookupAndSetField(actorInstance.getClass, actorInstance, "self", self))
         throw new IllegalActorStateException(actorInstance.getClass + " is not an Actor since it have not mixed in the 'Actor' trait")
     }
 

@@ -9,6 +9,7 @@ import akka.actor.Terminated
 import akka.actor._
 import akka.dispatch.sysmsg.SystemMessage
 import akka.event.{ Logging, LoggingAdapter }
+import akka.instrument.RemoteInstrumentation
 import akka.pattern.pipe
 import akka.remote.EndpointManager.{ ResendState, Link, Send }
 import akka.remote.EndpointWriter.{ StoppedReading, FlushAndStop }
@@ -21,7 +22,7 @@ import akka.serialization.Serialization
 import akka.util.ByteString
 import akka.{ OnlyCauseStackTrace, AkkaException }
 import java.io.NotSerializableException
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.{ TimeUnit, TimeoutException, ConcurrentHashMap }
 import scala.annotation.tailrec
 import scala.concurrent.duration.{ Duration, Deadline }
 import scala.util.control.NonFatal
@@ -61,6 +62,19 @@ private[remote] class DefaultMessageDispatcher(private val system: ExtendedActor
     val originalReceiver = recipient.path
 
     def msgLog = s"RemoteMessage: [$payload] to [$recipient]<+[$originalReceiver] from [$sender()]"
+
+    system.instrumentation match {
+      case instrumentation: RemoteInstrumentation ⇒
+        val size = serializedMessage.getMessage.size
+        val id =
+          if (serializedMessage.hasInstrumentationId) serializedMessage.getInstrumentationId
+          else RemoteInstrumentation.NoIdentifier
+        val context =
+          if (serializedMessage.hasContext && (id == instrumentation.remoteIdentifier)) serializedMessage.getContext.toByteArray
+          else RemoteInstrumentation.EmptySerializedContext
+        instrumentation.remoteMessageReceived(recipient, payload, sender, size, context)
+      case _ ⇒ // ignore non-remote instrumentation
+    }
 
     recipient match {
 
@@ -102,6 +116,8 @@ private[remote] class DefaultMessageDispatcher(private val system: ExtendedActor
         payloadClass, r, recipientAddress, provider.transport.addresses.mkString(", "))
 
     }
+
+    system.instrumentation.clearContext()
   }
 
 }
@@ -168,6 +184,7 @@ private[remote] object ReliableDeliverySupervisor {
 
   case object IsIdle
   case object Idle
+  case object TooLongIdle
 
   def props(
     handleOrActive: Option[AkkaProtocolHandle],
@@ -200,6 +217,8 @@ private[remote] class ReliableDeliverySupervisor(
   val autoResendTimer = context.system.scheduler.schedule(
     settings.SysResendTimeout, settings.SysResendTimeout, self, AttemptSysMsgRedelivery)
 
+  private var bufferWasInUse = false
+
   override val supervisorStrategy = OneForOneStrategy(loggingEnabled = false) {
     case e @ (_: AssociationProblem) ⇒ Escalate
     case NonFatal(e) ⇒
@@ -207,12 +226,14 @@ private[remote] class ReliableDeliverySupervisor(
       log.warning("Association with remote system [{}] has failed, address is now gated for [{}] ms. Reason: [{}] {}",
         remoteAddress, settings.RetryGateClosedFor.toMillis, e.getMessage, causedBy)
       uidConfirmed = false // Need confirmation of UID again
-      if ((resendBuffer.nacked.nonEmpty || resendBuffer.nonAcked.nonEmpty) && bailoutAt.isEmpty)
-        bailoutAt = Some(Deadline.now + settings.InitialSysMsgDeliveryTimeout)
-      context.become(gated)
-      currentHandle = None
-      context.parent ! StoppedReading(self)
-      Stop
+      if (bufferWasInUse) {
+        if ((resendBuffer.nacked.nonEmpty || resendBuffer.nonAcked.nonEmpty) && bailoutAt.isEmpty)
+          bailoutAt = Some(Deadline.now + settings.InitialSysMsgDeliveryTimeout)
+        context.become(gated)
+        currentHandle = None
+        context.parent ! StoppedReading(self)
+        Stop
+      } else Escalate
   }
 
   var currentHandle: Option[AkkaProtocolHandle] = handleOrActive
@@ -237,6 +258,7 @@ private[remote] class ReliableDeliverySupervisor(
   var writer: ActorRef = createWriter()
   var uid: Option[Int] = handleOrActive map { _.handshakeInfo.uid }
   var bailoutAt: Option[Deadline] = None
+  var maxSilenceTimer: Option[Cancellable] = None
   // Processing of Acks has to be delayed until the UID after a reconnect is discovered. Depending whether the
   // UID matches the expected one, pending Acks can be processed, or must be dropped. It is guaranteed that for
   // any inbound connections (calling createWriter()) the first message from that connection is GotUid() therefore
@@ -255,6 +277,7 @@ private[remote] class ReliableDeliverySupervisor(
     (resendBuffer.nacked ++ resendBuffer.nonAcked) foreach { s ⇒ context.system.deadLetters ! s.copy(seqOpt = None) }
     receiveBuffers.remove(Link(localAddress, remoteAddress))
     autoResendTimer.cancel()
+    maxSilenceTimer.foreach(_.cancel())
   }
 
   override def postRestart(reason: Throwable): Unit = {
@@ -291,7 +314,7 @@ private[remote] class ReliableDeliverySupervisor(
       context.parent ! StoppedReading(self)
       if (resendBuffer.nonAcked.nonEmpty || resendBuffer.nacked.nonEmpty)
         context.system.scheduler.scheduleOnce(settings.SysResendTimeout, self, AttemptSysMsgRedelivery)
-      context.become(idle)
+      goToIdle()
     case g @ GotUid(receivedUid, _) ⇒
       bailoutAt = None
       context.parent ! g
@@ -321,8 +344,8 @@ private[remote] class ReliableDeliverySupervisor(
             new java.util.concurrent.TimeoutException("Delivery of system messages timed out and they were dropped."))
         writer = createWriter()
         // Resending will be triggered by the incoming GotUid message after the connection finished
-        context.become(receive)
-      } else context.become(idle)
+        goToActive()
+      } else goToIdle()
     case AttemptSysMsgRedelivery               ⇒ // Ignore
     case s @ Send(msg: SystemMessage, _, _, _) ⇒ tryBuffer(s.copy(seqOpt = Some(nextSeq())))
     case s: Send                               ⇒ context.system.deadLetters ! s
@@ -338,16 +361,32 @@ private[remote] class ReliableDeliverySupervisor(
       writer = createWriter()
       // Resending will be triggered by the incoming GotUid message after the connection finished
       handleSend(s)
-      context.become(receive)
+      goToActive()
     case AttemptSysMsgRedelivery ⇒
       if (resendBuffer.nacked.nonEmpty || resendBuffer.nonAcked.nonEmpty) {
         writer = createWriter()
         // Resending will be triggered by the incoming GotUid message after the connection finished
-        context.become(receive)
+        goToActive()
       }
+    case TooLongIdle ⇒
+      throw new HopelessAssociation(localAddress, remoteAddress, uid,
+        new TimeoutException("Remote system has been silent for too long. " +
+          s"(more than ${settings.QuarantineSilentSystemTimeout.toUnit(TimeUnit.HOURS)} hours)"))
     case EndpointWriter.FlushAndStop ⇒ context.stop(self)
     case EndpointWriter.StopReading(w, replyTo) ⇒
       replyTo ! EndpointWriter.StoppedReading(w)
+  }
+
+  private def goToIdle(): Unit = {
+    if (bufferWasInUse && maxSilenceTimer.isEmpty)
+      maxSilenceTimer = Some(context.system.scheduler.scheduleOnce(settings.QuarantineSilentSystemTimeout, self, TooLongIdle))
+    context.become(idle)
+  }
+
+  private def goToActive(): Unit = {
+    maxSilenceTimer.foreach(_.cancel())
+    maxSilenceTimer = None
+    context.become(receive)
   }
 
   def flushWait: Receive = {
@@ -381,6 +420,7 @@ private[remote] class ReliableDeliverySupervisor(
   private def tryBuffer(s: Send): Unit =
     try {
       resendBuffer = resendBuffer buffer s
+      bufferWasInUse = true
     } catch {
       case NonFatal(e) ⇒ throw new HopelessAssociation(localAddress, remoteAddress, uid, e)
     }
@@ -731,10 +771,19 @@ private[remote] class EndpointWriter(
           log.debug("sending message {}", msgLog)
         }
 
+        val serializedMessage = serializeMessage(s.message)
+        val messageToSend = extendedSystem.instrumentation match {
+          case instrumentation: RemoteInstrumentation ⇒
+            val sender = s.senderOption.getOrElse(extendedSystem.deadLetters)
+            val context = instrumentation.remoteMessageSent(s.recipient, s.message, sender, serializedMessage.getMessage.size, Send.getContext(s))
+            attachContext(serializedMessage, instrumentation.remoteIdentifier, context)
+          case _ ⇒ serializedMessage
+        }
+
         val pdu = codec.constructMessage(
           s.recipient.localAddressToUse,
           s.recipient,
-          serializeMessage(s.message),
+          messageToSend,
           s.senderOption,
           seqOption = s.seqOpt,
           ackOption = lastAck)
@@ -838,6 +887,15 @@ private[remote] class EndpointWriter(
       }
     case None ⇒
       throw new EndpointException("Internal error: No handle was present during serialization of outbound message.")
+  }
+
+  private def attachContext(serializedMessage: SerializedMessage, identifier: Int, context: Array[Byte]): SerializedMessage = {
+    if (context ne RemoteInstrumentation.EmptySerializedContext) {
+      val builder = serializedMessage.toBuilder
+      builder.setInstrumentationId(identifier)
+      builder.setContext(akka.protobuf.ByteString.copyFrom(context))
+      builder.build
+    } else serializedMessage
   }
 
 }

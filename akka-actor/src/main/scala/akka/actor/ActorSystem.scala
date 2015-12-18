@@ -12,6 +12,7 @@ import com.typesafe.config.{ Config, ConfigFactory }
 import akka.event._
 import akka.dispatch._
 import akka.dispatch.sysmsg.{ SystemMessageList, EarliestFirstSystemMessageList, LatestFirstSystemMessageList, SystemMessage }
+import akka.instrument.ActorInstrumentation
 import akka.japi.Util.immutableSeq
 import akka.actor.dungeon.ChildrenContainer
 import akka.util._
@@ -210,6 +211,8 @@ object ActorSystem {
     final val JvmExitOnFatalError: Boolean = getBoolean("akka.jvm-exit-on-fatal-error")
 
     final val DefaultVirtualNodesFactor: Int = getInt("akka.actor.deployment.default.virtual-nodes-factor")
+
+    final val Instrumentations: List[String] = getStringList("akka.instrumentations").asScala.toList
 
     if (ConfigVersion != Version)
       throw new akka.ConfigurationException("Akka JAR version [" + Version + "] does not match the provided config version [" + ConfigVersion + "]")
@@ -430,12 +433,17 @@ abstract class ActorSystem extends ActorRefFactory {
    * will recursively stop all its child actors, then the system guardian
    * (below which the logging actors reside) and the execute all registered
    * termination handlers (see [[ActorSystem#registerOnTermination]]).
+   * Be careful to not schedule any operations on completion of the returned future
+   * using the `dispatcher` of this actor system as it will have been shut down before the
+   * future completes.
    */
   def terminate(): Future[Terminated]
 
   /**
    * Returns a Future which will be completed after the ActorSystem has been terminated
-   * and termination hooks have been executed.
+   * and termination hooks have been executed. Be careful to not schedule any operations
+   * on the `dispatcher` of this actor system as it will have been shut down before this
+   * future completes.
    */
   def whenTerminated: Future[Terminated]
 
@@ -512,6 +520,16 @@ abstract class ExtendedActorSystem extends ActorSystem {
    * publishing log events to the eventStream
    */
   def logFilter: LoggingFilter
+
+  /**
+   * Returns whether or not instrumentation is attached.
+   */
+  def hasInstrumentation: Boolean
+
+  /**
+   * Access to the instrumentation SPI.
+   */
+  def instrumentation: ActorInstrumentation
 
   /**
    * For debugging: traverse actor hierarchy and make string representation.
@@ -617,6 +635,8 @@ private[akka] class ActorSystemImpl(
 
   val log: LoggingAdapter = new BusLogging(eventStream, getClass.getName + "(" + name + ")", this.getClass, logFilter)
 
+  final val (instrumentation, hasInstrumentation) = ActorInstrumentation(settings.Instrumentations, dynamicAccess, settings.config, eventStream)
+
   val scheduler: Scheduler = createScheduler()
 
   val provider: ActorRefProvider = try {
@@ -675,6 +695,12 @@ private[akka] class ActorSystemImpl(
     catch {
       case NonFatal(e) ⇒
         log.warning("cannot start DiagnosticsRecorder, please configure section akka.diagnostics.recorder (to correct error or turn off this feature): {}", e.getMessage)
+    }
+
+    if (hasInstrumentation) {
+      instrumentation.systemStarted(this)
+      new InstrumentationEventStreamListener(this, this.instrumentation)
+      registerOnTermination { instrumentation.systemShutdown(this) }
     }
 
     this
@@ -861,5 +887,25 @@ private[akka] class ActorSystemImpl(
      * Returns a Future which will be completed once all registered callbacks have been executed.
      */
     def terminationFuture: Future[T] = done.future
+  }
+
+  final class InstrumentationEventStreamListener(system: ExtendedActorSystem, instrumentation: ActorInstrumentation) extends MinimalActorRef {
+    import akka.event.Logging
+
+    override def provider: ActorRefProvider = system.provider
+    override val path: ActorPath = system.systemGuardian.path / "instrumentation-stream-listener"
+
+    override def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = message match {
+      case e: Logging.Error ⇒ instrumentation.eventLogError(sender, e)
+      case w: Logging.Warning ⇒ instrumentation.eventLogWarning(sender, w)
+      case UnhandledMessage(message, sender, recipient) ⇒ instrumentation.eventUnhandled(recipient, message, sender)
+      case DeadLetter(message, sender, recipient) ⇒ instrumentation.eventDeadLetter(recipient, message, sender)
+      case _ ⇒
+    }
+
+    eventStream.subscribe(this, classOf[UnhandledMessage])
+    eventStream.subscribe(this, classOf[DeadLetter])
+    eventStream.subscribe(this, classOf[Logging.Error])
+    eventStream.subscribe(this, classOf[Logging.Warning])
   }
 }
