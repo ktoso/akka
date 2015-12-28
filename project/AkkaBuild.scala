@@ -1125,7 +1125,12 @@ object AkkaBuild extends Build {
       ProblemFilters.exclude[MissingMethodProblem]("akka.japi.Pair.toString"),
       
       // #17805
-      ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ActorCell.clearActorFields")
+      ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ActorCell.clearActorFields"),
+
+      // Methods internal to remoting
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.EndpointManager.retryGateEnabled"),
+      ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.remote.EndpointManager.pruneTimerCancellable"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.gated")
     )
   }
 
