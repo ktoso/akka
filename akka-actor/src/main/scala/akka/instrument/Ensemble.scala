@@ -241,7 +241,8 @@ final class Ensemble(dynamicAccess: DynamicAccess, config: Config, eventStream: 
         readContexts(reader, map.updated(id, context))
       } else map
 
-    readContexts(ByteBuffer.wrap(context).order(byteOrder), Map.empty)
+    if (context eq RemoteInstrumentation.EmptySerializedContext) Map.empty
+    else readContexts(ByteBuffer.wrap(context).order(byteOrder), Map.empty)
   }
 
 }
