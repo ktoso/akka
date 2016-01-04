@@ -617,10 +617,10 @@ object AkkaBuild extends Build {
     base = file("akka-contrib"),    
     dependencies = Seq(remoteTests % "test->test", testkit % "test->test"),
     settings = defaultSettings ++ formatSettings ++ scaladocSettings ++ javadocSettings ++ multiJvmSettings ++ Seq(
-      version := Dependencies.Versions.rp,
-      resolvers += "RP" at "https://repo.typesafe.com/typesafe/for-subscribers-only/AEE4D829FC38A3247F251ED25BA45ADD675D48EB",
+      version := Dependencies.RP.akkaBinaryFull,
+      resolvers += "RP" at s"https://repo.typesafe.com/typesafe/for-subscribers-only/${Dependencies.RP.key}",
       publishTo := Some("bintray-rp-repo" at
-        "https://api.bintray.com/content/typesafe/for-subscribers-only/akka-contrib-15v09/15v09p01/AEE4D829FC38A3247F251ED25BA45ADD675D48EB/"),
+        s"https://api.bintray.com/content/typesafe/for-subscribers-only/akka-contrib-${Dependencies.RP.versionMajor}/${Dependencies.RP.versionFull}/${Dependencies.RP.key}/"),
       libraryDependencies ++= Dependencies.contrib,
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-v"),
       reportBinaryIssues := (), // disable bin comp check
@@ -1262,7 +1262,26 @@ object Dependencies {
     val scalaTestVersion = System.getProperty("akka.build.scalaTestVersion", "2.1.3")
     val scalaCheckVersion = System.getProperty("akka.build.scalaCheckVersion", "1.11.3")
     val scalaContinuationsVersion = System.getProperty("akka.build.scalaContinuationsVersion", "1.0.2")
-    val rp = "2.3-bin-rp-15v09p01"
+  }
+
+  // Reactive Platform version helpers
+  object RP {
+    /** e.g. 2.3-bin-rp-15v01p07 */
+    val akkaBinaryFull = "2.3-bin-rp-15v09p04"
+
+    /** e.g. "rp-15v01p07" */
+    val versionFull = akkaBinaryFull.substring(akkaBinaryFull.indexOf("rp"))
+
+    /** e.g. "15v01" */
+    val versionMajor = {
+      val noPrefix = akkaBinaryFull.substring(akkaBinaryFull.indexOf("rp")).drop(3) // "15v01p07"
+      noPrefix.substring(0, noPrefix.indexOf("p")) // e.g. "15v01"
+    }
+
+    val key =
+      if (versionFull contains "15v09") "AEE4D829FC38A3247F251ED25BA45ADD675D48EB"
+      else if (versionFull contains "15v01") "DFDB5DD187A28462DDAF7AB39A95A6AE65983B23"
+      else throw new Exception("Unknown RP version, please add key to `AkkaBuild#Dependencies.Versions.rpKey`! Version was: " + versionFull)
   }
 
   object Compile {
@@ -1396,7 +1415,7 @@ object Dependencies {
   val clusterSample = Seq(Test.scalatest, sigar)
 
   val contrib = Seq(
-    "com.typesafe.akka" %% "akka-cluster" % Versions.rp,
+    "com.typesafe.akka" %% "akka-cluster" % Dependencies.RP.akkaBinaryFull,
     "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.12",
     "com.typesafe.akka" %% "akka-multi-node-testkit" % "2.3.12" % "test",
     Test.junitIntf, 
