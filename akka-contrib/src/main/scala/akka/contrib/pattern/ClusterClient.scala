@@ -83,6 +83,7 @@ object ClusterClient {
     case object RefreshContactsTick
     case object HeartbeatTick
     val Heartbeat = "H"
+    case object ReconnectTimeout
   }
 }
 
@@ -137,6 +138,11 @@ class ClusterClient(
       config.getDuration("akka.contrib.cluster.client.acceptable-heartbeat-pause", MILLISECONDS).millis
     new DeadlineFailureDetector(acceptableHeartbeatPause)
   }
+  val reconnectTimeout: Option[FiniteDuration] =
+    config.getString("akka.contrib.cluster.client.reconnect-timeout") match {
+      case "off" ⇒ None
+      case _     ⇒ Some(config.getDuration("akka.contrib.cluster.client.reconnect-timeout", MILLISECONDS).millis)
+    }
 
   var contacts: immutable.IndexedSeq[ActorSelection] = initialContacts.toVector
   sendGetContacts()
@@ -163,22 +169,32 @@ class ClusterClient(
   def receive = establishing
 
   def establishing: Actor.Receive = {
-    case Contacts(contactPoints) ⇒
-      if (contactPoints.nonEmpty) {
-        contacts = contactPoints
-        contacts foreach { _ ! Identify(None) }
-      }
-    case ActorIdentity(Heartbeat, _) ⇒ // ignore heartbeat replies here
-    case ActorIdentity(_, Some(receptionist)) ⇒
-      log.info("Connected to [{}]", receptionist.path)
-      scheduleRefreshContactsTick(refreshContactsInterval)
-      unstashAll()
-      context.become(active(receptionist))
-      failureDetector.heartbeat()
-    case ActorIdentity(_, None) ⇒ // ok, use another instead
-    case HeartbeatTick          ⇒ failureDetector.heartbeat()
-    case RefreshContactsTick    ⇒ sendGetContacts()
-    case msg                    ⇒ stash()
+    val connectTimerCancelable = reconnectTimeout.map { timeout ⇒
+      context.system.scheduler.scheduleOnce(timeout, self, ReconnectTimeout)
+    }
+
+    {
+      case Contacts(contactPoints) ⇒
+        if (contactPoints.nonEmpty) {
+          contacts = contactPoints
+          contacts foreach { _ ! Identify(None) }
+        }
+      case ActorIdentity(Heartbeat, _) ⇒ // ignore heartbeat replies here
+      case ActorIdentity(_, Some(receptionist)) ⇒
+        log.info("Connected to [{}]", receptionist.path)
+        scheduleRefreshContactsTick(refreshContactsInterval)
+        unstashAll()
+        context.become(active(receptionist))
+        connectTimerCancelable.foreach(_.cancel())
+        failureDetector.heartbeat()
+      case ActorIdentity(_, None) ⇒ // ok, use another instead
+      case HeartbeatTick          ⇒ failureDetector.heartbeat()
+      case RefreshContactsTick    ⇒ sendGetContacts()
+      case ReconnectTimeout ⇒
+        log.warning("Receptionist reconnect not successful within {} stopping cluster client", reconnectTimeout)
+        context.stop(self)
+      case msg ⇒ stash()
+    }
   }
 
   def active(receptionist: ActorRef): Actor.Receive = {
