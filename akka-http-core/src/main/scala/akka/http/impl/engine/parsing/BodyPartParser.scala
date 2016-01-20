@@ -4,13 +4,14 @@
 
 package akka.http.impl.engine.parsing
 
+import java.util
+
 import akka.NotUsed
 import akka.http.ParserSettings
-import akka.stream.impl.fusing.GraphInterpreter
 import scala.annotation.tailrec
 import akka.event.LoggingAdapter
 import akka.parboiled2.CharPredicate
-import akka.stream.scaladsl.{ Sink, Source }
+import akka.stream.scaladsl.Source
 import akka.stream.stage._
 import akka.util.ByteString
 import akka.http.scaladsl.model._
@@ -59,7 +60,7 @@ private[http] final class BodyPartParser(defaultContentType: ContentType,
     if (illegalHeaderWarnings) log.warning(errorInfo.withSummaryPrepended("Illegal multipart header").formatPretty)
   }
 
-  private[this] var output = collection.immutable.Queue.empty[Output] // FIXME this probably is too wasteful
+  private[this] val output = new util.ArrayDeque[Output]
   private[this] var state: ByteString ⇒ StateResult = tryParseInitialBoundary
   private[this] var terminated = false
 
@@ -75,13 +76,13 @@ private[http] final class BodyPartParser(defaultContentType: ContentType,
           // we are missing a try/catch{continue} wrapper somewhere
           throw new IllegalStateException("unexpected NotEnoughDataException", NotEnoughDataException)
       }
-      if (output.nonEmpty) ctx.push(dequeue())
+      if (!output.isEmpty) ctx.push(dequeue())
       else if (!terminated) ctx.pull()
       else ctx.finish()
     } else ctx.finish()
 
   override def onPull(ctx: Context[Output]): SyncDirective = {
-    if (output.nonEmpty)
+    if (!output.isEmpty)
       ctx.push(dequeue())
     else if (ctx.isFinishing) {
       if (terminated) ctx.finish()
@@ -207,7 +208,7 @@ private[http] final class BodyPartParser(defaultContentType: ContentType,
 
   def emit(bytes: ByteString): Unit = if (bytes.nonEmpty) emit(EntityPart(bytes))
 
-  def emit(element: Output): Unit = output = output.enqueue(element)
+  def emit(element: Output): Unit = output.offer(element)
 
   def dequeue(): Output = {
     val head = output.head
