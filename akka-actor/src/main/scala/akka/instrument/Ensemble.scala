@@ -95,15 +95,13 @@ final class Ensemble(dynamicAccess: DynamicAccess, config: Config, eventStream: 
     contexts
   }
 
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
     val contexts = if (context eq ActorInstrumentation.EmptyContext) emptyContexts else context.asInstanceOf[Array[AnyRef]]
-    val localContexts = Array.ofDim[AnyRef](length)
     var i = 0
     while (i < length) {
-      localContexts(i) = instrumentations(i).actorReceived(actorRef, message, sender, contexts(i))
+      instrumentations(i).actorReceived(actorRef, message, sender, contexts(i))
       i += 1
     }
-    localContexts
   }
 
   override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
@@ -111,6 +109,32 @@ final class Ensemble(dynamicAccess: DynamicAccess, config: Config, eventStream: 
     var i = 0
     while (i < length) {
       instrumentations(i).actorCompleted(actorRef, message, sender, contexts(i))
+      i += 1
+    }
+  }
+
+  def actorStashed(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
+    val contexts = if (context eq ActorInstrumentation.EmptyContext) emptyContexts else context.asInstanceOf[Array[AnyRef]]
+    var i = 0
+    while (i < length) {
+      instrumentations(i).actorStashed(actorRef, message, sender, contexts(i))
+      i += 1
+    }
+  }
+
+  def actorUnstashed(actorRef: ActorRef, message: Any, context: AnyRef): Unit = {
+    val contexts = if (context eq ActorInstrumentation.EmptyContext) emptyContexts else context.asInstanceOf[Array[AnyRef]]
+    var i = 0
+    while (i < length) {
+      instrumentations(i).actorUnstashed(actorRef, message, contexts(i))
+      i += 1
+    }
+  }
+
+  def actorStashCleared(actorRef: ActorRef): Unit = {
+    var i = 0
+    while (i < length) {
+      instrumentations(i).actorStashCleared(actorRef)
       i += 1
     }
   }

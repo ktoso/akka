@@ -24,7 +24,6 @@ abstract class AbstractInstrumentationSpec(_config: Config) extends AkkaSpec(_co
   val instrumentation = CountInstrumentation(system)
 
   "Actor tracing" must {
-
     "instrument actor system start" in {
       instrumentation.counts.systemStarted.get should be(1)
     }
@@ -45,6 +44,28 @@ abstract class AbstractInstrumentationSpec(_config: Config) extends AkkaSpec(_co
       watch(actor)
       expectTerminated(actor)
       instrumentation.counts.actorShutdown.get should be(1)
+    }
+
+    "instrument actor stash and unstash" in {
+      instrumentation.counts.reset()
+      val actor = system.actorOf(Props[StashActor])
+      watch(actor)
+      actor ! "stash"
+      actor ! "unstash"
+      expectTerminated(actor)
+      instrumentation.counts.actorStashed.get should be(1)
+      instrumentation.counts.actorUnstashed.get should be(1)
+    }
+
+    "instrument actor unstashAll" in {
+      instrumentation.counts.reset()
+      val actor = system.actorOf(Props[StashActor])
+      watch(actor)
+      1 to 5 foreach { _ ⇒ actor ! "stash" }
+      actor ! "all"
+      expectTerminated(actor)
+      instrumentation.counts.actorStashed.get should be(5)
+      instrumentation.counts.actorUnstashed.get should be(5)
     }
 
     "instrument actor messages" in {
@@ -97,6 +118,7 @@ abstract class AbstractInstrumentationSpec(_config: Config) extends AkkaSpec(_co
     }
 
     "instrument actor system shutdown" in {
+      instrumentation.counts.reset()
       system.shutdown()
       system.awaitTermination(timeout.duration)
       instrumentation.counts.systemShutdown.get should be(1)
@@ -107,3 +129,16 @@ abstract class AbstractInstrumentationSpec(_config: Config) extends AkkaSpec(_co
 class InstrumentationSpec extends AbstractInstrumentationSpec(InstrumentationSpec.testConfig)
 
 class InstrumentationPrintSpec extends AbstractInstrumentationSpec(InstrumentationSpec.printConfig)
+
+class StashActor extends Actor with Stash {
+  def receive = {
+    case "stash" ⇒ stash()
+    case "unstash" ⇒
+      unstash()
+      context.stop(self)
+    case "all" ⇒
+      unstashAll()
+      context.stop(self)
+    case _ ⇒
+  }
+}

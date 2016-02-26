@@ -45,19 +45,16 @@ object MultipleMetadataSpec {
     override def actorCreated(actorRef: ActorRef): Unit =
       metadata.attachTo(actorRef, createMetadata(actorRef, metadata.actorClass(actorRef)))
 
-    override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
+    override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit =
       metadata.extractFrom(actorRef) match {
         case testMetadata: TestMetadata ⇒ sender ! testMetadata.received(message)
         case _                          ⇒
       }
-      ActorInstrumentation.EmptyContext
-    }
 
-    def createMetadata(actorRef: ActorRef, clazz: Class[_]): TestMetadata = {
+    def createMetadata(actorRef: ActorRef, clazz: Class[_]): TestMetadata =
       if (clazz.getName startsWith classOf[MultipleMetadataSpec].getName) {
         new TestMetadata(s"$name:${clazz.getName}")
       } else null
-    }
   }
 
   class Instrumentation1(metadata: ActorMetadata) extends TestInstrumentation(Instrumentation1, metadata)

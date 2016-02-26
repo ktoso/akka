@@ -20,10 +20,8 @@ class RemoteTraceInstrumentation(config: Config) extends EmptyRemoteInstrumentat
 
   override def actorTold(actorRef: ActorRef, message: Any, sender: ActorRef): AnyRef = appendContext(actorRef)
 
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit =
     setContext(context)
-    ActorInstrumentation.EmptyContext
-  }
 
   override def clearContext(): Unit = Trace.clear()
 
