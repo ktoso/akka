@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.model.headers
@@ -917,4 +917,11 @@ final case class `X-Real-Ip`(address: RemoteAddress) extends jm.headers.XRealIp
   with RequestHeader {
   def renderValue[R <: Rendering](r: R): r.type = r ~~ address
   protected def companion = `X-Real-Ip`
+}
+
+// http://www.cs.berkeley.edu/~istoica/papers/2007/xtr-nsdi07.pdf // TODO not real thing yet
+object `X-Trace` extends ModeledCompanion[`X-Trace`]
+final case class `X-Trace`(id: String) extends RequestResponseHeader { // TODO java API
+  def renderValue[R <: Rendering](r: R): r.type = r ~~ id
+  protected def companion = `X-Trace`
 }

@@ -1,11 +1,13 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.server
 
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
+import akka.stream.impl.fusing.GraphStages.SimpleLinearGraphStage
+
 import scala.concurrent.{ Promise, Future }
 import scala.concurrent.duration.{ Deadline, FiniteDuration, Duration }
 import scala.collection.immutable
@@ -20,7 +22,7 @@ import akka.stream.TLSProtocol._
 import akka.stream.scaladsl._
 import akka.stream.stage._
 import akka.http.scaladsl.settings.ServerSettings
-import akka.http.impl.engine.HttpConnectionTimeoutException
+import akka.http.impl.engine.{XTrace, HttpConnectionTimeoutException}
 import akka.http.impl.engine.parsing.ParserOutput._
 import akka.http.impl.engine.parsing._
 import akka.http.impl.engine.rendering.{ HttpResponseRendererFactory, ResponseRenderingContext, ResponseRenderingOutput }
@@ -28,7 +30,7 @@ import akka.http.impl.engine.ws._
 import akka.http.impl.util._
 import akka.http.scaladsl.util.FastFuture.EnhancedFuture
 import akka.http.scaladsl.{ TimeoutAccess, Http }
-import akka.http.scaladsl.model.headers.`Timeout-Access`
+import akka.http.scaladsl.model.headers.{`X-Trace`, `Timeout-Access`}
 import akka.http.javadsl.model
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.Message
@@ -59,6 +61,7 @@ private[http] object HttpServerBluePrint {
     val theStack =
       userHandlerGuard(settings.pipeliningLimit) atop
         requestTimeoutSupport(settings.timeouts.requestTimeout) atop
+        tracingPreparation(settings) atop // xtrace support
         requestPreparation(settings) atop
         controller(settings, log) atop
         parsingRendering(settings, log) atop
@@ -82,6 +85,39 @@ private[http] object HttpServerBluePrint {
 
   def requestPreparation(settings: ServerSettings): BidiFlow[HttpResponse, HttpResponse, RequestOutput, HttpRequest, NotUsed] =
     BidiFlow.fromFlows(Flow[HttpResponse], new PrepareRequests(settings))
+
+  def tracingPreparation(settings: ServerSettings): BidiFlow[HttpResponse, HttpResponse, HttpRequest, HttpRequest, NotUsed] = {
+    val traceCleaning = new SimpleLinearGraphStage[HttpResponse] {
+      override def createLogic(inheritedAttributes: Attributes) = new GraphStageLogic(shape) with InHandler with OutHandler {
+        override def onPush(): Unit = {
+          XTrace.clear()
+          push(out, grab(in))
+        }
+        override def onPull(): Unit = pull(in)
+
+        setHandlers(in, out, this)
+      }
+    }
+    val traceFromRequest = new SimpleLinearGraphStage[HttpRequest]() {
+      override def createLogic(inheritedAttributes: Attributes) = new GraphStageLogic(shape) with InHandler with OutHandler {
+        setHandlers(in, out, this)
+
+        override def onPush(): Unit = {
+          val r = grab(in)
+
+          // would be interesting to have "stream context" instead of the thread local hm
+          val x = r.header[`X-Trace`]
+          x foreach { xtrace =>
+            XTrace.set(xtrace)
+          }
+          push(out, r)
+        }
+
+        override def onPull(): Unit = pull(in)
+      }
+    }
+    BidiFlow.fromFlows(traceCleaning, traceFromRequest)
+  }
 
   def requestTimeoutSupport(timeout: Duration): BidiFlow[HttpResponse, HttpResponse, HttpRequest, HttpRequest, NotUsed] =
     timeout match {

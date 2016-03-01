@@ -1,10 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.client
 
 import akka.NotUsed
+import akka.http.impl.engine.XTrace
 import akka.http.scaladsl.settings.{ ClientConnectionSettings, ParserSettings }
 import language.existentials
 import scala.annotation.tailrec
@@ -16,6 +17,7 @@ import akka.stream._
 import akka.stream.scaladsl._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.Host
+import akka.http.scaladsl.model.headers.`X-Trace`
 import akka.http.scaladsl.model.{ IllegalResponseException, HttpMethod, HttpRequest, HttpResponse, ResponseEntity }
 import akka.http.impl.engine.rendering.{ RequestRenderingContext, HttpRequestRendererFactory }
 import akka.http.impl.engine.parsing._
@@ -23,7 +25,6 @@ import akka.http.impl.util._
 import akka.stream.stage.GraphStage
 import akka.stream.stage.GraphStageLogic
 import akka.stream.stage.{ InHandler, OutHandler }
-import akka.stream.impl.fusing.SubSource
 
 /**
  * INTERNAL API
@@ -61,6 +62,7 @@ private[http] object OutgoingConnectionBlueprint {
     val requestRendererFactory = new HttpRequestRendererFactory(userAgentHeader, requestHeaderSizeHint, log)
 
     val requestRendering: Flow[HttpRequest, ByteString, NotUsed] = Flow[HttpRequest]
+      .map(prepareXTrace) // xtrace support
       .map(RequestRenderingContext(_, hostHeader))
       .via(Flow[RequestRenderingContext].flatMapConcat(requestRendererFactory.renderToSource).named("renderer"))
 
@@ -102,6 +104,11 @@ private[http] object OutgoingConnectionBlueprint {
 
     One2OneBidiFlow[HttpRequest, HttpResponse](-1) atop core
   }
+
+  // carry or create X-Trace information
+  private def prepareXTrace(r: HttpRequest): HttpRequest =
+    if (r.header[`X-Trace`].isDefined) r
+    else r.addHeader(XTrace.getOrNew())
 
   // a simple merge stage that simply forwards its first input and ignores its second input
   // (the terminationBackchannelInput), but applies a special completion handling

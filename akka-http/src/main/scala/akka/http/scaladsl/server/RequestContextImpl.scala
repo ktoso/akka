@@ -1,9 +1,12 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.server
 
+import akka.http.impl.engine.XTrace
+
+import scala.collection.JavaConverters._
 import scala.concurrent.{ Future, ExecutionContextExecutor }
 import akka.stream.{ ActorMaterializer, Materializer }
 import akka.event.LoggingAdapter
@@ -34,14 +37,17 @@ private[http] class RequestContextImpl(
   def reconfigure(executionContext: ExecutionContextExecutor, materializer: Materializer, log: LoggingAdapter, settings: RoutingSettings): RequestContext =
     copy(executionContext = executionContext, materializer = materializer, log = log, routingSettings = settings)
 
-  override def complete(trm: ToResponseMarshallable): Future[RouteResult] =
+  override def complete(trm: ToResponseMarshallable): Future[RouteResult] = {
+    val x = XTrace.get()
     trm(request)(executionContext)
+      .fast.map(XTrace.attachExisting(x))(executionContext) // xtrace support
       .fast.map(res ⇒ RouteResult.Complete(res))(executionContext)
       .fast.recover {
         case Marshal.UnacceptableResponseContentTypeException(supported) ⇒
           RouteResult.Rejected(UnacceptedResponseContentTypeRejection(supported) :: Nil)
         case RejectionError(rej) ⇒ RouteResult.Rejected(rej :: Nil)
       }(executionContext)
+  }
 
   override def reject(rejections: Rejection*): Future[RouteResult] =
     FastFuture.successful(RouteResult.Rejected(rejections.toList))

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.model.parser
@@ -224,6 +224,10 @@ private[parser] trait SimpleHeaders { this: Parser with CommonRules with CommonA
 
   def `x-real-ip` = rule {
     (`ip-v4-address` | `ip-v6-address`) ~ EOI ~> (b ⇒ `X-Real-Ip`(RemoteAddress(b)))
+  }
+
+  def `x-trace` = rule {
+    token ~ EOI ~> (i ⇒ `X-Trace`(i))
   }
 
 }

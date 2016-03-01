@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl
@@ -10,7 +10,7 @@ import javax.net.ssl._
 
 import akka.actor._
 import akka.event.{ Logging, LoggingAdapter }
-import akka.http.impl.engine.HttpConnectionTimeoutException
+import akka.http.impl.engine.{ XTrace, HttpConnectionTimeoutException }
 import akka.http.impl.engine.client._
 import akka.http.impl.engine.server._
 import akka.http.impl.engine.ws.WebSocketClientBlueprint
@@ -423,13 +423,14 @@ class HttpExt(private val config: Config)(implicit val system: ActorSystem) exte
    *
    * Note that the request must have an absolute URI, otherwise the future will be completed with an error.
    */
-  def singleRequest(request: HttpRequest,
+  def singleRequest(_request: HttpRequest,
                     connectionContext: HttpsConnectionContext = defaultClientHttpsContext,
                     settings: ConnectionPoolSettings = defaultConnectionPoolSettings,
                     log: LoggingAdapter = system.log)(implicit fm: Materializer): Future[HttpResponse] =
     try {
-      val gatewayFuture = cachedGateway(request, settings, connectionContext, log)
-      gatewayFuture.flatMap(_(request))(fm.executionContext)
+      val preparedRequest = _request.addHeader(XTrace.getOrNew())
+      val gatewayFuture = cachedGateway(preparedRequest, settings, connectionContext, log)
+      gatewayFuture.flatMap(_(preparedRequest))(fm.executionContext)
     } catch {
       case e: IllegalUriException ⇒ FastFuture.failed(e)
     }
