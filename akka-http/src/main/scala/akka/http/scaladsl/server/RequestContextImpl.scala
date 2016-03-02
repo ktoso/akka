@@ -4,7 +4,8 @@
 
 package akka.http.scaladsl.server
 
-import akka.http.impl.engine.XTrace
+import akka.http.impl.engine.{ HttpSPI, XTrace }
+import akka.http.scaladsl.model.headers.`X-Trace`
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ Future, ExecutionContextExecutor }
@@ -38,9 +39,9 @@ private[http] class RequestContextImpl(
     copy(executionContext = executionContext, materializer = materializer, log = log, routingSettings = settings)
 
   override def complete(trm: ToResponseMarshallable): Future[RouteResult] = {
-    val x = XTrace.get()
+    val x = XTrace.get().orNull
     trm(request)(executionContext)
-      .fast.map(XTrace.attachExisting(x))(executionContext) // xtrace support
+      .fast.map(res ⇒ HttpSPI.instance.onServerResponseStart(res, x))(executionContext) // xtrace support
       .fast.map(res ⇒ RouteResult.Complete(res))(executionContext)
       .fast.recover {
         case Marshal.UnacceptableResponseContentTypeException(supported) ⇒

@@ -22,7 +22,7 @@ import akka.stream.TLSProtocol._
 import akka.stream.scaladsl._
 import akka.stream.stage._
 import akka.http.scaladsl.settings.ServerSettings
-import akka.http.impl.engine.{XTrace, HttpConnectionTimeoutException}
+import akka.http.impl.engine.{HttpSPI, XTrace, HttpConnectionTimeoutException}
 import akka.http.impl.engine.parsing.ParserOutput._
 import akka.http.impl.engine.parsing._
 import akka.http.impl.engine.rendering.{ HttpResponseRendererFactory, ResponseRenderingContext, ResponseRenderingOutput }
@@ -90,8 +90,8 @@ private[http] object HttpServerBluePrint {
     val traceCleaning = new SimpleLinearGraphStage[HttpResponse] {
       override def createLogic(inheritedAttributes: Attributes) = new GraphStageLogic(shape) with InHandler with OutHandler {
         override def onPush(): Unit = {
-          XTrace.clear()
-          push(out, grab(in))
+          val res = grab(in)
+          push(out, HttpSPI.instance.onServerResponseStart(res, XTrace.get().orNull))
         }
         override def onPull(): Unit = pull(in)
 
@@ -104,13 +104,7 @@ private[http] object HttpServerBluePrint {
 
         override def onPush(): Unit = {
           val r = grab(in)
-
-          // would be interesting to have "stream context" instead of the thread local hm
-          val x = r.header[`X-Trace`]
-          x foreach { xtrace =>
-            XTrace.set(xtrace)
-          }
-          push(out, r)
+          push(out, HttpSPI.instance.onServerRequestStart(r))
         }
 
         override def onPull(): Unit = pull(in)

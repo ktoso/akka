@@ -5,7 +5,7 @@
 package akka.http.impl.engine.client
 
 import akka.NotUsed
-import akka.http.impl.engine.XTrace
+import akka.http.impl.engine.{ HttpSPI, XTrace }
 import akka.http.scaladsl.settings.{ ClientConnectionSettings, ParserSettings }
 import language.existentials
 import scala.annotation.tailrec
@@ -62,7 +62,7 @@ private[http] object OutgoingConnectionBlueprint {
     val requestRendererFactory = new HttpRequestRendererFactory(userAgentHeader, requestHeaderSizeHint, log)
 
     val requestRendering: Flow[HttpRequest, ByteString, NotUsed] = Flow[HttpRequest]
-      .map(prepareXTrace) // xtrace support
+      .map(prepareRequestTracing) // xtrace support
       .map(RequestRenderingContext(_, hostHeader))
       .via(Flow[RequestRenderingContext].flatMapConcat(requestRendererFactory.renderToSource).named("renderer"))
 
@@ -106,9 +106,8 @@ private[http] object OutgoingConnectionBlueprint {
   }
 
   // carry or create X-Trace information
-  private def prepareXTrace(r: HttpRequest): HttpRequest =
-    if (r.header[`X-Trace`].isDefined) r
-    else r.addHeader(XTrace.getOrNew())
+  private def prepareRequestTracing(r: HttpRequest): HttpRequest =
+    HttpSPI.instance.onClientRequestStart(r)
 
   // a simple merge stage that simply forwards its first input and ignores its second input
   // (the terminationBackchannelInput), but applies a special completion handling
