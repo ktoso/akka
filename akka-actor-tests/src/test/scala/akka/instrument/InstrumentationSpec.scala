@@ -12,11 +12,15 @@ import com.typesafe.config.{ Config, ConfigFactory }
 object InstrumentationSpec {
   val testConfig: Config = ConfigFactory.parseString("""
     akka.instrumentations = ["akka.instrument.CountInstrumentation"]
+    akka.count-instrumentation.dispatcher-id = "akka.actor.default-dispatcher"
+    akka.diagnostics.checker.disabled-checks = ["typo"]
   """)
 
   val printConfig: Config = ConfigFactory.parseString("""
     akka.instrumentations = ["akka.instrument.PrintInstrumentation", "akka.instrument.CountInstrumentation"]
+    akka.count-instrumentation.dispatcher-id = "akka.actor.default-dispatcher"
     akka.print-instrumentation.muted = true
+    akka.diagnostics.checker.disabled-checks = ["typo"]
   """)
 }
 
@@ -26,6 +30,7 @@ abstract class AbstractInstrumentationSpec(_config: Config) extends AkkaSpec(_co
   "Actor tracing" must {
     "instrument actor system start" in {
       instrumentation.counts.systemStarted.get should be(1)
+      instrumentation.counts.dispatcherStarted.get should be(1)
     }
 
     "instrument actor lifecycle" in {
@@ -96,6 +101,7 @@ abstract class AbstractInstrumentationSpec(_config: Config) extends AkkaSpec(_co
           case "error" ⇒
             log.error("An error"); sender ! "error"
           case "failure" ⇒ throw new IllegalStateException("failure")
+          case "stop"    ⇒ context.stop(self)
         }
       }))
       actor ! "dead letter"
@@ -115,6 +121,33 @@ abstract class AbstractInstrumentationSpec(_config: Config) extends AkkaSpec(_co
       actor ! "echo"
       expectMsg("echo")
       instrumentation.counts.eventActorFailure.get should be(1)
+      watch(actor)
+      actor ! "stop"
+      expectTerminated(actor)
+    }
+
+    "instrument actor scheduling" in {
+      val entriesStart = instrumentation.counts.dispatcherEntries.get
+      instrumentation.counts.reset()
+      val actor = system.actorOf(Props(new Actor {
+        def receive = {
+          case "ping" ⇒
+            sender ! "pong"
+          case "stop" ⇒
+            context.stop(self)
+        }
+      }))
+      actor ! "ping"
+      expectMsg("pong")
+      (instrumentation.counts.dispatcherEntries.get - entriesStart) should be(1)
+      instrumentation.counts.actorScheduled.get.toInt should be > 0
+      instrumentation.counts.actorRunning.get.toInt should be > 0
+      // sleep here a bit so that the actor can become idle
+      Thread.sleep(100)
+      instrumentation.counts.actorIdle.get.toInt should be > 0
+      watch(actor)
+      actor ! "stop"
+      expectTerminated(actor)
     }
 
     "instrument actor system shutdown" in {

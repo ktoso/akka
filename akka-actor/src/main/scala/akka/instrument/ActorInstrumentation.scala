@@ -5,6 +5,7 @@
 package akka.instrument
 
 import akka.actor.{ Actor, ActorRef, ActorRefWithCell, ActorSystem, DynamicAccess, ExtendedActorSystem }
+import akka.dispatch.{ MessageDispatcher, Dispatcher }
 import akka.event.Logging.{ Error, Warning }
 import akka.event.{ BusLogging, EventStream }
 import com.typesafe.config.Config
@@ -81,9 +82,9 @@ object ActorInstrumentation {
    * @param config the config object used to initialize the instrumentation
    * @param log a logging adapter that is used to signal exceptions - defaults to null since there might not always be a logging adapter around
    */
-  def create(instrumentation: String, dynamicAccess: DynamicAccess, config: Config, eventStream: EventStream, metadata: ActorMetadata = DefaultActorMetadata): ActorInstrumentation = {
+  def create(instrumentation: String, dynamicAccess: DynamicAccess, config: Config, eventStream: EventStream, actorMetadata: ActorMetadata = DefaultActorMetadata, dispatcherMetadata: DispatcherMetadata = DefaultDispatcherMetadata): ActorInstrumentation = {
     val log = new BusLogging(eventStream, instrumentation, this.getClass)
-    val args = List(classOf[DynamicAccess] -> dynamicAccess, classOf[Config] -> config, classOf[EventStream] -> eventStream, classOf[ActorMetadata] -> metadata)
+    val args = List(classOf[DynamicAccess] -> dynamicAccess, classOf[Config] -> config, classOf[EventStream] -> eventStream, classOf[ActorMetadata] -> actorMetadata, classOf[DispatcherMetadata] -> dispatcherMetadata)
     val combinations = (args.size to 0 by -1).flatMap(args.combinations) // in-order argument combinations from all to none
     (combinations.foldLeft(Failure(new NoSuchMethodException): Try[ActorInstrumentation]) {
       case (result, nextArgs) ⇒ result recoverWith {
@@ -201,6 +202,30 @@ abstract class ActorInstrumentation {
   def systemShutdown(system: ActorSystem): Unit
 
   /**
+   * Record dispatcher started.
+   *
+   * @param dispatcher the [[akka.dispatch.MessageDispatcher]] that has started
+   * @param system the [[akka.actor.ActorSystem]] that it belongs to
+   */
+  def dispatcherStarted(dispatcher: MessageDispatcher, system: ActorSystem): Unit
+
+  /**
+   * Record dispatcher stopped. This can be called multiple times for the same dispatcher, since
+   * the shutdown of the dispatcher might create more things that the dispatcher should run.
+   *
+   * @param dispatcher the [[akka.dispatch.MessageDispatcher]] that is being shut down
+   */
+  def dispatcherStopped(dispatcher: MessageDispatcher): Unit
+
+  /**
+   *  Update how many entries that this dispatcher has.
+   *
+   * @param dispatcher the [[akka.dispatch.MessageDispatcher]] to update the entries for
+   * @param entries the new number of entries to update to
+   */
+  def dispatcherUpdateEntries(dispatcher: MessageDispatcher, entries: Long): Unit
+
+  /**
    * Record actor created - before the actor is started in the context of the
    * creating thread. The actor isn't fully initialized yet, and you can't
    * send messages to it.
@@ -211,8 +236,9 @@ abstract class ActorInstrumentation {
    * information.
    *
    * @param actorRef the [[akka.actor.ActorRef]] being started
+   * @param dispatcher the [[akka.dispatch.MessageDispatcher]] for the actorRef
    */
-  def actorCreated(actorRef: ActorRef): Unit
+  def actorCreated(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit
 
   /**
    * Record actor started.
@@ -235,6 +261,36 @@ abstract class ActorInstrumentation {
    * @param actorRef the [[akka.actor.ActorRef]] being stopped
    */
   def actorStopped(actorRef: ActorRef): Unit
+
+  /**
+   * Record that the actor has been scheduled on this dispatcher.
+   *
+   * NOTE that actorScheduled can happen concurrently with the actor starting to run
+   * and reporting actorRunning.
+   *
+   * @param actorRef the [[akka.actor.ActorRef]] being scheduled
+   * @param dispatcher the [[akka.dispatch.MessageDispatcher]] that the actorRef is scheduled on
+   */
+  def actorScheduled(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit
+
+  /**
+   * Record that the actor has started running on this dispatcher.
+   *
+   * NOTE that actorScheduled can happen concurrently with the actor starting to run
+   * and reporting actorRunning.
+   *
+   * @param actorRef the [[akka.actor.ActorRef]] that has started to run
+   * @param dispatcher the [[akka.dispatch.MessageDispatcher]] that the actorRef is running on
+   */
+  def actorRunning(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit
+
+  /**
+   * Record that the actor is becoming idle.
+   *
+   * @param actorRef the [[akka.actor.ActorRef]] that is becoming idle
+   * @param dispatcher the [[akka.dispatch.MessageDispatcher]] that the actorRef is idle on
+   */
+  def actorIdle(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit
 
   /**
    * Record actor told - on message send with `!` or `tell`.
@@ -352,9 +408,17 @@ abstract class EmptyActorInstrumentation extends ActorInstrumentation {
   override def systemStarted(system: ActorSystem): Unit = ()
   override def systemShutdown(system: ActorSystem): Unit = ()
 
-  override def actorCreated(actorRef: ActorRef): Unit = ()
+  override def dispatcherStarted(dispatcher: MessageDispatcher, system: ActorSystem): Unit = ()
+  override def dispatcherStopped(dispatcher: MessageDispatcher): Unit = ()
+  override def dispatcherUpdateEntries(dispatcher: MessageDispatcher, entries: Long): Unit = ()
+
+  override def actorCreated(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = ()
   override def actorStarted(actorRef: ActorRef): Unit = ()
   override def actorStopped(actorRef: ActorRef): Unit = ()
+
+  def actorScheduled(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = ()
+  def actorRunning(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = ()
+  def actorIdle(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = ()
 
   override def actorTold(receiver: ActorRef, message: Any, sender: ActorRef): AnyRef = ActorInstrumentation.EmptyContext
   override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = ()
@@ -421,3 +485,32 @@ class ActorMetadata {
 }
 
 object DefaultActorMetadata extends ActorMetadata
+
+/**
+ * Convenience class to attach and extract metadata objects for MessageDispatchers.
+ */
+class DispatcherMetadata {
+  /**
+   * Attach a metadata object to a MessageDispatcher.
+   */
+  def attachTo(dispatcher: MessageDispatcher, metadata: AnyRef): Unit =
+    dispatcher._cnmInstrMetadata = metadata
+
+  /**
+   * Extract the metadata object from a MessageDispatcher.
+   * @return attached metadata, otherwise null
+   */
+  def extractFrom(dispatcher: MessageDispatcher): AnyRef = dispatcher._cnmInstrMetadata
+
+  /**
+   * Clear the metadata object from a MessageDispatcher.
+   * @return attached metadata, otherwise null
+   */
+  def removeFrom(dispatcher: MessageDispatcher): AnyRef = {
+    val metadata = dispatcher._cnmInstrMetadata
+    dispatcher._cnmInstrMetadata = null
+    metadata
+  }
+}
+
+object DefaultDispatcherMetadata extends DispatcherMetadata

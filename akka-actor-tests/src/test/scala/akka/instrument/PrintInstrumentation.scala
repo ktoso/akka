@@ -5,6 +5,7 @@
 package akka.instrument
 
 import akka.actor.{ DynamicAccess, ActorRef, ActorSystem }
+import akka.dispatch.MessageDispatcher
 import akka.event.Logging.{ Warning, Error }
 import com.typesafe.config.Config
 
@@ -30,8 +31,20 @@ class PrintInstrumentation(dynamicAccess: DynamicAccess, config: Config) extends
     print(s"system shutdown: $system")
   }
 
-  override def actorCreated(actorRef: ActorRef): Unit = {
-    print(s"actor created: $actorRef")
+  override def dispatcherStarted(dispatcher: MessageDispatcher, system: ActorSystem): Unit = {
+    print(s"dispatcher started: ${dispatcher.id}")
+  }
+
+  override def dispatcherStopped(dispatcher: MessageDispatcher): Unit = {
+    print(s"dispatcher stopped: ${dispatcher.id}")
+  }
+
+  override def dispatcherUpdateEntries(dispatcher: MessageDispatcher, entries: Long): Unit = {
+    print(s"dispatcher entries: ${dispatcher.id} $entries")
+  }
+
+  override def actorCreated(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = {
+    print(s"actor created: $actorRef on ${dispatcher.id}")
   }
 
   override def actorStarted(actorRef: ActorRef): Unit = {
@@ -40,6 +53,18 @@ class PrintInstrumentation(dynamicAccess: DynamicAccess, config: Config) extends
 
   override def actorStopped(actorRef: ActorRef): Unit = {
     print(s"actor stopped: $actorRef")
+  }
+
+  override def actorScheduled(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = {
+    print(s"actor scheduled: $actorRef on ${dispatcher.id}")
+  }
+
+  override def actorIdle(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = {
+    print(s"actor idle: $actorRef on ${dispatcher.id}")
+  }
+
+  override def actorRunning(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = {
+    print(s"actor running: $actorRef on ${dispatcher.id}")
   }
 
   override def actorTold(actorRef: ActorRef, message: Any, sender: ActorRef): AnyRef = {

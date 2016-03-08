@@ -611,8 +611,8 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
 
   val mailboxes: Mailboxes = new Mailboxes(settings, eventStream, dynamicAccess, deadLetters)
 
-  val dispatchers: Dispatchers = new Dispatchers(settings, DefaultDispatcherPrerequisites(
-    threadFactory, eventStream, scheduler, dynamicAccess, settings, mailboxes, defaultExecutionContext))
+  val dispatchers: Dispatchers = new Dispatchers(settings, new ExtendedDefaultDispatcherPrerequisites(
+    threadFactory, eventStream, scheduler, dynamicAccess, settings, mailboxes, defaultExecutionContext, this))
 
   val dispatcher: ExecutionContextExecutor = dispatchers.defaultGlobalDispatcher
 

@@ -5,6 +5,7 @@
 package akka.instrument
 
 import akka.actor.{ ActorSystem, ActorRef }
+import akka.dispatch.MessageDispatcher
 import akka.event.Logging.{ Error, Warning }
 
 /**
@@ -82,9 +83,17 @@ abstract class EmptyRemoteInstrumentation extends RemoteInstrumentation {
   override def systemStarted(system: ActorSystem): Unit = ()
   override def systemShutdown(system: ActorSystem): Unit = ()
 
-  override def actorCreated(actorRef: ActorRef): Unit = ()
+  override def dispatcherStarted(dispatcher: MessageDispatcher, system: ActorSystem): Unit = ()
+  override def dispatcherStopped(dispatcher: MessageDispatcher): Unit = ()
+  override def dispatcherUpdateEntries(dispatcher: MessageDispatcher, entries: Long): Unit = ()
+
+  override def actorCreated(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = ()
   override def actorStarted(actorRef: ActorRef): Unit = ()
   override def actorStopped(actorRef: ActorRef): Unit = ()
+
+  override def actorScheduled(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = ()
+  override def actorRunning(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = ()
+  override def actorIdle(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = ()
 
   override def actorTold(receiver: ActorRef, message: Any, sender: ActorRef): AnyRef = ActorInstrumentation.EmptyContext
   override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = ()
@@ -106,3 +115,8 @@ abstract class EmptyRemoteInstrumentation extends RemoteInstrumentation {
   override def remoteMessageSent(actorRef: ActorRef, message: Any, sender: ActorRef, size: Int, context: AnyRef): Array[Byte] = RemoteInstrumentation.EmptySerializedContext
   override def remoteMessageReceived(actorRef: ActorRef, message: Any, sender: ActorRef, size: Int, context: Array[Byte]): Unit = ()
 }
+
+/**
+ * Final implementation of RemoteInstrumentation that does nothing.
+ */
+final class NoRemoteInstrumentation extends EmptyRemoteInstrumentation
