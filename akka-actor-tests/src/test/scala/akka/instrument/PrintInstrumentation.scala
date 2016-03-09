@@ -47,13 +47,24 @@ class PrintInstrumentation(dynamicAccess: DynamicAccess, config: Config) extends
     ActorInstrumentation.EmptyContext
   }
 
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
     print(s"actor received: $actorRef ! $message (sender = $sender, context = $context)")
-    ActorInstrumentation.EmptyContext
   }
 
   override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
     print(s"actor completed: $actorRef ! $message (sender = $sender)")
+  }
+
+  override def actorStashed(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = {
+    print(s"actor stashed: $actorRef - $message (sender = $sender, context = $context)")
+  }
+
+  override def actorUnstashed(actorRef: ActorRef, message: Any, context: AnyRef): Unit = {
+    print(s"actor unstashed: $actorRef - $message (context = $context)")
+  }
+
+  override def actorStashCleared(actorRef: ActorRef): Unit = {
+    print(s"actor stash cleared: $actorRef")
   }
 
   override def clearContext(): Unit = {

@@ -163,14 +163,20 @@ private[akka] trait StashSupport {
       throw new IllegalStateException("Can't stash the same message " + currMsg + " more than once")
     if (capacity <= 0 || theStash.size < capacity) theStash :+= currMsg
     else throw new StashOverflowException("Couldn't enqueue message " + currMsg + " to stash of " + self)
+
+    actorCell.systemImpl.instrumentation.actorStashed(self, currMsg.message, currMsg.sender, Envelope.getContext(currMsg))
   }
 
   /**
    * Prepends `others` to this stash. This method is optimized for a large stash and
    * small `others`.
    */
-  private[akka] def prepend(others: immutable.Seq[Envelope]): Unit =
-    theStash = others.foldRight(theStash)((e, s) ⇒ e +: s)
+  private[akka] def prepend(others: immutable.Seq[Envelope]): Unit = {
+    theStash = others.foldRight(theStash)((e, s) ⇒ {
+      actorCell.systemImpl.instrumentation.actorStashed(self, e.message, e.sender, Envelope.getContext(e))
+      e +: s
+    })
+  }
 
   /**
    *  Prepends the oldest message in the stash to the mailbox, and then removes that
@@ -221,6 +227,7 @@ private[akka] trait StashSupport {
       while (i.hasNext) enqueueFirst(i.next())
     } finally {
       theStash = Vector.empty[Envelope]
+      actorCell.systemImpl.instrumentation.actorStashCleared(self)
     }
   }
 
@@ -232,6 +239,7 @@ private[akka] trait StashSupport {
   private[akka] def clearStash(): Vector[Envelope] = {
     val stashed = theStash
     theStash = Vector.empty[Envelope]
+    actorCell.systemImpl.instrumentation.actorStashCleared(self)
     stashed
   }
 
@@ -242,6 +250,7 @@ private[akka] trait StashSupport {
    */
   private def enqueueFirst(envelope: Envelope): Unit = {
     mailbox.enqueueFirst(self, envelope)
+    actorCell.systemImpl.instrumentation.actorUnstashed(self, envelope, Envelope.getContext(envelope))
     envelope.message match {
       case Terminated(ref) ⇒ actorCell.terminatedQueuedFor(ref)
       case _               ⇒

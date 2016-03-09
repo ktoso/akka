@@ -253,9 +253,8 @@ abstract class ActorInstrumentation {
    * @param message the message object
    * @param sender the sender [[akka.actor.Actor]] (may be dead letters)
    * @param context the context associated with this message (from `actorTold`)
-   * @return the context that will be transferred to `actorCompleted`
    */
-  def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef
+  def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit
 
   /**
    * Record actor completed - at the end of message processing.
@@ -263,9 +262,35 @@ abstract class ActorInstrumentation {
    * @param actorRef the self [[akka.actor.ActorRef]] of the actor
    * @param message the message object
    * @param sender the sender [[akka.actor.Actor]] (may be dead letters)
-   * @param context the context associated with this message processing (from `actorReceived`)
+   * @param context the context associated with this message (from `actorReceived`)
    */
   def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit
+
+  /**
+   * Record actor message stashed
+   *
+   * @param actorRef the self [[akka.actor.ActorRef]] of the actorStashed
+   * @param message the message object
+   * @param sender the sender [[akka.actor.Actor]] (may be dead letters)
+   * @param context the context associated with this message (from `actorReceived`)
+   */
+  def actorStashed(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit
+
+  /**
+   * Record actor message unstashed
+   *
+   * @param actorRef the self [[akka.actor.ActorRef]] of the actorStashed
+   * @param message the message object
+   * @param context the context associated with this message (from `actorStashed`)
+   */
+  def actorUnstashed(actorRef: ActorRef, message: Any, context: AnyRef): Unit
+
+  /**
+   * Record actor message unstashed all
+   *
+   * @param actorRef the self [[akka.actor.ActorRef]] of the actorStashed
+   */
+  def actorStashCleared(actorRef: ActorRef): Unit
 
   /**
    * Clear the current context - when message context is no longer in scope.
@@ -332,8 +357,11 @@ abstract class EmptyActorInstrumentation extends ActorInstrumentation {
   override def actorStopped(actorRef: ActorRef): Unit = ()
 
   override def actorTold(receiver: ActorRef, message: Any, sender: ActorRef): AnyRef = ActorInstrumentation.EmptyContext
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = ActorInstrumentation.EmptyContext
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = ()
   override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = ()
+  override def actorStashed(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit = ()
+  override def actorUnstashed(actorRef: ActorRef, message: Any, context: AnyRef): Unit = ()
+  override def actorStashCleared(actorRef: ActorRef): Unit = ()
 
   override def clearContext(): Unit = ()
 

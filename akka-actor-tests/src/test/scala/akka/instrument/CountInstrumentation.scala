@@ -21,6 +21,8 @@ object CountInstrumentation {
     val actorTold = new AtomicLong(0L)
     val actorReceived = new AtomicLong(0L)
     val actorCompleted = new AtomicLong(0L)
+    val actorStashed = new AtomicLong(0L)
+    val actorUnstashed = new AtomicLong(0L)
     val eventUnhandled = new AtomicLong(0L)
     val eventDeadLetter = new AtomicLong(0L)
     val eventLogWarning = new AtomicLong(0L)
@@ -36,6 +38,8 @@ object CountInstrumentation {
       actorTold.set(0L)
       actorReceived.set(0L)
       actorCompleted.set(0L)
+      actorStashed.set(0L)
+      actorUnstashed.set(0L)
       eventUnhandled.set(0L)
       eventDeadLetter.set(0L)
       eventLogWarning.set(0L)
@@ -71,13 +75,17 @@ class CountInstrumentation(config: Config) extends EmptyActorInstrumentation {
     ActorInstrumentation.EmptyContext
   }
 
-  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): AnyRef = {
+  override def actorReceived(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit =
     counts.actorReceived.incrementAndGet
-    ActorInstrumentation.EmptyContext
-  }
 
   override def actorCompleted(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit =
     counts.actorCompleted.incrementAndGet
+
+  override def actorStashed(actorRef: ActorRef, message: Any, sender: ActorRef, context: AnyRef): Unit =
+    counts.actorStashed.incrementAndGet
+
+  override def actorUnstashed(actorRef: ActorRef, message: Any, context: AnyRef): Unit =
+    counts.actorUnstashed.incrementAndGet
 
   override def eventUnhandled(actorRef: ActorRef, message: Any, sender: ActorRef): Unit =
     counts.eventUnhandled.incrementAndGet
