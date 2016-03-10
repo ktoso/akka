@@ -174,24 +174,38 @@ private[akka] abstract class Mailbox(val messageQueue: MessageQueue)
   /**
    * Set Scheduled status, keeping primary status as is.
    */
+  def setAsScheduled(): Boolean = {
+    if (internalSetAsScheduled()) {
+      val act = actor
+      act.systemImpl.instrumentation.actorScheduled(act.self, act.dispatcher)
+      true
+    } else false
+  }
+
   @tailrec
-  final def setAsScheduled(): Boolean = {
+  private final def internalSetAsScheduled(): Boolean = {
     val s = currentStatus
     /*
      * Only try to add Scheduled bit if pure Open/Suspended, not Closed or with
      * Scheduled bit already set.
      */
     if ((s & shouldScheduleMask) != Open) false
-    else updateStatus(s, s | Scheduled) || setAsScheduled()
+    else updateStatus(s, s | Scheduled) || internalSetAsScheduled()
   }
 
   /**
    * Reset Scheduled status, keeping primary status as is.
    */
+  def setAsIdle(): Boolean = {
+    val act = actor
+    act.systemImpl.instrumentation.actorIdle(act.self, act.dispatcher)
+    internalSetAsIdle()
+  }
+
   @tailrec
-  final def setAsIdle(): Boolean = {
+  private final def internalSetAsIdle(): Boolean = {
     val s = currentStatus
-    updateStatus(s, s & ~Scheduled) || setAsIdle()
+    updateStatus(s, s & ~Scheduled) || internalSetAsIdle()
   }
   /*
    * AtomicReferenceFieldUpdater for system queue.
@@ -214,6 +228,12 @@ private[akka] abstract class Mailbox(val messageQueue: MessageQueue)
   }
 
   override final def run(): Unit = {
+    val act = actor
+    act.systemImpl.instrumentation.actorRunning(act.self, act.dispatcher)
+    internalRun()
+  }
+
+  private final def internalRun(): Unit = {
     try {
       if (!isClosed) { //Volatile read, needed here
         processAllSystemMessages() //First, deal with any system messages

@@ -5,6 +5,7 @@
 package akka.instrument
 
 import akka.actor.ActorRef
+import akka.dispatch.MessageDispatcher
 import com.typesafe.config.Config
 import scala.util.DynamicVariable
 
@@ -32,7 +33,7 @@ case class Trace(identifier: String, actorRef: ActorRef)
  * through message flows using the context and a thread-local.
  */
 class TraceInstrumentation(config: Config) extends EmptyActorInstrumentation {
-  override def actorCreated(actorRef: ActorRef): Unit = Trace.value match {
+  override def actorCreated(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = Trace.value match {
     case Trace(_, ActorRef.noSender) ⇒
     case t @ Trace(_, ref) ⇒
       ref ! t

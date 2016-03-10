@@ -6,12 +6,11 @@ package akka.dispatch
 
 import java.util.concurrent.{ ConcurrentHashMap, TimeUnit, ThreadFactory }
 import com.typesafe.config.{ ConfigFactory, Config }
-import akka.actor.{ Scheduler, DynamicAccess, ActorSystem }
+import akka.actor._
 import akka.event.Logging.Warning
 import akka.event.EventStream
 import scala.concurrent.duration.Duration
 import akka.ConfigurationException
-import akka.actor.Deploy
 import akka.util.Helpers.ConfigOps
 import scala.concurrent.ExecutionContext
 
@@ -28,6 +27,10 @@ trait DispatcherPrerequisites {
   def defaultExecutionContext: Option[ExecutionContext]
 }
 
+private[akka] trait ExtendedDispatcherPrerequisites extends DispatcherPrerequisites {
+  def system: ActorSystemImpl
+}
+
 /**
  * INTERNAL API
  */
@@ -39,6 +42,16 @@ private[akka] case class DefaultDispatcherPrerequisites(
   val settings: ActorSystem.Settings,
   val mailboxes: Mailboxes,
   val defaultExecutionContext: Option[ExecutionContext]) extends DispatcherPrerequisites
+
+private[akka] class ExtendedDefaultDispatcherPrerequisites(
+  _threadFactory: ThreadFactory,
+  _eventStream: EventStream,
+  _scheduler: Scheduler,
+  _dynamicAccess: DynamicAccess,
+  _settings: ActorSystem.Settings,
+  _mailboxes: Mailboxes,
+  _defaultExecutionContext: Option[ExecutionContext],
+  val system: ActorSystemImpl) extends DefaultDispatcherPrerequisites(_threadFactory, _eventStream, _scheduler, _dynamicAccess, _settings, _mailboxes, _defaultExecutionContext) with ExtendedDispatcherPrerequisites
 
 object Dispatchers {
   /**

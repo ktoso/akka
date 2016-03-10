@@ -5,8 +5,10 @@
 package akka.instrument
 
 import akka.actor.{ DynamicAccess, ActorSystem, ActorRef }
+import akka.dispatch.MessageDispatcher
 import akka.event.EventStream
 import akka.event.Logging.{ Warning, Error }
+import akka.instrument.Ensemble.MultiDispatcherMetadata
 import com.typesafe.config.Config
 import java.nio.ByteBuffer
 import scala.annotation.tailrec
@@ -26,7 +28,7 @@ final class Ensemble(dynamicAccess: DynamicAccess, config: Config, eventStream: 
     val classes = config.getStringList("akka.instrumentations").asScala
     classes.zipWithIndex.map({
       case (instrumentation, index) ⇒
-        ActorInstrumentation.create(instrumentation, dynamicAccess, config, eventStream, new Ensemble.MultiActorMetadata(index, classes.size))
+        ActorInstrumentation.create(instrumentation, dynamicAccess, config, eventStream, new Ensemble.MultiActorMetadata(index, classes.size), new MultiDispatcherMetadata(index, classes.size))
     }).toArray
   }
 
@@ -61,10 +63,34 @@ final class Ensemble(dynamicAccess: DynamicAccess, config: Config, eventStream: 
     }
   }
 
-  override def actorCreated(actorRef: ActorRef): Unit = {
+  override def dispatcherStarted(dispatcher: MessageDispatcher, system: ActorSystem): Unit = {
     var i = 0
     while (i < length) {
-      instrumentations(i).actorCreated(actorRef)
+      instrumentations(i).dispatcherStarted(dispatcher, system)
+      i += 1
+    }
+  }
+
+  override def dispatcherStopped(dispatcher: MessageDispatcher): Unit = {
+    var i = 0
+    while (i < length) {
+      instrumentations(i).dispatcherStopped(dispatcher)
+      i += 1
+    }
+  }
+
+  override def dispatcherUpdateEntries(dispatcher: MessageDispatcher, entries: Long): Unit = {
+    var i = 0
+    while (i < length) {
+      instrumentations(i).dispatcherUpdateEntries(dispatcher, entries)
+      i += 1
+    }
+  }
+
+  override def actorCreated(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = {
+    var i = 0
+    while (i < length) {
+      instrumentations(i).actorCreated(actorRef, dispatcher)
       i += 1
     }
   }
@@ -81,6 +107,30 @@ final class Ensemble(dynamicAccess: DynamicAccess, config: Config, eventStream: 
     var i = 0
     while (i < length) {
       instrumentations(i).actorStopped(actorRef)
+      i += 1
+    }
+  }
+
+  def actorScheduled(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = {
+    var i = 0
+    while (i < length) {
+      instrumentations(i).actorScheduled(actorRef, dispatcher)
+      i += 1
+    }
+  }
+
+  def actorRunning(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = {
+    var i = 0
+    while (i < length) {
+      instrumentations(i).actorRunning(actorRef, dispatcher)
+      i += 1
+    }
+  }
+
+  def actorIdle(actorRef: ActorRef, dispatcher: MessageDispatcher): Unit = {
+    var i = 0
+    while (i < length) {
+      instrumentations(i).actorIdle(actorRef, dispatcher)
       i += 1
     }
   }
@@ -299,4 +349,26 @@ object Ensemble {
     }
   }
 
+  class MultiDispatcherMetadata(index: Int, size: Int) extends DispatcherMetadata {
+    override def attachTo(dispatcher: MessageDispatcher, metadata: AnyRef): Unit = super.extractFrom(dispatcher) match {
+      case array: Array[AnyRef] ⇒ array(index) = metadata
+      case _ ⇒
+        val array = Array.ofDim[AnyRef](size)
+        array(index) = metadata
+        super.attachTo(dispatcher, array)
+    }
+
+    override def extractFrom(dispatcher: MessageDispatcher): AnyRef = super.extractFrom(dispatcher) match {
+      case array: Array[AnyRef] ⇒ array(index)
+      case _                    ⇒ null
+    }
+
+    override def removeFrom(dispatcher: MessageDispatcher): AnyRef = super.extractFrom(dispatcher) match {
+      case array: Array[AnyRef] ⇒
+        val metadata = array(index)
+        array(index) = null
+        metadata
+      case _ ⇒ null
+    }
+  }
 }

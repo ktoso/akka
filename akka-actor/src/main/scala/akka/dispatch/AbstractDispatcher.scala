@@ -105,7 +105,21 @@ abstract class MessageDispatcher(val configurator: MessageDispatcherConfigurator
   @volatile private[this] var _inhabitantsDoNotCallMeDirectly: Long = _ // DO NOT TOUCH!
   @volatile private[this] var _shutdownScheduleDoNotCallMeDirectly: Int = _ // DO NOT TOUCH!
 
-  @tailrec private final def addInhabitants(add: Long): Long = {
+  // Instrumentation metadata in RP only! Allows for fast access to metadata.
+  // The funky name is to try to avoid name clashes in subclasses
+  var _cnmInstrMetadata: AnyRef = null
+
+  val _cnmSystem: ActorSystemImpl = configurator.prerequisites.asInstanceOf[ExtendedDispatcherPrerequisites].system
+
+  _cnmSystem.instrumentation.dispatcherStarted(this, _cnmSystem)
+
+  private final def addInhabitants(add: Long): Long = {
+    val res = internalAddInhabitants(add)
+    _cnmSystem.instrumentation.dispatcherUpdateEntries(this, res)
+    res
+  }
+
+  @tailrec private final def internalAddInhabitants(add: Long): Long = {
     val c = inhabitants
     val r = c + add
     if (r < 0) {
@@ -115,7 +129,7 @@ abstract class MessageDispatcher(val configurator: MessageDispatcherConfigurator
       reportFailure(e)
       throw e
     }
-    if (Unsafe.instance.compareAndSwapLong(this, inhabitantsOffset, c, r)) r else addInhabitants(add)
+    if (Unsafe.instance.compareAndSwapLong(this, inhabitantsOffset, c, r)) r else internalAddInhabitants(add)
   }
 
   final def inhabitants: Long = Unsafe.instance.getLongVolatile(this, inhabitantsOffset)
@@ -185,7 +199,7 @@ abstract class MessageDispatcher(val configurator: MessageDispatcherConfigurator
       override def execute(runnable: Runnable): Unit = runnable.run()
       override def reportFailure(t: Throwable): Unit = MessageDispatcher.this.reportFailure(t)
     }) catch {
-      case _: IllegalStateException ⇒ shutdown()
+      case _: IllegalStateException ⇒ aroundShutdown()
     }
   }
 
@@ -220,7 +234,7 @@ abstract class MessageDispatcher(val configurator: MessageDispatcherConfigurator
       shutdownSchedule match {
         case SCHEDULED ⇒
           try {
-            if (inhabitants == 0) shutdown() //Warning, racy
+            if (inhabitants == 0) aroundShutdown() //Warning, racy
           } finally {
             while (!updateShutdownSchedule(shutdownSchedule, UNSCHEDULED)) {}
           }
@@ -300,6 +314,11 @@ abstract class MessageDispatcher(val configurator: MessageDispatcherConfigurator
    * INTERNAL API
    */
   protected[akka] def executeTask(invocation: TaskInvocation)
+
+  private final def aroundShutdown(): Unit = {
+    _cnmSystem.instrumentation.dispatcherStopped(this)
+    shutdown()
+  }
 
   /**
    * Called one time every time an actor is detached from this dispatcher and this dispatcher has no actors left attached
