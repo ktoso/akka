@@ -14,8 +14,7 @@ you use Cluster Singleton or Cluster Sharding, especially together with Akka Per
           `Typesafe Project Success Subscription <http://www.typesafe.com/subscription>`_ customers.
 
 To use the Split Brain Resolver feature you must 
-`install Typesafe Reactive Platform <https://together.typesafe.com/products/reactivePlatform>`_. If you use
-``akka-contrib``, make sure that you use version ``@version@`` (instead of the OSS version).
+`install Typesafe Reactive Platform <https://together.typesafe.com/products/reactivePlatform>`_.
 
 The Problem
 ===========
