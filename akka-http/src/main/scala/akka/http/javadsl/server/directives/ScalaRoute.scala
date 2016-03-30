@@ -9,7 +9,6 @@ import akka.http.javadsl.model.HttpRequest
 import akka.http.javadsl.model.HttpResponse
 import akka.http.javadsl.server.JavaScalaTypeEquivalence._
 import akka.http.javadsl.server.Route
-import akka.http.javadsl.server.directives.ScalaRoute
 import akka.http.scaladsl
 import akka.http.scaladsl.server.RouteConcatenation._
 import akka.stream.Materializer

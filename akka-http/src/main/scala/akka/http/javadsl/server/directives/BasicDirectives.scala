@@ -6,7 +6,6 @@ package akka.http.javadsl.server.directives
 
 import java.util.function.{ Function ⇒ JFunction }
 import akka.http.javadsl.settings.ParserSettings
-import akka.http.scaladsl.server.directives.BasicDirectives
 import akka.http.scaladsl.settings.RoutingSettings
 
 import scala.concurrent.ExecutionContextExecutor
@@ -28,6 +27,7 @@ import akka.http.javadsl.model.HttpHeader
 import java.lang.{ Iterable ⇒ JIterable }
 import java.util.function.Predicate
 import akka.event.LoggingAdapter
+import akka.http.javadsl.server.RequestContext
 
 abstract class BasicDirectives {
   def mapRequest(f: JFunction[HttpRequest, HttpRequest], inner: Supplier[Route]): Route = ScalaRoute {
@@ -134,7 +134,7 @@ abstract class BasicDirectives {
    * Extracts a single value using the given function.
    */
   def extract[T](extract: JFunction[RequestContext, T], inner: JFunction[T, Route]): Route = ScalaRoute {
-    D.extract(extract.apply) { c ⇒ inner.apply(c).toScala }
+    D.extract(ctx => extract.apply(RequestContext.wrap(ctx))) { c ⇒ inner.apply(c).toScala }
   }
 
   /**
@@ -168,4 +168,12 @@ abstract class BasicDirectives {
       inner.apply(settings).toScala
     }
   }
+  
+  /**
+   * Extracts the [[akka.http.javadsl.server.RequestContext]] itself.
+   */
+  def extractRequestContext(inner: JFunction[RequestContext, Route]) = ScalaRoute {
+    D.extractRequestContext { ctx => inner.apply(RequestContext.wrap(ctx)).toScala }
+  }
+  
 }

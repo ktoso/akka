@@ -68,7 +68,9 @@ object JavaScalaTypeEquivalence {
   implicit val javaToScalaEntityTag = TypeEquivalent[javadsl.model.headers.EntityTag, scaladsl.model.headers.EntityTag]
   implicit val javaToScalaDateTime = TypeEquivalent[javadsl.model.DateTime, scaladsl.model.DateTime]
   implicit val javaToScalaRouteSettings = TypeEquivalent[javadsl.settings.RoutingSettings, scaladsl.settings.RoutingSettings]
+  implicit val javaToScalaParserSettings = TypeEquivalent[javadsl.settings.ParserSettings, scaladsl.settings.ParserSettings]
   implicit val javaToScalaLogEntry = TypeEquivalent[javadsl.server.directives.LogEntry, scaladsl.server.directives.LogEntry]
+  implicit val javaToScalaRejection = TypeEquivalent[javadsl.server.Rejection, scaladsl.server.Rejection]
 
   // not made implicit since these are subtypes of RequestEntity
   val javaToScalaHttpEntity = TypeEquivalent[javadsl.model.HttpEntity, scaladsl.model.HttpEntity]

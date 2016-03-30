@@ -13,7 +13,7 @@ import headers._
  * up over the course of a Route evaluation and finally converted to [[akka.http.scaladsl.model.HttpResponse]]s by the
  * `handleRejections` directive, if there was no way for the request to be completed.
  */
-trait Rejection
+trait Rejection extends akka.http.javadsl.server.Rejection
 
 /**
  * Rejection created by method filters.

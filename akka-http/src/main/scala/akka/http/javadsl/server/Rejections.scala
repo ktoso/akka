@@ -86,7 +86,7 @@ object Rejections {
   def validationRejection(message: String, cause: Optional[Throwable]) = ValidationRejection(message, cause.asScala)
 
   def transformationRejection(f: java.util.function.Function[java.util.List[Rejection], java.util.List[Rejection]]) =
-    TransformationRejection(rejections ⇒ f.apply(rejections.asJava).asScala.toVector)
+    TransformationRejection(rejections ⇒ f.apply(rejections.map(r => r:Rejection).asJava).asScala.toVector)
 
   def rejectionError(rejection: Rejection) = RejectionError(rejection)
 }

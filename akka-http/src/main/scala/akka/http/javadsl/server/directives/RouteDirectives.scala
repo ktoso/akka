@@ -5,7 +5,6 @@ package akka.http.javadsl.server.directives
 
 import scala.annotation.varargs
 import scala.collection.JavaConverters._
-
 import akka.http.impl.model.JavaUri
 import akka.http.javadsl.model.HttpHeader
 import akka.http.javadsl.model.HttpResponse
@@ -19,9 +18,8 @@ import akka.http.scaladsl
 import akka.http.scaladsl.marshalling.Marshaller._
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model.StatusCodes.Redirection
-import akka.http.scaladsl.server.Rejection
-
 import akka.http.scaladsl.server.directives.{ RouteDirectives ⇒ D }
+import akka.http.javadsl.server.Rejection
 
 abstract class RouteDirectives extends RespondWithDirectives {
   /**
