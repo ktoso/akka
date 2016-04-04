@@ -36,6 +36,8 @@ object ClusterClientSpec extends MultiNodeConfig {
     akka.contrib.cluster.client.heartbeat-interval = 1s
     akka.contrib.cluster.client.acceptable-heartbeat-pause = 3s
     akka.test.filter-leeway = 10s
+    # number-of-contacts must be >= 4 because we shutdown all but one in the end
+    akka.contrib.cluster.receptionist.number-of-contacts = 4
     """))
 
   testTransport(on = true)
@@ -250,6 +252,8 @@ class ClusterClientSpec extends MultiNodeSpec(ClusterClientSpec) with STMultiNod
     }
 
     "re-establish connection to receptionist after server restart" in within(30 seconds) {
+      //FIXME: Fix ticket https://github.com/akka/akka/issues/18741 and reenable test
+      pending
       runOn(client) {
         remainingServerRoleNames.size should ===(1)
         val remainingContacts = remainingServerRoleNames.map { r ⇒
