@@ -1,18 +1,19 @@
 package akka.remote.transport
 
-import akka.actor.{ ExtendedActorSystem, Address, Props }
-import akka.remote.transport.AkkaPduCodec.{ Disassociate, Associate, Heartbeat }
+import akka.actor.{ Address, ExtendedActorSystem, Props }
+import akka.remote.transport.AkkaPduCodec.{ Associate, Disassociate, Heartbeat }
 import akka.remote.transport.AkkaProtocolSpec.TestFailureDetector
-import akka.remote.transport.AssociationHandle.{ DisassociateInfo, ActorHandleEventListener, Disassociated, InboundPayload }
+import akka.remote.transport.AssociationHandle.{ ActorHandleEventListener, DisassociateInfo, Disassociated, InboundPayload }
 import akka.remote.transport.TestTransport._
 import akka.remote.transport.Transport._
-import akka.remote.{ SeqNo, WireFormats, RemoteActorRefProvider, FailureDetector }
-import akka.testkit.{ ImplicitSender, AkkaSpec }
+import akka.remote.{ FailureDetector, RemoteActorRefProvider, SeqNo, WireFormats }
+import akka.testkit.{ AkkaSpec, ImplicitSender }
 import akka.util.ByteString
 import com.google.protobuf.{ ByteString ⇒ PByteString }
 import com.typesafe.config.ConfigFactory
+
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, Promise }
+import scala.concurrent.{ Await, Promise, TimeoutException }
 import akka.actor.Deploy
 
 object AkkaProtocolSpec {
