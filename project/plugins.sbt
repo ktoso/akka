@@ -27,3 +27,7 @@ libraryDependencies += "com.timgroup" % "java-statsd-client" % "2.0.0"
 
 addSbtPlugin("io.spray" % "sbt-boilerplate" % "0.5.9")
 
+// Enable this and change sbt version to 0.13.6 when publishing akka-contrib
+//addSbtPlugin("me.lessis" % "bintray-sbt" % "0.3.0")
+
+

@@ -60,7 +60,7 @@ object AkkaBuild extends Build {
       javacOptions in JavaDoc := (if (sys.props("java.version").startsWith("1.8")) Seq("-Xdoclint:none") else Seq()),
       artifactName in packageDoc in JavaDoc := ((sv, mod, art) => "" + mod.name + "_" + sv.binary + "-" + mod.revision + "-javadoc.jar"),
       packageDoc in Compile <<= packageDoc in JavaDoc,
-      Dist.distExclude := Seq(actorTests.id, docs.id, samples.id, osgi.id),
+      Dist.distExclude := Seq(actorTests.id, docs.id, samples.id, osgi.id, checkerTests.id),
       // generate online version of docs
       sphinxInputs in Sphinx <<= sphinxInputs in Sphinx in LocalProject(docs.id) map { inputs => inputs.copy(tags = inputs.tags :+ "online") },
       // don't regenerate the pdf, just reuse the akka-docs version
@@ -76,8 +76,11 @@ object AkkaBuild extends Build {
       },
       validatePullRequest <<= (Unidoc.unidoc, SphinxSupport.generate in Sphinx in docs) map { (_, _) => }
     ),
-    aggregate = Seq(actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
-      persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, contrib, samples, multiNodeTestkit)
+    aggregate = Seq[ProjectReference](actor, testkit, actorTests, dataflow, remote, remoteTests, camel, cluster, slf4j, agent, transactor,
+      persistence, persistenceTck, mailboxes, zeroMQ, kernel, osgi, docs, samples, multiNodeTestkit, checkerTests) ++ (
+        if (System.getProperty("akka.build.includeContrib", "false").toBoolean) Seq(contrib) else Seq.empty[sbt.Project]
+      ).map(sbt.Project.projectToRef) // implicit conversion does not apply on this collection for some reason (due to ++)
+      
   )
 
   lazy val akkaScalaNightly = Project(
@@ -392,35 +395,36 @@ object AkkaBuild extends Build {
     base = file("akka-samples/akka-sample-camel-java"),
     dependencies = Seq(actor, camel),
     settings = sampleSettings ++ Seq(libraryDependencies ++= Dependencies.camelSample)
-  )
+  ).setSbtFiles()
 
   lazy val camelSampleScala = Project(
     id = "akka-sample-camel-scala",
     base = file("akka-samples/akka-sample-camel-scala"),
     dependencies = Seq(actor, camel),
     settings = sampleSettings ++ Seq(libraryDependencies ++= Dependencies.camelSample)
-  )
+  ).setSbtFiles()
 
   lazy val fsmSampleScala = Project(
     id = "akka-sample-fsm-scala",
     base = file("akka-samples/akka-sample-fsm-scala"),
     dependencies = Seq(actor),
     settings = sampleSettings
-  )
+  ).setSbtFiles()
 
   lazy val mainSampleJava = Project(
     id = "akka-sample-main-java",
     base = file("akka-samples/akka-sample-main-java"),
     dependencies = Seq(actor),
     settings = sampleSettings
-  )
+  ).setSbtFiles()
+
 
   lazy val mainSampleScala = Project(
     id = "akka-sample-main-scala",
     base = file("akka-samples/akka-sample-main-scala"),
     dependencies = Seq(actor),
     settings = sampleSettings
-  )
+  ).setSbtFiles()
 
   /* FIXME helloKernelSample is not included due to conflicting dependency to
            bouncycastle openpgp from sbt-native-packager and sbt-pgp
@@ -438,28 +442,28 @@ object AkkaBuild extends Build {
     base = file("akka-samples/akka-sample-remote-java"),
     dependencies = Seq(actor, remote),
     settings = sampleSettings
-  )
+  ).setSbtFiles()
 
   lazy val remoteSampleScala = Project(
     id = "akka-sample-remote-scala",
     base = file("akka-samples/akka-sample-remote-scala"),
     dependencies = Seq(actor, remote),
     settings = sampleSettings
-  )
+  ).setSbtFiles()
 
   lazy val persistenceSampleJava = Project(
     id = "akka-sample-persistence-java",
     base = file("akka-samples/akka-sample-persistence-java"),
     dependencies = Seq(actor, persistence),
     settings = sampleSettings
-  )
+  ).setSbtFiles()
 
   lazy val persistenceSampleScala = Project(
     id = "akka-sample-persistence-scala",
     base = file("akka-samples/akka-sample-persistence-scala"),
     dependencies = Seq(actor, persistence, stream),
     settings = sampleSettings
-  )
+  ).setSbtFiles()
 
   lazy val clusterSampleJava = Project(
     id = "akka-sample-cluster-java",
@@ -477,7 +481,7 @@ object AkkaBuild extends Build {
         (name: String) => (src ** (name + ".conf")).get.headOption.map("-Dakka.config=" + _.absolutePath).toSeq
       }
     )
-  ) configs (MultiJvm)
+  ) configs (MultiJvm) setSbtFiles ()
 
   lazy val clusterSampleScala = Project(
     id = "akka-sample-cluster-scala",
@@ -495,7 +499,7 @@ object AkkaBuild extends Build {
         (name: String) => (src ** (name + ".conf")).get.headOption.map("-Dakka.config=" + _.absolutePath).toSeq
       }
     )
-  ) configs (MultiJvm)
+  ) configs (MultiJvm) setSbtFiles ()
 
   lazy val multiNodeSampleScala = Project(
     id = "akka-sample-multi-node-scala",
@@ -509,7 +513,7 @@ object AkkaBuild extends Build {
         (name: String) => (src ** (name + ".conf")).get.headOption.map("-Dakka.config=" + _.absolutePath).toSeq
       }
     )
-  ) configs (MultiJvm)
+  ) configs (MultiJvm) setSbtFiles ()
 
   lazy val osgiDiningHakkersSample = Project(id = "akka-sample-osgi-dining-hakkers",
     base = file("akka-samples/akka-sample-osgi-dining-hakkers"),
@@ -610,9 +614,13 @@ object AkkaBuild extends Build {
 
   lazy val contrib = Project(
     id = "akka-contrib",
-    base = file("akka-contrib"),
-    dependencies = Seq(remote, remoteTests % "test->test", cluster, persistence),
+    base = file("akka-contrib"),    
+    dependencies = Seq(remoteTests % "test->test", testkit % "test->test"),
     settings = defaultSettings ++ formatSettings ++ scaladocSettings ++ javadocSettings ++ multiJvmSettings ++ Seq(
+      version := Dependencies.RP.akkaBinaryFull,
+      resolvers += "RP" at s"https://repo.typesafe.com/typesafe/for-subscribers-only/${Dependencies.RP.key}",
+      publishTo := Some("bintray-rp-repo" at
+        s"https://api.bintray.com/content/typesafe/for-subscribers-only/akka-contrib-${Dependencies.RP.versionMajor}/${Dependencies.RP.versionFull}/${Dependencies.RP.key}/"),
       libraryDependencies ++= Dependencies.contrib,
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-v"),
       reportBinaryIssues := (), // disable bin comp check
@@ -628,6 +636,15 @@ object AkkaBuild extends Build {
                         |""".stripMargin
     )
   ) configs (MultiJvm)
+
+  lazy val checkerTests = Project(
+    id = "akka-diagnostics-tests",
+    base = file("akka-diagnostics-tests"),
+    dependencies = Seq(cluster, testkit % "compile;test->test"),
+    settings = defaultSettings ++ formatSettings ++ scaladocSettings ++ Seq(
+      publishArtifact in Compile := false
+    )
+  )
 
   // // this issue will be fixed in M8, for now we need to exclude M6, M7 modules used to compile the compiler
   def excludeOldModules(m: ModuleID) = List("M6", "M7").foldLeft(m) { (mID, mStone) =>
@@ -1002,6 +1019,104 @@ object AkkaBuild extends Build {
   lazy val mimaIgnoredProblems = {
     import com.typesafe.tools.mima.core._
     Seq(
+       // add filters here, see release-2.2 branch
+      FilterAnyProblem("akka.remote.testconductor.Terminate"),
+      FilterAnyProblem("akka.remote.testconductor.TerminateMsg"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.testconductor.Conductor.shutdown"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.testkit.MultiNodeSpec.akka$remote$testkit$MultiNodeSpec$$deployer"),
+      FilterAnyProblem("akka.remote.EndpointManager"),
+      FilterAnyProblem("akka.remote.EndpointManager$Pass"),
+      FilterAnyProblem("akka.remote.EndpointManager$EndpointRegistry"),
+      FilterAnyProblem("akka.remote.EndpointWriter"),
+      FilterAnyProblem("akka.remote.EndpointWriter$StopReading"),
+      FilterAnyProblem("akka.remote.EndpointWriter$State"),
+      FilterAnyProblem("akka.remote.EndpointWriter$TakeOver"),
+
+      // Change of internal message by #15109
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor#GotUid.copy"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor#GotUid.this"),
+      ProblemFilters.exclude[MissingTypesProblem]("akka.remote.ReliableDeliverySupervisor$GotUid$"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor#GotUid.apply"),
+
+      // Change of private method to protected by #15212
+      ProblemFilters.exclude[MissingMethodProblem]("akka.persistence.snapshot.local.LocalSnapshotStore.akka$persistence$snapshot$local$LocalSnapshotStore$$save"),
+
+      // Changes in akka-stream-experimental are not binary compatible - still source compatible (2.3.3 -> 2.3.4)
+      // Adding `PersistentActor.persistAsync`
+      // Adding `PersistentActor.defer`
+      // Changes in akka-persistence-experimental in #13944
+      // Changes in private LevelDB Store by #13962
+      // Renamed `processorId` to `persistenceId`
+      ProblemFilters.excludePackage("akka.persistence"),
+
+      // Adding wildcardFanOut to internal message ActorSelectionMessage by #13992
+      FilterAnyProblem("akka.actor.ActorSelectionMessage$"),
+      FilterAnyProblem("akka.actor.ActorSelectionMessage"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ContainerFormats#SelectionEnvelopeOrBuilder.hasWildcardFanOut"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ContainerFormats#SelectionEnvelopeOrBuilder.getWildcardFanOut"),
+
+      // Adding expectMsg overload to testkit #15425
+      ProblemFilters.exclude[MissingMethodProblem]("akka.testkit.TestKitBase.expectMsg"),
+
+      // Adding akka.japi.Option.getOrElse #15383
+      ProblemFilters.exclude[MissingMethodProblem]("akka.japi.Option.getOrElse"),
+
+      // Change to internal API to fix #15991
+      ProblemFilters.exclude[MissingClassProblem]("akka.io.TcpConnection$UpdatePendingWrite$"),
+      ProblemFilters.exclude[MissingClassProblem]("akka.io.TcpConnection$UpdatePendingWrite"),
+
+      // Change to optimize use of ForkJoin with Akka's Mailbox
+      ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.Mailbox.status"),
+
+      // Changes introduced to internal remoting actors by #16623
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.unstashAcks"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.pendingAcks_="),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.pendingAcks"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.scheduleAutoResend"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.autoResendTimer_="),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.rescheduleAutoResend"),
+      ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.remote.ReliableDeliverySupervisor.autoResendTimer"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.lastCumulativeAck"),
+      ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.remote.ReliableDeliverySupervisor.bailoutAt"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.lastCumulativeAck_="),
+
+      // Change to improve cluster heartbeat sender, #16638
+      FilterAnyProblem("akka.cluster.HeartbeatNodeRing"),
+      FilterAnyProblem("akka.cluster.ClusterHeartbeatSenderState"),
+
+      //Changes to improve BatchingExecutor, bugfix #16327
+      ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor.resubmitOnBlock"),
+      ProblemFilters.exclude[FinalClassProblem]("akka.dispatch.BatchingExecutor$Batch"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor#Batch.initial"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor#Batch.blockOn"),
+      ProblemFilters.exclude[FinalMethodProblem]("akka.dispatch.BatchingExecutor#Batch.run"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor#Batch.akka$dispatch$BatchingExecutor$Batch$$parentBlockContext_="),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor#Batch.this"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor.akka$dispatch$BatchingExecutor$_setter_$akka$dispatch$BatchingExecutor$$_blockContext_="),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.dispatch.BatchingExecutor.akka$dispatch$BatchingExecutor$$_blockContext"),
+
+      // Exclude observations from downed, #13875
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.ClusterEvent.diffReachable"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.ClusterEvent.diffSeen"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.ClusterEvent.diffUnreachable"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.ClusterEvent.diffRolesLeader"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.ClusterEvent.diffLeader"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.convergence"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.akka$cluster$Gossip$$convergenceMemberStatus"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.isLeader"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.leader"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.cluster.Gossip.roleLeader"),
+
+      // issue #16736
+      ProblemFilters.exclude[MissingClassProblem]("akka.cluster.OnMemberUpListener"),
+
+      // issue #17554
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.maxResendRate"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.resendLimit"),
+
+      // toString is available on any object, mima is confused due to a generated toString appearing #17722
+      ProblemFilters.exclude[MissingMethodProblem]("akka.japi.Pair.toString"),
+
       // issue #17554
       ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.maxResendRate"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.remote.ReliableDeliverySupervisor.resendLimit"),
@@ -1143,13 +1258,33 @@ object Dependencies {
   import DependencyHelpers.ScalaVersionDependentModuleID._
 
   object Versions {
-    val crossScala = Seq("2.10.4", "2.11.5")
+    val crossScala = Seq("2.11.7")
     val scala = crossScala.head
     val scalaStmVersion  = System.getProperty("akka.build.scalaStmVersion", "0.7")
     val genJavaDocVersion = System.getProperty("akka.build.genJavaDocVersion", "0.9")
     val scalaTestVersion = System.getProperty("akka.build.scalaTestVersion", "2.1.3")
     val scalaCheckVersion = System.getProperty("akka.build.scalaCheckVersion", "1.11.3")
     val scalaContinuationsVersion = System.getProperty("akka.build.scalaContinuationsVersion", "1.0.2")
+  }
+
+  // Reactive Platform version helpers
+  object RP {
+    /** e.g. 2.3-bin-rp-15v01p07 */
+    val akkaBinaryFull = "2.3-bin-rp-15v09p04"
+
+    /** e.g. "rp-15v01p07" */
+    val versionFull = akkaBinaryFull.substring(akkaBinaryFull.indexOf("rp"))
+
+    /** e.g. "15v01" */
+    val versionMajor = {
+      val noPrefix = akkaBinaryFull.substring(akkaBinaryFull.indexOf("rp")).drop(3) // "15v01p07"
+      noPrefix.substring(0, noPrefix.indexOf("p")) // e.g. "15v01"
+    }
+
+    val key =
+      if (versionFull contains "15v09") "AEE4D829FC38A3247F251ED25BA45ADD675D48EB"
+      else if (versionFull contains "15v01") "DFDB5DD187A28462DDAF7AB39A95A6AE65983B23"
+      else throw new Exception("Unknown RP version, please add key to `AkkaBuild#Dependencies.Versions.rpKey`! Version was: " + versionFull)
   }
 
   object Compile {
@@ -1222,6 +1357,7 @@ object Dependencies {
       val reactiveStreams = "org.reactivestreams"      % "reactive-streams-tck"         % "0.3"              % "test" // CC0
       val scalaXml     = post210Dependency("org.scala-lang.modules"      %% "scala-xml"                   % "1.0.1"            % "test")
     }
+
   }
 
   import Compile._
@@ -1281,7 +1417,12 @@ object Dependencies {
 
   val clusterSample = Seq(Test.scalatest, sigar)
 
-  val contrib = Seq(Test.junitIntf, Test.commonsIo)
+  val contrib = Seq(
+    "com.typesafe.akka" %% "akka-cluster" % Dependencies.RP.akkaBinaryFull,
+    "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.12",
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % "2.3.12" % "test",
+    Test.junitIntf, 
+    Test.commonsIo)
 
   val multiNodeSample = Seq(Test.scalatest)
 }

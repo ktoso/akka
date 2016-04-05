@@ -4,16 +4,16 @@
  Remoting
 ##########
 
-
 For an introduction of remoting capabilities of Akka please see :ref:`remoting`.
 
 .. note::
 
   As explained in that chapter Akka remoting is designed for communication in a
   peer-to-peer fashion and it has limitations for client-server setups. In
-  particular Akka Remoting does not work with Network Address Translation and
-  Load Balancers, among others.
-
+  particular Akka Remoting does not work transparently with Network Address Translation,
+  Load Balancers, or in Docker containers. For symmetric communication in these situations
+  network and/or Akka configuration will have to be changed as described in
+  :ref:`symmetric-communication`.
 
 Preparing your ActorSystem for Remoting
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -502,3 +502,24 @@ There are lots of configuration properties that are related to remoting in Akka.
 
    .. includecode:: ../java/code/docs/remoting/RemoteDeploymentDocTest.java#programmatic
 
+Remote configuration for NAT and Docker
+---------------------------------------
+
+In setups involving Network Address Translation (NAT), Load Balancers or Docker
+containers the hostname and port pair that akka binds to will be different than the "logical"
+host name and port pair that is used to connect to the system from the outside. This requires
+special configuration that sets both the logical and the bind pairs for remoting.
+
+.. code-block:: ruby
+
+  akka {
+    remote {
+      netty.tcp {
+        hostname = my.domain.com      # external (logical) hostname
+        port = 8000                   # external (logical) port
+
+        bind-hostname = local.address # internal (bind) hostname
+        bind-port = 2552              # internal (bind) port
+      }
+   }
+  }

@@ -21,6 +21,8 @@ import scala.concurrent.{ Await, Awaitable, CanAwait, Future, ExecutionContext, 
 import scala.util.{ Failure, Success, Try }
 import scala.util.control.{ NonFatal, ControlThrowable }
 import java.util.Locale
+import akka.diagnostics.ConfigChecker
+import akka.diagnostics.DiagnosticsRecorder
 
 object ActorSystem {
 
@@ -157,8 +159,9 @@ object ActorSystem {
      * @see <a href="http://typesafehub.github.io/config/v1.2.0/" target="_blank">The Typesafe Config Library API Documentation</a>
      */
     final val config: Config = {
-      val config = cfg.withFallback(ConfigFactory.defaultReference(classLoader))
-      config.checkValid(ConfigFactory.defaultReference(classLoader), "akka")
+      val reference = ConfigFactory.defaultReference(classLoader)
+      val config = cfg.withFallback(reference)
+      config.checkValid(reference, "akka")
       config
     }
 
@@ -622,6 +625,14 @@ private[akka] class ActorSystemImpl(val name: String, applicationConfig: Config,
       logDeadLetterListener = Some(systemActorOf(Props[DeadLetterListener], "deadLetterListener"))
     loadExtensions()
     if (LogConfigOnStart) logConfiguration()
+
+    ConfigChecker.reportIssues(this)
+    try DiagnosticsRecorder(this).runStartupReport()
+    catch {
+      case NonFatal(e) ⇒
+        log.warning("cannot start DiagnosticsRecorder, please configure section akka.diagnostics.recorder (to correct error or turn off this feature): {}", e.getMessage)
+    }
+
     this
   } catch {
     case NonFatal(e) ⇒

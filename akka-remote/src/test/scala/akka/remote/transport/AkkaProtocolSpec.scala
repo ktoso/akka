@@ -14,7 +14,6 @@ import com.typesafe.config.ConfigFactory
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Promise }
 import akka.actor.Deploy
-import java.util.concurrent.TimeoutException
 
 object AkkaProtocolSpec {
 
@@ -58,6 +57,8 @@ class AkkaProtocolSpec extends AkkaSpec("""akka.actor.provider = "akka.remote.Re
 
         use-passive-connections = on
       }
+
+      akka.diagnostics.checker.disabled-checks += transport-failure-detector
   """).withFallback(system.settings.config)
 
   val localAddress = Address("test", "testsystem", "testhost", 1234)
