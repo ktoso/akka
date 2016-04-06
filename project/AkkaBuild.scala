@@ -1419,8 +1419,8 @@ object Dependencies {
 
   val contrib = Seq(
     "com.typesafe.akka" %% "akka-cluster" % Dependencies.RP.akkaBinaryFull,
-    "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.12",
-    "com.typesafe.akka" %% "akka-multi-node-testkit" % "2.3.12" % "test",
+    "com.typesafe.akka" %% "akka-persistence-experimental" % "2.3.15",
+    "com.typesafe.akka" %% "akka-multi-node-testkit" % "2.3.15" % "test",
     Test.junitIntf, 
     Test.commonsIo)
 
