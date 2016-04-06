@@ -1,18 +1,19 @@
 package akka.remote.transport
 
-import akka.actor.{ ExtendedActorSystem, Address, Props }
-import akka.remote.transport.AkkaPduCodec.{ Disassociate, Associate, Heartbeat }
+import akka.actor.{ Address, ExtendedActorSystem, Props }
+import akka.remote.transport.AkkaPduCodec.{ Associate, Disassociate, Heartbeat }
 import akka.remote.transport.AkkaProtocolSpec.TestFailureDetector
-import akka.remote.transport.AssociationHandle.{ DisassociateInfo, ActorHandleEventListener, Disassociated, InboundPayload }
+import akka.remote.transport.AssociationHandle.{ ActorHandleEventListener, DisassociateInfo, Disassociated, InboundPayload }
 import akka.remote.transport.TestTransport._
 import akka.remote.transport.Transport._
-import akka.remote.{ SeqNo, WireFormats, RemoteActorRefProvider, FailureDetector }
-import akka.testkit.{ ImplicitSender, AkkaSpec }
+import akka.remote.{ FailureDetector, RemoteActorRefProvider, SeqNo, WireFormats }
+import akka.testkit.{ AkkaSpec, ImplicitSender }
 import akka.util.ByteString
 import com.google.protobuf.{ ByteString ⇒ PByteString }
 import com.typesafe.config.ConfigFactory
+
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, Promise }
+import scala.concurrent.{ Await, Promise, TimeoutException }
 import akka.actor.Deploy
 
 object AkkaProtocolSpec {
@@ -59,7 +60,7 @@ class AkkaProtocolSpec extends AkkaSpec("""akka.actor.provider = "akka.remote.Re
       }
 
       akka.diagnostics.checker.disabled-checks += transport-failure-detector
-  """)
+  """).withFallback(system.settings.config)
 
   val localAddress = Address("test", "testsystem", "testhost", 1234)
   val localAkkaAddress = Address("akka.test", "testsystem", "testhost", 1234)
@@ -446,6 +447,51 @@ class AkkaProtocolSpec extends AkkaSpec("""akka.actor.provider = "akka.remote.Re
 
       expectMsg(Disassociated(AssociationHandle.Unknown))
 
+    }
+
+    "give up outbound after connection timeout" in {
+      val (failureDetector, registry, transport, handle) = collaborators
+      handle.writable = false // nothing will be written
+      transport.associateBehavior.pushConstant(handle)
+
+      val statusPromise: Promise[AssociationHandle] = Promise()
+
+      val conf2 = ConfigFactory.parseString("akka.remote.netty.tcp.connection-timeout = 500 ms").
+        withFallback(conf)
+
+      val stateActor = system.actorOf(ProtocolStateActor.outboundProps(
+        HandshakeInfo(origin = localAddress, uid = 42, cookie = None),
+        remoteAddress,
+        statusPromise,
+        transport,
+        new AkkaProtocolSettings(conf2),
+        codec,
+        failureDetector,
+        refuseUid = None))
+
+      watch(stateActor)
+      intercept[TimeoutException] {
+        Await.result(statusPromise.future, 5.seconds)
+      }
+      expectTerminated(stateActor)
+    }
+
+    "give up inbound after connection timeout" in {
+      val (failureDetector, registry, _, handle) = collaborators
+
+      val conf2 = ConfigFactory.parseString("akka.remote.netty.tcp.connection-timeout = 500 ms").
+        withFallback(conf)
+
+      val reader = system.actorOf(ProtocolStateActor.inboundProps(
+        HandshakeInfo(origin = localAddress, uid = 42, cookie = None),
+        handle,
+        ActorAssociationEventListener(testActor),
+        new AkkaProtocolSettings(conf2),
+        codec,
+        failureDetector))
+
+      watch(reader)
+      expectTerminated(reader)
     }
 
   }
