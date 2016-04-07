@@ -1,9 +1,9 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl
 
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.stream.ActorMaterializerSettings
 
 class FixedBufferSpec extends AkkaSpec {
@@ -73,7 +73,7 @@ class FixedBufferSpec extends AkkaSpec {
       "become non-full after head dropped from full buffer" in {
         val buf = FixedSizeBuffer[String](size)
         for (_ ← 1 to size) buf.enqueue("test")
-        buf.dropTail()
+        buf.dropHead()
         buf.isEmpty should be(size == 1)
         buf.isFull should be(false)
       }

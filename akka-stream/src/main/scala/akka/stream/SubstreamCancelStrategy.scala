@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream
 
@@ -29,7 +29,7 @@ object SubstreamCancelStrategy {
   def propagate: SubstreamCancelStrategy = Propagate
 
   /**
-   * Drain substream on cancellation in order to prevent stailling of the stream of streams.
+   * Drain substream on cancellation in order to prevent stalling of the stream of streams.
    */
   def drain: SubstreamCancelStrategy = Drain
 }

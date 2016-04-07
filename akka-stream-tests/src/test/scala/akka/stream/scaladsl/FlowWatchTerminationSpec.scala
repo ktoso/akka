@@ -1,13 +1,12 @@
 /**
- * Copyright (C) 2015 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
-import akka.actor.Status.Failure
 import akka.Done
 import akka.pattern.pipe
 import akka.stream._
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.stream.testkit.Utils._
 import akka.stream.testkit.scaladsl.{ TestSink, TestSource }
 import org.scalactic.ConversionCheckedTripleEquals
@@ -16,12 +15,11 @@ import org.scalatest.concurrent.ScalaFutures
 import scala.util.control.NoStackTrace
 import scala.concurrent.duration._
 
-class FlowWatchTerminationSpec extends AkkaSpec with ScalaFutures with ConversionCheckedTripleEquals {
+class FlowWatchTerminationSpec extends AkkaSpec {
 
   val settings = ActorMaterializerSettings(system)
 
   implicit val materializer = ActorMaterializer(settings)
-  implicit val patience = PatienceConfig(3.seconds)
 
   "A WatchTermination" must {
 

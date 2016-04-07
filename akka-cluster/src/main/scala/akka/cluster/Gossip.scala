@@ -1,12 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster
 
 import scala.collection.immutable
 import MemberStatus._
-import akka.cluster.protobuf.ClusterMessageSerializer
 import scala.concurrent.duration.Deadline
 
 /**
@@ -135,7 +134,6 @@ private[cluster] final case class Gossip(
    * Merges two Gossip instances including membership tables, and the VectorClock histories.
    */
   def merge(that: Gossip): Gossip = {
-    import Member.ordering
 
     // 1. merge vector clocks
     val mergedVClock = this.version merge that.version

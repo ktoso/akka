@@ -1,28 +1,25 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.NotUsed
-
 import scala.concurrent.duration._
-import scala.util.control.NoStackTrace
 import akka.stream.ActorMaterializer
 import akka.stream.ActorMaterializerSettings
 import akka.stream.Supervision.resumingDecider
 import akka.stream.testkit._
 import akka.stream.testkit.Utils._
 import org.reactivestreams.Publisher
-import akka.stream.Attributes
 import akka.stream.ActorAttributes
 import org.scalatest.concurrent.ScalaFutures
 import org.scalactic.ConversionCheckedTripleEquals
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import akka.stream.testkit.scaladsl.TestSource
 import akka.stream.testkit.scaladsl.TestSink
+import akka.testkit.AkkaSpec
 
 object FlowGroupBySpec {
-  import language.higherKinds
 
   implicit class Lift[M](val f: SubFlow[Int, M, Source[Int, M]#Repr, RunnableGraph[M]]) extends AnyVal {
     def lift(key: Int ⇒ Int) = f.prefixAndTail(1).map(p ⇒ key(p._1.head) -> (Source.single(p._1.head) ++ p._2)).concatSubstreams
@@ -30,7 +27,7 @@ object FlowGroupBySpec {
 
 }
 
-class FlowGroupBySpec extends AkkaSpec with ScalaFutures with ConversionCheckedTripleEquals {
+class FlowGroupBySpec extends AkkaSpec {
   import FlowGroupBySpec._
 
   val settings = ActorMaterializerSettings(system)

@@ -1,17 +1,15 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.remote.serialization
 
 import akka.serialization.SerializationExtension
-import com.typesafe.config.ConfigFactory
 import akka.testkit.AkkaSpec
 import akka.actor.ActorSelectionMessage
 import akka.actor.SelectChildName
 import akka.actor.SelectParent
 import akka.actor.SelectChildPattern
-import akka.util.Helpers
 
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])
 class MessageContainerSerializerSpec extends AkkaSpec {

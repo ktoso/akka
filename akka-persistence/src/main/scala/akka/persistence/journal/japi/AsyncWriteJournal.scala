@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.persistence.journal.japi
@@ -10,7 +10,6 @@ import akka.persistence._
 import akka.persistence.journal.{ AsyncWriteJournal ⇒ SAsyncWriteJournal }
 import scala.concurrent.Future
 import scala.util.Try
-import scala.util.Success
 import scala.util.Failure
 
 /**

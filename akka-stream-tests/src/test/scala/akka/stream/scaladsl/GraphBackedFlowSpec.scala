@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -8,6 +8,7 @@ import akka.stream.ActorMaterializerSettings
 import akka.stream.testkit._
 import akka.stream._
 import org.reactivestreams.Subscriber
+import akka.testkit.AkkaSpec
 
 object GraphFlowSpec {
   val source1 = Source(0 to 3)

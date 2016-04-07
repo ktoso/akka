@@ -1,13 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
-import scala.concurrent.{ Await, Promise }
-import scala.concurrent.duration._
+import scala.concurrent.{ Promise }
 
 import akka.stream._
-import akka.stream.scaladsl._
 import akka.stream.testkit._
 import akka.stream.testkit.Utils._
 

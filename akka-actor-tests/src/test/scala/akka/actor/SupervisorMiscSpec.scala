@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.actor
 
@@ -7,7 +7,6 @@ import language.postfixOps
 
 import akka.testkit.{ filterEvents, EventFilter }
 import scala.concurrent.Await
-import akka.dispatch.{ PinnedDispatcher, Dispatchers }
 import java.util.concurrent.{ TimeUnit, CountDownLatch }
 import akka.testkit.AkkaSpec
 import akka.testkit.DefaultTimeout

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.io
 
@@ -41,6 +41,8 @@ private[akka] final class FileSource(f: File, chunkSize: Int, val attributes: At
 
   override def withAttributes(attr: Attributes): Module =
     new FileSource(f, chunkSize, attr, amendShape(attr))
+
+  override protected def label: String = s"FileSource($f, $chunkSize)"
 }
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.camel
@@ -10,11 +10,9 @@ import org.apache.camel.{ Exchange, Processor }
 import org.apache.camel.builder.RouteBuilder
 import org.apache.camel.component.mock.MockEndpoint
 import scala.concurrent.Await
-import akka.camel.TestSupport.SharedCamelSystem
 import akka.actor.SupervisorStrategy.Stop
 import org.scalatest.{ BeforeAndAfterEach, BeforeAndAfterAll, WordSpecLike }
 import akka.actor._
-import akka.pattern._
 import scala.concurrent.duration._
 import akka.util.Timeout
 import org.scalatest.Matchers

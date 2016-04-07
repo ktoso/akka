@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  * Copyright (C) 2012-2016 Eligotech BV.
  */
 
@@ -9,14 +9,13 @@ import java.io.File
 import scala.collection.mutable
 import akka.actor._
 import akka.persistence._
-import akka.persistence.journal.{ WriteJournalBase, AsyncWriteTarget }
+import akka.persistence.journal.{ WriteJournalBase }
 import akka.serialization.SerializationExtension
 import org.iq80.leveldb._
 import scala.collection.immutable
 import scala.util._
 import scala.concurrent.Future
 import scala.util.control.NonFatal
-import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.journal.Tagged
 
 /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream.io
 
@@ -10,6 +10,7 @@ import akka.stream.scaladsl.{ FileIO, Sink, Source }
 import akka.stream.testkit.Utils._
 import akka.stream.testkit._
 import akka.util.ByteString
+import akka.testkit.AkkaSpec
 
 import scala.concurrent.Future
 
@@ -27,7 +28,7 @@ class StreamFileDocSpec extends AkkaSpec(UnboundedMailboxConfig) {
 
   {
     //#file-source
-    import akka.stream.io._
+    import akka.stream.scaladsl._
     //#file-source
     Thread.sleep(0) // needs a statement here for valid syntax and to avoid "unused" warnings
   }

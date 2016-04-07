@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.persistence.journal
@@ -15,7 +15,6 @@ import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future, Promise }
 import scala.util.Try
-import scala.util.Success
 
 object SteppingInmemJournal {
 

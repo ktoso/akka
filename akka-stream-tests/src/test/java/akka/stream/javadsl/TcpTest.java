@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl;
 
@@ -25,7 +25,7 @@ import scala.runtime.BoxedUnit;
 import akka.stream.*;
 import akka.stream.javadsl.Tcp.*;
 import akka.japi.function.*;
-import akka.stream.testkit.AkkaSpec;
+import akka.testkit.AkkaSpec;
 import akka.stream.testkit.TestUtils;
 import akka.util.ByteString;
 import akka.testkit.JavaTestKit;

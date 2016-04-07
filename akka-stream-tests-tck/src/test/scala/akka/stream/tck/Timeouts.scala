@@ -1,11 +1,7 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.tck
-
-import akka.actor.ActorSystem
-import scala.concurrent.duration._
-import akka.testkit._
 
 /**
  * Specifies timeouts for the TCK

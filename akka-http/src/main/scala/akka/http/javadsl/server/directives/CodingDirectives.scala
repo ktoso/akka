@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.server
@@ -8,7 +8,6 @@ package directives
 import akka.http.javadsl.server.Directive
 import akka.http.javadsl.server.Directives
 import akka.http.javadsl.server.Route
-import akka.http.scaladsl.coding.Decoder
 import akka.http.scaladsl.server._
 
 import scala.annotation.varargs

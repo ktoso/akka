@@ -1,17 +1,16 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.stream.testkit._
-import akka.stream.testkit.Utils.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.{ TestSource, TestSink }
 import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
 import org.scalatest.concurrent.ScalaFutures
-
 import scala.concurrent.duration._
+import akka.testkit.AkkaSpec
 
-class FlowIntersperseSpec extends AkkaSpec with ScalaFutures {
+class FlowIntersperseSpec extends AkkaSpec {
 
   val settings = ActorMaterializerSettings(system)
     .withInputBuffer(initialSize = 2, maxSize = 16)

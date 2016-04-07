@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream
 
@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.actor.Cancellable
 import akka.stream.{ ClosedShape, FlowShape }
 import akka.stream.scaladsl._
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 
 import scala.concurrent.{ Promise, Future }
 
@@ -181,7 +181,7 @@ class FlowDocSpec extends AkkaSpec {
     val r5: Promise[Option[Int]] = flow.to(sink).runWith(source)
     val r6: (Promise[Option[Int]], Future[Int]) = flow.runWith(source, sink)
 
-    // Using more complext combinations
+    // Using more complex combinations
     val r7: RunnableGraph[(Promise[Option[Int]], Cancellable)] =
       source.viaMat(flow)(Keep.both).to(sink)
 

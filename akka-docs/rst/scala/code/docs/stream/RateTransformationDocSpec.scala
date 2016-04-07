@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream
 
@@ -12,7 +12,7 @@ import scala.math._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.collection.immutable
-import akka.testkit.TestLatch
+import akka.testkit.{ AkkaSpec, TestLatch }
 
 class RateTransformationDocSpec extends AkkaSpec {
 

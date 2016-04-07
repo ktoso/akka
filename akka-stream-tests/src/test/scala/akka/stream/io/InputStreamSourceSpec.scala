@@ -1,22 +1,23 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.io
 
-import java.io.{ OutputStream, PipedOutputStream, PipedInputStream, InputStream }
+import java.io.{ InputStream }
 import java.util.concurrent.CountDownLatch
 
-import akka.stream.scaladsl.{ Source, Sink, StreamConverters }
+import akka.stream.scaladsl.{ Sink, StreamConverters }
 import akka.stream.testkit._
 import akka.stream.testkit.Utils._
 import akka.stream.testkit.scaladsl.TestSink
-import akka.stream.{ Attributes, OverflowStrategy, ActorMaterializer, ActorMaterializerSettings }
+import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
 import akka.util.ByteString
+import akka.testkit.AkkaSpec
 import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class InputStreamSourceSpec extends AkkaSpec(UnboundedMailboxConfig) with ScalaFutures {
+class InputStreamSourceSpec extends AkkaSpec(UnboundedMailboxConfig) {
 
   val settings = ActorMaterializerSettings(system).withDispatcher("akka.actor.default-dispatcher")
   implicit val materializer = ActorMaterializer(settings)

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.extension
 
@@ -80,7 +80,6 @@ object ExtensionDocSpec {
 }
 
 class ExtensionDocSpec extends AkkaSpec(ExtensionDocSpec.config) {
-  import ExtensionDocSpec._
 
   "demonstrate how to create an extension in Scala" in {
     //#extension-usage

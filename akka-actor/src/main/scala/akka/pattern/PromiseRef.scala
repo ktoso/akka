@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.pattern
 
@@ -7,7 +7,6 @@ import akka.actor._
 import akka.util.Timeout
 
 import scala.concurrent.{ Future, Promise }
-import scala.language.implicitConversions
 
 /**
  * A combination of a Future and an ActorRef associated with it, which points

@@ -1,20 +1,56 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka
 
-import com.typesafe.tools.mima.plugin.MimaKeys.{bbcIssueFilters, previousArtifacts}
-import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import sbt._
+import sbt.Keys._
+import com.typesafe.tools.mima.plugin.MimaPlugin
+import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport._
 
 object MiMa extends AutoPlugin {
 
+  override def requires = MimaPlugin
   override def trigger = allRequirements
 
-  override val projectSettings = mimaDefaultSettings ++ Seq(
-    previousArtifacts := Set.empty,
-    bbcIssueFilters ++= mimaIgnoredProblems
+  override val projectSettings = Seq(
+    mimaBackwardIssueFilters ++= mimaIgnoredProblems,
+    mimaPreviousArtifacts := akkaPreviousArtifacts(name.value, organization.value, scalaBinaryVersion.value)
   )
+
+  def akkaPreviousArtifacts(projectName: String, organization: String, scalaBinaryVersion: String): Set[sbt.ModuleID] = {
+    val versions = {
+      val akka23Versions = Seq("2.3.11", "2.3.12", "2.3.13", "2.3.14")
+      val akka24NoStreamVersions = Seq("2.4.0", "2.4.1")
+      val akka24StreamVersions = Seq("2.4.2")
+      val akka24NewArtifacts = Seq(
+        "akka-cluster-sharding",
+        "akka-cluster-tools",
+        "akka-cluster-metrics",
+        "akka-persistence",
+        "akka-distributed-data-experimental",
+        "akka-persistence-query-experimental"
+      )
+      val akka242NewArtifacts = Seq(
+        "akka-stream",
+        "akka-stream-testkit",
+        "akka-http-core",
+        "akka-http-experimental",
+        "akka-http-testkit",
+        "akka-http-jackson-experimental",
+        "akka-http-spray-json-experimental",
+        "akka-http-xml-experimental"
+      )
+      scalaBinaryVersion match {
+        case "2.11" if !(akka24NewArtifacts ++ akka242NewArtifacts).contains(projectName) => akka23Versions ++ akka24NoStreamVersions ++ akka24StreamVersions
+        case _ if akka242NewArtifacts.contains(projectName) => akka24StreamVersions
+        case _ => akka24NoStreamVersions ++ akka24StreamVersions // Only Akka 2.4.x for scala > than 2.11
+      }
+    }
+
+    // check against all binary compatible artifacts
+    versions.map(organization %% projectName % _).toSet
+  }
 
   case class FilterAnyProblem(name: String) extends com.typesafe.tools.mima.core.ProblemFilter {
     import com.typesafe.tools.mima.core._
@@ -38,6 +74,7 @@ object MiMa extends AutoPlugin {
     val bcIssuesBetween23and24 = Seq(
       FilterAnyProblem("akka.remote.testconductor.Terminate"),
       FilterAnyProblem("akka.remote.testconductor.TerminateMsg"),
+
       ProblemFilters.exclude[MissingMethodProblem]("akka.remote.testconductor.Conductor.shutdown"),
       ProblemFilters.exclude[MissingMethodProblem]("akka.remote.testkit.MultiNodeSpec.akka$remote$testkit$MultiNodeSpec$$deployer"),
       FilterAnyProblem("akka.remote.EndpointManager$Pass"),
@@ -565,8 +602,7 @@ object MiMa extends AutoPlugin {
 
     Map(
       "2.3.11" -> Seq(
-        ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ActorCell.clearActorFields"), // #17805, incompatibility with 2.4.x fixed in 2.3.12
-        ProblemFilters.exclude[MissingMethodProblem]("akka.japi.Pair.toString") // reported on PR validation machine which uses Java 1.8.0_45
+        ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ActorCell.clearActorFields") // #17805, incompatibility with 2.4.x fixed in 2.3.12
       ),
       "2.3.14" -> bcIssuesBetween23and24,
       "2.4.0" -> Seq(
@@ -608,6 +644,77 @@ object MiMa extends AutoPlugin {
         // #19440
         ProblemFilters.exclude[MissingMethodProblem]("akka.pattern.PipeToSupport.pipeCompletionStage"),
         ProblemFilters.exclude[MissingMethodProblem]("akka.pattern.FutureTimeoutSupport.afterCompletionStage")
+      ),
+      "2.4.2" -> Seq(
+        //internal API
+        FilterAnyProblemStartingWith("akka.http.impl"),
+        FilterAnyProblemStartingWith("akka.stream.impl"),
+
+        ProblemFilters.exclude[FinalClassProblem]("akka.stream.stage.GraphStageLogic$Reading"), // this class is private
+
+        // lifting this method to the type where it belongs
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.stream.scaladsl.FlowOpsMat.mapMaterializedValue"),
+
+        // #19815 make HTTP compile under Scala 2.12.0-M3
+        ProblemFilters.exclude[IncompatibleMethTypeProblem]("akka.http.scaladsl.model.headers.CacheDirectives#private.apply"),
+        ProblemFilters.exclude[IncompatibleMethTypeProblem]("akka.http.scaladsl.model.headers.CacheDirectives#no-cache.apply"),
+
+        // #19983 withoutSizeLimit overrides for Scala API
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.http.scaladsl.model.RequestEntity.withoutSizeLimit"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.http.scaladsl.model.UniversalEntity.withoutSizeLimit"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.http.scaladsl.model.ResponseEntity.withoutSizeLimit"),
+
+        // #19162 javadsl initialization issues and model cleanup
+        ProblemFilters.exclude[FinalClassProblem]("akka.http.javadsl.model.MediaTypes"),
+
+        // #19956 Remove exposed case classes in HTTP model
+        ProblemFilters.exclude[MissingTypesProblem]("akka.http.scaladsl.model.HttpRequest$"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.http.scaladsl.model.HttpRequest.unapply"), // returned Option[HttpRequest], now returns HttpRequest – no Option allocations!
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpRequest.<init>$default$1"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpRequest.<init>$default$2"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpRequest.<init>$default$3"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpRequest.<init>$default$4"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpRequest.<init>$default$5"),
+        ProblemFilters.exclude[MissingTypesProblem]("akka.http.scaladsl.model.HttpResponse"), // was a case class (Serializable, Product, Equals)
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpResponse.productElement"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpResponse.productArity"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpResponse.canEqual"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpResponse.productIterator"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpResponse.productPrefix"),
+
+        ProblemFilters.exclude[MissingTypesProblem]("akka.http.scaladsl.model.HttpRequest"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpRequest.productElement"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpRequest.productArity"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpRequest.canEqual"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpRequest.productIterator"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpRequest.productPrefix"),
+        ProblemFilters.exclude[MissingTypesProblem]("akka.http.scaladsl.model.HttpResponse$"),
+        ProblemFilters.exclude[IncompatibleResultTypeProblem]("akka.http.scaladsl.model.HttpResponse.unapply"), // returned Option[HttpRequest], now returns HttpRequest – no Option allocations!
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpResponse.<init>$default$1"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpResponse.<init>$default$2"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpResponse.<init>$default$3"),
+        ProblemFilters.exclude[MissingMethodProblem]("akka.http.scaladsl.model.HttpResponse.<init>$default$4"),
+
+        // #19162 fixing javadsl initialization edge-cases
+        ProblemFilters.exclude[DirectMissingMethodProblem]("akka.http.javadsl.model.ContentTypes.this"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("akka.http.javadsl.model.MediaTypes.this"),
+
+        // #20014 should have been final always
+        ProblemFilters.exclude[FinalClassProblem]("akka.http.scaladsl.model.EntityStreamSizeException"),
+
+        // #19849 content negotiation fixes
+        ProblemFilters.exclude[FinalClassProblem]("akka.http.scaladsl.marshalling.Marshal$UnacceptableResponseContentTypeException"),
+
+        // #15947 catch mailbox creation failures
+        ProblemFilters.exclude[DirectMissingMethodProblem]("akka.actor.RepointableActorRef.point"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.actor.dungeon.Dispatch.initWithFailure"),
+
+        // #19828
+        ProblemFilters.exclude[DirectAbstractMethodProblem]("akka.persistence.Eventsourced#ProcessingState.onWriteMessageComplete"),
+        ProblemFilters.exclude[ReversedAbstractMethodProblem]("akka.persistence.Eventsourced#ProcessingState.onWriteMessageComplete"),
+
+        // #19390 Add flow monitor
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.stream.scaladsl.FlowOpsMat.monitor")
       )
     )
   }

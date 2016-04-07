@@ -1,11 +1,11 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.NotUsed
-import akka.stream.testkit.AkkaSpec
-import akka.stream.ActorMaterializer
+import akka.testkit.AkkaSpec
+import akka.stream.{ ActorMaterializerSettings, ActorMaterializer }
 import scala.concurrent._
 import scala.concurrent.duration._
 import org.scalatest.concurrent.ScalaFutures
@@ -15,7 +15,7 @@ import org.scalatest.exceptions.TestFailedException
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestLatch
 
-class FlowFlattenMergeSpec extends AkkaSpec with ScalaFutures with ConversionCheckedTripleEquals {
+class FlowFlattenMergeSpec extends AkkaSpec {
   implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
@@ -24,8 +24,6 @@ class FlowFlattenMergeSpec extends AkkaSpec with ScalaFutures with ConversionChe
 
   val toSeq = Flow[Int].grouped(1000).toMat(Sink.head)(Keep.right)
   val toSet = toSeq.mapMaterializedValue(_.map(_.toSet))
-
-  implicit val patience = PatienceConfig(1.second)
 
   "A FattenMerge" must {
 
@@ -124,23 +122,22 @@ class FlowFlattenMergeSpec extends AkkaSpec with ScalaFutures with ConversionChe
     }
 
     "cancel substreams when failing map function" in {
-      val p1, p2 = TestPublisher.probe[Int]()
+      val settings = ActorMaterializerSettings(system).withSyncProcessingLimit(1).withInputBuffer(1, 1)
+      val mat = ActorMaterializer(settings)
+      val p = TestPublisher.probe[Int]()
       val ex = new Exception("buh")
       val latch = TestLatch()
       Source(1 to 3)
         .flatMapMerge(10, {
-          case 1 ⇒ Source.fromPublisher(p1)
-          case 2 ⇒ Source.fromPublisher(p2)
-          case 3 ⇒
+          case 1 ⇒ Source.fromPublisher(p)
+          case 2 ⇒
             Await.ready(latch, 3.seconds)
             throw ex
         })
-        .runWith(Sink.head)
-      p1.expectRequest()
-      p2.expectRequest()
+        .runWith(Sink.head)(mat)
+      p.expectRequest()
       latch.countDown()
-      p1.expectCancellation()
-      p2.expectCancellation()
+      p.expectCancellation()
     }
 
     "cancel substreams when being cancelled" in {

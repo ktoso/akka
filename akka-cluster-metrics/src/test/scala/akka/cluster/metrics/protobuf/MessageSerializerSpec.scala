@@ -1,13 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster.metrics.protobuf
 
 import akka.actor.{ ExtendedActorSystem, Address }
-import collection.immutable.SortedSet
 import akka.testkit.AkkaSpec
-import java.math.BigInteger
 import akka.cluster.MemberStatus
 import akka.cluster.metrics.MetricsGossip
 import akka.cluster.metrics.NodeMetrics

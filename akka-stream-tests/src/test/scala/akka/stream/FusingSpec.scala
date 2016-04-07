@@ -1,11 +1,10 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream
 
-import akka.stream._
 import akka.stream.scaladsl._
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import org.scalactic.ConversionCheckedTripleEquals
 import akka.stream.Attributes._
 import akka.stream.Fusing.FusedGraph
@@ -16,11 +15,10 @@ import scala.concurrent.duration._
 import akka.stream.impl.fusing.GraphInterpreter
 import akka.event.BusLogging
 
-class FusingSpec extends AkkaSpec with ScalaFutures with ConversionCheckedTripleEquals {
+class FusingSpec extends AkkaSpec {
 
   final val Debug = false
   implicit val materializer = ActorMaterializer()
-  implicit val patience = PatienceConfig(1.second)
 
   def graph(async: Boolean) =
     Source.unfold(1)(x ⇒ Some(x -> x)).filter(_ % 2 == 1)

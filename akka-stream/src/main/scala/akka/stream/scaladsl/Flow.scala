@@ -1,16 +1,14 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.event.LoggingAdapter
-import akka.stream.Attributes._
 import akka.stream._
 import akka.Done
 import akka.stream.impl.Stages.{ DirectProcessor, StageModule }
-import akka.stream.impl.StreamLayout.{ EmptyModule, Module }
+import akka.stream.impl.StreamLayout.Module
 import akka.stream.impl._
-import akka.stream.impl.fusing.GraphStages.TerminationWatcher
 import akka.stream.impl.fusing._
 import akka.stream.stage.AbstractStage.{ PushPullGraphStage, PushPullGraphStageWithMaterializedValue }
 import akka.stream.stage._
@@ -18,7 +16,7 @@ import org.reactivestreams.{ Processor, Publisher, Subscriber, Subscription }
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.immutable
 import scala.concurrent.Future
-import scala.concurrent.duration.{ Duration, FiniteDuration }
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 import akka.stream.impl.fusing.FlattenMerge
 
@@ -32,6 +30,8 @@ final class Flow[-In, +Out, +Mat](private[stream] override val module: Module)
 
   override val shape: FlowShape[In, Out] = module.shape.asInstanceOf[FlowShape[In, Out]]
 
+  override def toString: String = s"Flow($shape, $module)"
+
   override type Repr[+O] = Flow[In @uncheckedVariance, O, Mat @uncheckedVariance]
   override type ReprMat[+O, +M] = Flow[In @uncheckedVariance, O, M]
 
@@ -44,8 +44,14 @@ final class Flow[-In, +Out, +Mat](private[stream] override val module: Module)
 
   override def viaMat[T, Mat2, Mat3](flow: Graph[FlowShape[Out, T], Mat2])(combine: (Mat, Mat2) ⇒ Mat3): Flow[In, T, Mat3] =
     if (this.isIdentity) {
-      Flow.fromGraph(flow.asInstanceOf[Graph[FlowShape[In, T], Mat2]])
-        .mapMaterializedValue(combine(NotUsed.asInstanceOf[Mat], _))
+      import Predef.Map.empty
+      import StreamLayout.{ CompositeModule, Ignore, IgnorableMatValComp, Transform, Atomic, Combine }
+      val m = flow.module
+      val mat =
+        if (combine == Keep.left) {
+          if (IgnorableMatValComp(m)) Ignore else Transform(_ => NotUsed, Atomic(m))
+        } else Combine(combine.asInstanceOf[(Any, Any) => Any], Ignore, Atomic(m))
+      new Flow(CompositeModule(Set(m), m.shape, empty, empty, mat, Attributes.none))
     } else {
       val flowCopy = flow.module.carbonCopy
       new Flow(
@@ -88,11 +94,14 @@ final class Flow[-In, +Out, +Mat](private[stream] override val module: Module)
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * Sink into the materialized value of the resulting Sink.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def toMat[Mat2, Mat3](sink: Graph[SinkShape[Out], Mat2])(combine: (Mat, Mat2) ⇒ Mat3): Sink[In, Mat3] = {
     if (isIdentity)
       Sink.fromGraph(sink.asInstanceOf[Graph[SinkShape[In], Mat2]])
-        .mapMaterializedValue(combine(().asInstanceOf[Mat], _))
+        .mapMaterializedValue(combine(NotUsed.asInstanceOf[Mat], _))
     else {
       val sinkCopy = sink.module.carbonCopy
       new Sink(
@@ -105,7 +114,7 @@ final class Flow[-In, +Out, +Mat](private[stream] override val module: Module)
   /**
    * Transform the materialized value of this Flow, leaving all other properties as they were.
    */
-  def mapMaterializedValue[Mat2](f: Mat ⇒ Mat2): ReprMat[Out, Mat2] =
+  override def mapMaterializedValue[Mat2](f: Mat ⇒ Mat2): ReprMat[Out, Mat2] =
     new Flow(module.transformMaterializedValue(f.asInstanceOf[Any ⇒ Any]))
 
   /**
@@ -134,6 +143,9 @@ final class Flow[-In, +Out, +Mat](private[stream] override val module: Module)
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * Flow into the materialized value of the resulting Flow.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def joinMat[Mat2, Mat3](flow: Graph[FlowShape[Out, In], Mat2])(combine: (Mat, Mat2) ⇒ Mat3): RunnableGraph[Mat3] = {
     val flowCopy = flow.module.carbonCopy
@@ -178,6 +190,9 @@ final class Flow[-In, +Out, +Mat](private[stream] override val module: Module)
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * [[BidiFlow]] into the materialized value of the resulting [[Flow]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def joinMat[I2, O2, Mat2, M](bidi: Graph[BidiShape[Out, O2, I2, In], Mat2])(combine: (Mat, Mat2) ⇒ M): Flow[I2, O2, M] = {
     val copy = bidi.module.carbonCopy
@@ -263,8 +278,6 @@ final class Flow[-In, +Out, +Mat](private[stream] override val module: Module)
 
   /** Converts this Scala DSL element to it's Java DSL counterpart. */
   def asJava: javadsl.Flow[In, Out, Mat] = new javadsl.Flow(this)
-
-  override def toString = s"""Flow(${module})"""
 }
 
 object Flow {
@@ -362,7 +375,10 @@ final case class RunnableGraph[+Mat](private[stream] val module: StreamLayout.Mo
 /**
  * Scala API: Operations offered by Sources and Flows with a free output side: the DSL flows left-to-right only.
  *
- * INTERNAL API: extending this trait is not supported under the binary compatibility rules for Akka.
+ * INTERNAL API: this trait will be changed in binary-incompatible ways for classes that are derived from it!
+ * Do not implement this interface outside the Akka code base!
+ *
+ * Binary compatibility is only maintained for callers of this trait’s interface.
  */
 trait FlowOps[+Out, +Mat] {
   import akka.stream.impl.Stages._
@@ -412,23 +428,23 @@ trait FlowOps[+Out, +Mat] {
   def recover[T >: Out](pf: PartialFunction[Throwable, T]): Repr[T] = andThen(Recover(pf))
 
   /**
-    * RecoverWith allows to switch to alternative Source on flow failure. It will stay in effect after
-    * a failure has been recovered so that each time there is a failure it is fed into the `pf` and a new
-    * Source may be materialized.
-    *
-    * Since the underlying failure signal onError arrives out-of-band, it might jump over existing elements.
-    * This stage can recover the failure signal, but not the skipped elements, which will be dropped.
-    *
-    * '''Emits when''' element is available from the upstream or upstream is failed and element is available
-    * from alternative Source
-    *
-    * '''Backpressures when''' downstream backpressures
-    *
-    * '''Completes when''' upstream completes or upstream failed with exception pf can handle
-    *
-    * '''Cancels when''' downstream cancels
-    *
-    */
+   * RecoverWith allows to switch to alternative Source on flow failure. It will stay in effect after
+   * a failure has been recovered so that each time there is a failure it is fed into the `pf` and a new
+   * Source may be materialized.
+   *
+   * Since the underlying failure signal onError arrives out-of-band, it might jump over existing elements.
+   * This stage can recover the failure signal, but not the skipped elements, which will be dropped.
+   *
+   * '''Emits when''' element is available from the upstream or upstream is failed and element is available
+   * from alternative Source
+   *
+   * '''Backpressures when''' downstream backpressures
+   *
+   * '''Completes when''' upstream completes or upstream failed with exception pf can handle
+   *
+   * '''Cancels when''' downstream cancels
+   *
+   */
   def recoverWith[T >: Out](pf: PartialFunction[Throwable, Graph[SourceShape[T], NotUsed]]): Repr[T] =
     via(new RecoverWith(pf))
 
@@ -468,27 +484,27 @@ trait FlowOps[+Out, +Mat] {
   def mapConcat[T](f: Out ⇒ immutable.Iterable[T]): Repr[T] = statefulMapConcat(() => f)
 
   /**
-    * Transform each input element into an `Iterable` of output elements that is
-    * then flattened into the output stream. The transformation is meant to be stateful,
-    * which is enabled by creating the transformation function anew for every materialization —
-    * the returned function will typically close over mutable objects to store state between
-    * invocations. For the stateless variant see [[FlowOps.mapConcat]].
-    *
-    * The returned `Iterable` MUST NOT contain `null` values,
-    * as they are illegal as stream elements - according to the Reactive Streams specification.
-    *
-    * '''Emits when''' the mapping function returns an element or there are still remaining elements
-    * from the previously calculated collection
-    *
-    * '''Backpressures when''' downstream backpressures or there are still remaining elements from the
-    * previously calculated collection
-    *
-    * '''Completes when''' upstream completes and all remaining elements has been emitted
-    *
-    * '''Cancels when''' downstream cancels
-    *
-    * See also [[FlowOps.mapConcat]]
-    */
+   * Transform each input element into an `Iterable` of output elements that is
+   * then flattened into the output stream. The transformation is meant to be stateful,
+   * which is enabled by creating the transformation function anew for every materialization —
+   * the returned function will typically close over mutable objects to store state between
+   * invocations. For the stateless variant see [[FlowOps.mapConcat]].
+   *
+   * The returned `Iterable` MUST NOT contain `null` values,
+   * as they are illegal as stream elements - according to the Reactive Streams specification.
+   *
+   * '''Emits when''' the mapping function returns an element or there are still remaining elements
+   * from the previously calculated collection
+   *
+   * '''Backpressures when''' downstream backpressures or there are still remaining elements from the
+   * previously calculated collection
+   *
+   * '''Completes when''' upstream completes and all remaining elements has been emitted
+   *
+   * '''Cancels when''' downstream cancels
+   *
+   * See also [[FlowOps.mapConcat]]
+   */
   def statefulMapConcat[T](f: () ⇒ Out ⇒ immutable.Iterable[T]): Repr[T] =
     via(new StatefulMapConcat(f))
 
@@ -526,7 +542,7 @@ trait FlowOps[+Out, +Mat] {
   /**
    * Transform this stream by applying the given function to each of the elements
    * as they pass through this processing step. The function returns a `Future` and the
-   * value of that future will be emitted downstreams. As many futures as requested elements by
+   * value of that future will be emitted downstream. As many futures as requested elements by
    * downstream may run in parallel and each processed element will be emitted downstream
    * as soon as it is ready, i.e. it is possible that the elements are not emitted downstream
    * in the same order as received from upstream.
@@ -600,7 +616,7 @@ trait FlowOps[+Out, +Mat] {
    *
    * See also [[FlowOps.limit]], [[FlowOps.limitWeighted]]
    */
-  def takeWhile(p: Out ⇒ Boolean): Repr[Out] = andThen(TakeWhile(p))
+  def takeWhile(p: Out ⇒ Boolean): Repr[Out] = via(TakeWhile(p))
 
   /**
    * Discard elements at the beginning of the stream while predicate is true.
@@ -614,7 +630,7 @@ trait FlowOps[+Out, +Mat] {
    *
    * '''Cancels when''' downstream cancels
    */
-  def dropWhile(p: Out ⇒ Boolean): Repr[Out] = andThen(DropWhile(p))
+  def dropWhile(p: Out ⇒ Boolean): Repr[Out] = via(DropWhile(p))
 
   /**
    * Transform this stream by applying the given partial function to each of the elements
@@ -629,7 +645,7 @@ trait FlowOps[+Out, +Mat] {
    *
    * '''Cancels when''' downstream cancels
    */
-  def collect[T](pf: PartialFunction[Out, T]): Repr[T] = andThen(Collect(pf))
+  def collect[T](pf: PartialFunction[Out, T]): Repr[T] = via(Collect(pf))
 
   /**
    * Chunk up this stream into groups of the given size, with the last group
@@ -692,7 +708,7 @@ trait FlowOps[+Out, +Mat] {
    *
    * See also [[FlowOps.take]], [[FlowOps.takeWithin]], [[FlowOps.takeWhile]]
    */
-  def limitWeighted[T](max: Long)(costFn: Out ⇒ Long): Repr[Out] = andThen(LimitWeighted(max, costFn))
+  def limitWeighted[T](max: Long)(costFn: Out ⇒ Long): Repr[Out] = via(LimitWeighted(max, costFn))
 
   /**
    * Apply a sliding window over the stream and return the windows as groups of elements, with the last group
@@ -889,7 +905,8 @@ trait FlowOps[+Out, +Mat] {
    *
    * '''Cancels when''' downstream cancels
    */
-  def drop(n: Long): Repr[Out] = andThen(Drop(n))
+  def drop(n: Long): Repr[Out] =
+    via(Drop[Out](n))
 
   /**
    * Discard the elements received within the given duration at beginning of the stream.
@@ -924,7 +941,8 @@ trait FlowOps[+Out, +Mat] {
    *
    * See also [[FlowOps.limit]], [[FlowOps.limitWeighted]]
    */
-  def take(n: Long): Repr[Out] = andThen(Take(n))
+  def take(n: Long): Repr[Out] =
+    via(Take[Out](n))
 
   /**
    * Terminate processing (and cancel the upstream publisher) after the given
@@ -1067,7 +1085,7 @@ trait FlowOps[+Out, +Mat] {
    *
    * '''Emits when''' downstream stops backpressuring
    *
-   * '''Backpressures when''' downstream backpressures or iterator runs emtpy
+   * '''Backpressures when''' downstream backpressures or iterator runs empty
    *
    * '''Completes when''' upstream completes
    *
@@ -1105,6 +1123,7 @@ trait FlowOps[+Out, +Mat] {
    * This operator makes it possible to extend the `Flow` API when there is no specialized
    * operator that performs the transformation.
    */
+  @deprecated("Use via(GraphStage) instead.", "2.4.3")
   def transform[T](mkStage: () ⇒ Stage[Out, T]): Repr[T] =
     via(new PushPullGraphStage((attr) ⇒ mkStage(), Attributes.none))
 
@@ -1296,7 +1315,7 @@ trait FlowOps[+Out, +Mat] {
    * is [[akka.stream.Supervision.Resume]] or [[akka.stream.Supervision.Restart]]
    * the element is dropped and the stream and substreams continue.
    *
-   * '''Emits when''' an element passes through. When the provided predicate is true it emitts the element
+   * '''Emits when''' an element passes through. When the provided predicate is true it emits the element
    * and opens a new substream for subsequent element
    *
    * '''Backpressures when''' there is an element pending for the next substream, but the previous
@@ -1430,7 +1449,7 @@ trait FlowOps[+Out, +Mat] {
    *
    * Throttle implements the token bucket model. There is a bucket with a given token capacity (burst size or maximumBurst).
    * Tokens drops into the bucket at a given rate and can be `spared` for later use up to bucket capacity
-   * to allow some burstyness. Whenever stream wants to send an element, it takes as many
+   * to allow some burstiness. Whenever stream wants to send an element, it takes as many
    * tokens from the bucket as number of elements. If there isn't any, throttle waits until the
    * bucket accumulates enough tokens. Bucket is full when stream just materialized and started.
    *
@@ -1458,10 +1477,17 @@ trait FlowOps[+Out, +Mat] {
    *
    * Throttle implements the token bucket model. There is a bucket with a given token capacity (burst size or maximumBurst).
    * Tokens drops into the bucket at a given rate and can be `spared` for later use up to bucket capacity
-   * to allow some burstyness. Whenever stream wants to send an element, it takes as many
+   * to allow some burstiness. Whenever stream wants to send an element, it takes as many
    * tokens from the bucket as element cost. If there isn't any, throttle waits until the
    * bucket accumulates enough tokens. Elements that costs more than the allowed burst will be delayed proportionally
    * to their cost minus available tokens, meeting the target rate.
+   *
+   * It is recommended to use non-zero burst sizes as they improve both performance and throttling precision by allowing
+   * the implementation to avoid using the scheduler when input rates fall below the enforced limit and to reduce
+   * most of the inaccuracy caused by the scheduler resolution (which is in the range of milliseconds).
+   *
+   * Throttler always enforces the rate limit, but in certain cases (mostly due to limited scheduler resolution) it
+   * enforces a tighter bound than what was prescribed. This can be also mitigated by increasing the burst size.
    *
    * Parameter `mode` manages behaviour when upstream is faster than throttle rate:
    *  - [[akka.stream.ThrottleMode.Shaping]] makes pauses before emitting messages to meet throttle rate
@@ -1780,7 +1806,10 @@ trait FlowOps[+Out, +Mat] {
 }
 
 /**
- * INTERNAL API: extending this trait is not supported under the binary compatibility rules for Akka.
+  * INTERNAL API: this trait will be changed in binary-incompatible ways for classes that are derived from it!
+  * Do not implement this interface outside the Akka code base!
+  *
+  * Binary compatibility is only maintained for callers of this trait’s interface.
  */
 trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
 
@@ -1813,6 +1842,9 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * flow into the materialized value of the resulting Flow.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def viaMat[T, Mat2, Mat3](flow: Graph[FlowShape[Out, T], Mat2])(combine: (Mat, Mat2) ⇒ Mat3): ReprMat[T, Mat3]
 
@@ -1831,6 +1863,9 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * Sink into the materialized value of the resulting Sink.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def toMat[Mat2, Mat3](sink: Graph[SinkShape[Out], Mat2])(combine: (Mat, Mat2) ⇒ Mat3): ClosedMat[Mat3]
 
@@ -1838,6 +1873,9 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * Combine the elements of current flow and the given [[Source]] into a stream of tuples.
    *
    * @see [[#zip]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def zipMat[U, Mat2, Mat3](that: Graph[SourceShape[U], Mat2])(matF: (Mat, Mat2) ⇒ Mat3): ReprMat[(Out, U), Mat3] =
     viaMat(zipGraph(that))(matF)
@@ -1847,6 +1885,9 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * into a stream of combined elements using a combiner function.
    *
    * @see [[#zipWith]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def zipWithMat[Out2, Out3, Mat2, Mat3](that: Graph[SourceShape[Out2], Mat2])(combine: (Out, Out2) ⇒ Out3)(matF: (Mat, Mat2) ⇒ Mat3): ReprMat[Out3, Mat3] =
     viaMat(zipWithGraph(that)(combine))(matF)
@@ -1856,6 +1897,9 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * picking randomly when several elements ready.
    *
    * @see [[#merge]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def mergeMat[U >: Out, Mat2, Mat3](that: Graph[SourceShape[U], Mat2], eagerComplete: Boolean = false)(matF: (Mat, Mat2) ⇒ Mat3): ReprMat[U, Mat3] =
     viaMat(mergeGraph(that, eagerComplete))(matF)
@@ -1870,6 +1914,9 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * If it gets error from one of upstreams - stream completes with failure.
    *
    * @see [[#interleave]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def interleaveMat[U >: Out, Mat2, Mat3](that: Graph[SourceShape[U], Mat2], request: Int)(matF: (Mat, Mat2) ⇒ Mat3): ReprMat[U, Mat3] =
     viaMat(interleaveGraph(that, request))(matF)
@@ -1882,6 +1929,9 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * does not complete).
    *
    * @see [[#mergeSorted]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def mergeSortedMat[U >: Out, Mat2, Mat3](that: Graph[SourceShape[U], Mat2])(matF: (Mat, Mat2) ⇒ Mat3)(implicit ord: Ordering[U]): ReprMat[U, Mat3] =
     viaMat(mergeSortedGraph(that))(matF)
@@ -1897,6 +1947,9 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * If this [[Flow]] gets upstream error - no elements from the given [[Source]] will be pulled.
    *
    * @see [[#concat]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def concatMat[U >: Out, Mat2, Mat3](that: Graph[SourceShape[U], Mat2])(matF: (Mat, Mat2) ⇒ Mat3): ReprMat[U, Mat3] =
     viaMat(concatGraph(that))(matF)
@@ -1912,6 +1965,9 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * If the given [[Source]] gets upstream error - no elements from this [[Flow]] will be pulled.
    *
    * @see [[#prepend]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def prependMat[U >: Out, Mat2, Mat3](that: Graph[SourceShape[U], Mat2])(matF: (Mat, Mat2) ⇒ Mat3): ReprMat[U, Mat3] =
     viaMat(prependGraph(that))(matF)
@@ -1921,6 +1977,9 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * through will also be sent to the [[Sink]].
    *
    * @see [[#alsoTo]]
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def alsoToMat[Mat2, Mat3](that: Graph[SinkShape[Out], Mat2])(matF: (Mat, Mat2) ⇒ Mat3): ReprMat[Out, Mat3] =
     viaMat(alsoToGraph(that))(matF)
@@ -1930,9 +1989,26 @@ trait FlowOpsMat[+Out, +Mat] extends FlowOps[Out, Mat] {
    * The Future completes with success when received complete message from upstream or cancel
    * from downstream. It fails with the same error when received error message from
    * downstream.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def watchTermination[Mat2]()(matF: (Mat, Future[Done]) ⇒ Mat2): ReprMat[Out, Mat2] =
     viaMat(GraphStages.terminationWatcher)(matF)
+
+  /**
+   * Transform the materialized value of this graph, leaving all other properties as they were.
+   */
+  def mapMaterializedValue[Mat2](f: Mat ⇒ Mat2): ReprMat[Out, Mat2]
+
+  /**
+    * Materializes to `FlowMonitor[Out]` that allows monitoring of the the current flow. All events are propagated
+    * by the monitor unchanged. Note that the monitor inserts a memory barrier every time it processes an
+    * event, and may therefor affect performance.
+    * The `combine` function is used to combine the `FlowMonitor` with this flow's materialized value.
+    */
+  def monitor[Mat2]()(combine: (Mat, FlowMonitor[Out]) => Mat2): ReprMat[Out, Mat2] =
+    viaMat(GraphStages.monitor)(combine)
 
   /**
    * INTERNAL API.

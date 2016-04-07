@@ -1,12 +1,11 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.typed.patterns
 
 import Receptionist._
 import akka.typed.ScalaDSL._
 import akka.typed.AskPattern._
-import scala.concurrent.Future
 import scala.concurrent.duration._
 import akka.typed._
 

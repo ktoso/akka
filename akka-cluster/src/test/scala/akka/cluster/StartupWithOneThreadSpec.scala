@@ -1,21 +1,13 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster
 
-import language.postfixOps
-import language.reflectiveCalls
 import scala.concurrent.duration._
 import akka.testkit.AkkaSpec
 import akka.testkit.ImplicitSender
-import akka.actor.ExtendedActorSystem
 import akka.actor.Address
-import akka.cluster.InternalClusterAction._
-import java.lang.management.ManagementFactory
-import javax.management.ObjectName
-import akka.actor.ActorRef
-import akka.testkit.TestProbe
 import akka.actor.Props
 import akka.actor.Actor
 import akka.actor.ActorLogging

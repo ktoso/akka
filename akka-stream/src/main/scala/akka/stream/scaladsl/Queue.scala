@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -29,6 +29,23 @@ trait SourceQueue[T] {
    * Method returns future that completes when stream is completed and fails when stream failed
    */
   def watchCompletion(): Future[Done]
+}
+
+/**
+ * This trait adds completion support to [[SourceQueue]].
+ */
+trait SourceQueueWithComplete[T] extends SourceQueue[T] {
+  /**
+   * Complete the stream normally. Use `watchCompletion` to be notified of this
+   * operation’s success.
+   */
+  def complete(): Unit
+
+  /**
+   * Complete the stream with a failure. Use `watchCompletion` to be notified of this
+   * operation’s success.
+   */
+  def fail(ex: Throwable): Unit
 }
 
 /**

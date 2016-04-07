@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.pattern.extended
 
@@ -14,7 +14,7 @@ object ExplicitAskSpec {
   case class Response(sentFrom: ActorRef)
 }
 
-class ExplicitAskSpec extends AkkaSpec with ScalaFutures {
+class ExplicitAskSpec extends AkkaSpec {
   import ExplicitAskSpec._
 
   "The “ask” pattern with explicit sender" must {
@@ -47,4 +47,3 @@ class ExplicitAskSpec extends AkkaSpec with ScalaFutures {
   }
 
 }
-

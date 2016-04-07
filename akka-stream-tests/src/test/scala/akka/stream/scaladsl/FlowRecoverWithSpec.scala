@@ -1,12 +1,12 @@
 /**
- * Copyright (C) 2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
 import akka.stream.testkit.Utils._
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 
 import scala.util.control.NoStackTrace
 

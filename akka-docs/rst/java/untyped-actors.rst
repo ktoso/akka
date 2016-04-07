@@ -158,8 +158,8 @@ __ Props_
 Techniques for dependency injection and integration with dependency injection frameworks
 are described in more depth in the
 `Using Akka with Dependency Injection <http://letitcrash.com/post/55958814293/akka-dependency-injection>`_
-guideline and the `Akka Java Spring <http://www.typesafe.com/activator/template/akka-java-spring>`_ tutorial
-in Typesafe Activator.
+guideline and the `Akka Java Spring <http://www.lightbend.com/activator/template/akka-java-spring>`_ tutorial
+in Lightbend Activator.
 
 The Inbox
 ---------
@@ -248,6 +248,13 @@ be reused again by creating an actor with ``actorOf()``. In this case the
 name of the new incarnation will be the same as the previous one but the
 UIDs will differ. An actor can be stopped by the actor itself, another actor
 or the ``ActorSystem`` (see :ref:`stopping-actors-java`).
+
+.. note::
+
+   It is important to note that Actors do not stop automatically when no longer
+   referenced, every Actor that is created must also explicitly be destroyed.
+   The only simplification is that stopping a parent Actor will also recursively
+   stop all the child Actors that this parent has created.
 
 An ``ActorRef`` always represents an incarnation (path and UID) not just a
 given path. Therefore if an actor is stopped and a new one with the same
@@ -518,6 +525,10 @@ complete the returned :class:`Future` with a value. The ``ask`` operation
 involves creating an internal actor for handling this reply, which needs to
 have a timeout after which it is destroyed in order not to leak resources; see
 more below.
+
+.. note::
+    A Java 8 variant of the ``ask`` pattern that returns a ``CompletionStage`` instead of a Scala ``Future``
+    is available in the ``akka.pattern.PatternsCS`` object.
 
 .. warning::
 

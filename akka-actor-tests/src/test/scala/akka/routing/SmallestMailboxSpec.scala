@@ -1,11 +1,10 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.routing
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.Await
-import scala.concurrent.duration._
 import akka.actor.{ Props, Actor }
 import akka.testkit.{ TestLatch, ImplicitSender, DefaultTimeout, AkkaSpec }
 

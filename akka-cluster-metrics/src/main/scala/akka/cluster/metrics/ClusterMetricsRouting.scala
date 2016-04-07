@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.cluster.metrics
 
@@ -17,7 +17,6 @@ import akka.actor.NoSerializationVerificationNeeded
 import akka.actor.Props
 import akka.actor.SupervisorStrategy
 import akka.cluster.Cluster
-import akka.cluster.ClusterEvent.CurrentClusterState
 import akka.dispatch.Dispatchers
 import akka.japi.Util.immutableSeq
 import akka.routing._

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.actor
 
@@ -111,7 +111,6 @@ object ActorPublisherMessage {
  * failure, completed or canceled.
  */
 trait ActorPublisher[T] extends Actor {
-  import ActorPublisher._
   import akka.stream.actor.ActorPublisherMessage._
   import ActorPublisher.Internal._
   import ActorPublisherMessage._
@@ -193,11 +192,11 @@ trait ActorPublisher[T] extends Actor {
    * call [[#onNext]], [[#onError]] and [[#onComplete]].
    */
   def onComplete(): Unit = lifecycleState match {
-    case Active | PreSubscriber | CompleteThenStop ⇒
+    case Active | PreSubscriber ⇒
       lifecycleState = Completed
       if (subscriber ne null) // otherwise onComplete will be called when the subscription arrives
         try tryOnComplete(subscriber) finally subscriber = null
-    case Completed ⇒
+    case Completed | CompleteThenStop ⇒
       throw new IllegalStateException("onComplete must only be called once")
     case _: ErrorEmitted ⇒
       throw new IllegalStateException("onComplete must not be called after onError")
@@ -226,13 +225,13 @@ trait ActorPublisher[T] extends Actor {
    * call [[#onNext]], [[#onError]] and [[#onComplete]].
    */
   def onError(cause: Throwable): Unit = lifecycleState match {
-    case Active | PreSubscriber | CompleteThenStop ⇒
+    case Active | PreSubscriber ⇒
       lifecycleState = ErrorEmitted(cause, stop = false)
       if (subscriber ne null) // otherwise onError will be called when the subscription arrives
         try tryOnError(subscriber, cause) finally subscriber = null
     case _: ErrorEmitted ⇒
       throw new IllegalStateException("onError must only be called once")
-    case Completed ⇒
+    case Completed | CompleteThenStop ⇒
       throw new IllegalStateException("onError must not be called after onComplete")
     case Canceled ⇒ // drop
   }
@@ -261,8 +260,6 @@ trait ActorPublisher[T] extends Actor {
       if (n < 1) {
         if (lifecycleState == Active)
           onError(numberOfElementsInRequestMustBePositiveException)
-        else
-          super.aroundReceive(receive, msg)
       } else {
         demand += n
         if (demand < 0)
@@ -368,7 +365,6 @@ trait ActorPublisher[T] extends Actor {
  * INTERNAL API
  */
 private[akka] final case class ActorPublisherImpl[T](ref: ActorRef) extends Publisher[T] {
-  import ActorPublisher._
   import ActorPublisher.Internal._
 
   override def subscribe(sub: Subscriber[_ >: T]): Unit = {
@@ -381,7 +377,6 @@ private[akka] final case class ActorPublisherImpl[T](ref: ActorRef) extends Publ
  * INTERNAL API
  */
 private[akka] class ActorPublisherSubscription[T](ref: ActorRef) extends Subscription {
-  import ActorPublisher._
   import ActorPublisherMessage._
 
   override def request(n: Long): Unit = ref ! Request(n)

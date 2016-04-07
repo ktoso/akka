@@ -1,15 +1,10 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.typed
 
 import akka.event.EventStream
-import akka.actor.Scheduler
 import scala.concurrent.ExecutionContext
-import java.util.concurrent.Executor
-import scala.concurrent.duration.Duration
-import akka.actor.Extension
-import akka.actor.ExtensionId
 import akka.actor.ActorRefProvider
 import java.util.concurrent.ThreadFactory
 import akka.actor.DynamicAccess

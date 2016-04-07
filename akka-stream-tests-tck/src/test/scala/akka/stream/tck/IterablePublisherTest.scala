@@ -1,9 +1,8 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.tck
 
-import scala.collection.immutable
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import org.reactivestreams._

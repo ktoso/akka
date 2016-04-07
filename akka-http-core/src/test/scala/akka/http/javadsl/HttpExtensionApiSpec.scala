@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.http.javadsl
 
@@ -8,7 +8,6 @@ import java.util.Optional
 import java.util.concurrent.{ CompletionStage, TimeUnit, CompletableFuture }
 
 import akka.NotUsed
-import akka.http.impl.util.JavaMapping.HttpsConnectionContext
 import akka.http.javadsl.ConnectHttp._
 import akka.http.javadsl.model.ws._
 import akka.http.javadsl.settings.{ ClientConnectionSettings, ConnectionPoolSettings, ServerSettings }
@@ -18,17 +17,15 @@ import akka.event.NoLogging
 import akka.http.javadsl.model._
 import akka.http.scaladsl.TestUtils
 import akka.japi.Function
-import akka.stream.{ Materializer, ActorMaterializer }
+import akka.stream.{ ActorMaterializer }
 import akka.stream.javadsl.{ Source, Flow, Sink, Keep }
 import akka.stream.testkit.TestSubscriber
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.typesafe.config.{ ConfigFactory }
 import org.scalatest.{ WordSpec, Matchers, BeforeAndAfterAll }
 import org.scalatest.concurrent.ScalaFutures
-import scala.concurrent.{ Future, Await }
-import scala.concurrent.duration._
 import scala.util.Try
 
-class HttpExtensionApiSpec extends WordSpec with Matchers with BeforeAndAfterAll with ScalaFutures {
+class HttpExtensionApiSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
   // tries to cover all surface area of javadsl.Http
 
@@ -383,7 +380,6 @@ class HttpExtensionApiSpec extends WordSpec with Matchers with BeforeAndAfterAll
 
     "create an outgoing connection (with 6 parameters)" in {
       val (host, port, binding) = runServer()
-      println("host = " + host)
       val flow = http.outgoingConnection(
         toHost(host, port),
         Optional.empty(),

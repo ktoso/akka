@@ -3,7 +3,7 @@ a { color: #15A9CE; }
 a:hover { color: #15A9CE; text-decoration: underline; }
 .navbar { margin-bottom: 18px; }
 .navbar-logo { visibility: visible; float: left; padding-top: 0px; }
-.main { position: relative; height: auto; margin-top: -18px; overflow: auto; background: #15A9CE;}
+.main { position: relative; height: auto; margin-top: -18px; overflow: visible; background: #15A9CE;}
 .page-title { position: relative; top: 24px; font-family: 'Source Sans Pro', sans-serif; font-size: 24px; font-weight: 400; color: rgba(255, 255, 255, 1); width: 840px;}
 .main-container { background: #ffffff;  min-height: 600px; padding-top: 20px; margin-top: 28px; }
 .pdf-link { float: right; height: 40px; margin-bottom: -15px; margin-top: -5px; }
@@ -224,4 +224,22 @@ p.caption { width: 80%; text-align: justify; font-size: 0.95em; font-style: ital
   color: white;
   font-weight: normal;
   text-decoration: none;
+}
+
+/* fancy searchbox */
+#q {
+  background: url('search.jpg') 5px center no-repeat #FFF;
+  border: 1px solid #AAA;
+  float: right;
+  font-size: 11px;
+  margin: -4px 32px 0 12px;
+  opacity: 0.6;
+  outline: none;
+  padding: 3px 5px 3px 20px;
+  width: 180px;
+  border-radius: 5px;
+  -webkit-transition: 0.3s;
+  -moz-transition: 0.3s;
+  -o-transition: 0.3s;
+  transition: 0.3s;
 }

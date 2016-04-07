@@ -1,13 +1,17 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.model;
 
 import akka.http.impl.util.Util;
+import akka.http.javadsl.model.headers.EntityTagRanges;
 
 import java.util.Map;
 
+/**
+ * @see TransferEncodings for convenience access to often used values.
+ */
 public abstract class TransferEncoding {
     public abstract String name();
 

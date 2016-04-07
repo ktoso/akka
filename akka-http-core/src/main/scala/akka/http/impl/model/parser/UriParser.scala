@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.model.parser
@@ -228,7 +228,7 @@ private[http] class UriParser(val input: ParserInput,
   private def getDecodedString(charset: Charset = uriParsingCharset) =
     if (firstPercentIx >= 0) decode(sb.toString, charset, firstPercentIx)() else sb.toString
 
-  private def getDecodedStringAndLowerIfEncoded(charset: Charset = uriParsingCharset) =
+  private def getDecodedStringAndLowerIfEncoded(charset: Charset) =
     if (firstPercentIx >= 0) decode(sb.toString, charset, firstPercentIx)().toRootLowerCase else sb.toString
 
   private def createUriReference(): Uri = {

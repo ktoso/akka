@@ -1,14 +1,10 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster
 
-import akka.AkkaException
-
-import System.{ currentTimeMillis ⇒ newTimestamp }
 import java.security.MessageDigest
-import java.util.concurrent.atomic.AtomicLong
 import scala.collection.immutable.TreeMap
 import scala.annotation.tailrec
 

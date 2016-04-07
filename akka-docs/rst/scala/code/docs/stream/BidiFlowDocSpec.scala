@@ -1,9 +1,9 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream
 
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.stream.scaladsl._
 import akka.stream._
 import akka.util.ByteString
@@ -143,7 +143,7 @@ object BidiFlowDocSpec {
   })
 }
 
-class BidiFlowDocSpec extends AkkaSpec with ConversionCheckedTripleEquals {
+class BidiFlowDocSpec extends AkkaSpec {
   import BidiFlowDocSpec._
 
   implicit val materializer = ActorMaterializer()

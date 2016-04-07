@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+ */
 package akka
 
 import sbt._
@@ -33,7 +36,7 @@ object Dependencies {
     val netty         = "io.netty"                    % "netty"                        % "3.10.3.Final" // ApacheV2
     val scalaStm      = Def.setting { "org.scala-stm" %% "scala-stm" % scalaStmVersion.value } // Modified BSD (Scala)
 
-    val scalaXml      = "org.scala-lang.modules"      %% "scala-xml"                   % "1.0.1" // Scala License
+    val scalaXml      = "org.scala-lang.modules"      %% "scala-xml"                   % "1.0.5" // Scala License
     val scalaReflect  = ScalaVersionDependentModuleID.versioned("org.scala-lang" % "scala-reflect" % _) // Scala License
 
     val slf4jApi      = "org.slf4j"                   % "slf4j-api"                    % "1.7.16"       // MIT
@@ -56,7 +59,7 @@ object Dependencies {
     val sprayJson   = "io.spray"                     %% "spray-json"                   % "1.3.2"       // ApacheV2
 
     // For akka-http-jackson support
-    val jackson     = "com.fasterxml.jackson.core"    % "jackson-databind"             % "2.4.3"       // ApacheV2
+    val jackson     = "com.fasterxml.jackson.core"    % "jackson-databind"             % "2.7.2"       // ApacheV2
 
     // For akka-http-testkit-java
     val junit       = "junit"                         % "junit"                        % junitVersion  // Common Public License 1.0
@@ -174,7 +177,7 @@ object Dependencies {
     DependencyHelpers.versionDependentDeps(
       Dependencies.Compile.scalaReflect % "provided"
     ),
-    addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
+    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.fullMapped(nominalScalaVersion))
   )
 
   lazy val httpTestkit = l ++= Seq(
@@ -223,4 +226,15 @@ object DependencyHelpers {
    */
   def versionDependentDeps(modules: ScalaVersionDependentModuleID*): Def.Setting[Seq[ModuleID]] =
     libraryDependencies <++= scalaVersion(version => modules.flatMap(m => m.modules(version)))
+
+  val ScalaVersion = """\d\.\d+\.\d+(?:-(?:M|RC)\d+)?""".r
+  val nominalScalaVersion: String => String = {
+    // matches:
+    // 2.12.0-M1
+    // 2.12.0-RC1
+    // 2.12.0
+    case version @ ScalaVersion() => version
+    // transforms 2.12.0-custom-version to 2.12.0
+    case version => version.takeWhile(_ != '-')
+  }
 }

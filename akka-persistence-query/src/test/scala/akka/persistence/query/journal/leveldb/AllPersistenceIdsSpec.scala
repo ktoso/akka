@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.persistence.query.journal.leveldb
 
@@ -24,7 +24,6 @@ object AllPersistenceIdsSpec {
 
 class AllPersistenceIdsSpec extends AkkaSpec(AllPersistenceIdsSpec.config)
   with Cleanup with ImplicitSender {
-  import AllPersistenceIdsSpec._
 
   implicit val mat = ActorMaterializer()(system)
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.persistence.query
@@ -7,7 +7,6 @@ package akka.persistence.query
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.typesafe.config.{ Config, ConfigFactory }
-import scala.runtime.BoxedUnit
 
 /**
  * Use for tests only!

@@ -1,11 +1,10 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.remote
 
 import com.typesafe.config.Config
 import scala.concurrent.duration._
-import java.util.concurrent.TimeUnit.MILLISECONDS
 import akka.util.Timeout
 import scala.collection.immutable
 import akka.util.Helpers.ConfigOps

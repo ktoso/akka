@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.io
 
@@ -16,7 +16,6 @@ import akka.stream.impl.ReactiveStreamsCompliance
 import akka.stream.impl.fusing.GraphStages.detacher
 import akka.stream.scaladsl.Tcp.{ OutgoingConnection, ServerBinding }
 import akka.stream.scaladsl.{ BidiFlow, Flow, Tcp ⇒ StreamTcp }
-import akka.stream.stage.GraphStageLogic.StageActor
 import akka.stream.stage._
 import akka.util.ByteString
 
@@ -41,14 +40,14 @@ private[stream] class ConnectionSourceStage(val tcpManager: ActorRef,
   override def initialAttributes = Attributes.name("ConnectionSource")
   val shape: SourceShape[StreamTcp.IncomingConnection] = SourceShape(out)
 
-  private val connectionFlowsAwaitingInitialization = new AtomicLong()
-
   // TODO: Timeout on bind
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[ServerBinding]) = {
     val bindingPromise = Promise[ServerBinding]
 
     val logic = new TimerGraphStageLogic(shape) {
       implicit def self: ActorRef = stageActor.ref
+
+      val connectionFlowsAwaitingInitialization = new AtomicLong()
       var listener: ActorRef = _
       var unbindPromise = Promise[Unit]()
 
@@ -279,7 +278,7 @@ private[stream] object TcpConnectionStage {
 
     override def postStop(): Unit = role match {
       case Outbound(_, _, localAddressPromise, _) ⇒
-        // Fail if has not been completed with an address eariler
+        // Fail if has not been completed with an address earlier
         localAddressPromise.tryFailure(new StreamTcpException("Connection failed."))
       case _ ⇒ // do nothing...
     }

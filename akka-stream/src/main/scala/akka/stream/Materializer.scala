@@ -1,12 +1,11 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream
 
 import akka.actor.Cancellable
 
 import scala.concurrent.ExecutionContextExecutor
-import akka.japi
 
 import scala.concurrent.duration.FiniteDuration
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http:__www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http:__www.lightbend.com>
  */
 package akka.http.javadsl.model;
 
@@ -13,6 +13,8 @@ import akka.http.scaladsl.model.ContentType$;
  * you can obtain it from a {@link MediaType} by using: {@code MediaTypes.TEXT_HTML.toContentType()}
  */
 public final class ContentTypes {
+  private ContentTypes() { }
+
   public static final ContentType.WithFixedCharset APPLICATION_JSON = MediaTypes.APPLICATION_JSON.toContentType();
   public static final ContentType.Binary APPLICATION_OCTET_STREAM = MediaTypes.APPLICATION_OCTET_STREAM.toContentType();
 

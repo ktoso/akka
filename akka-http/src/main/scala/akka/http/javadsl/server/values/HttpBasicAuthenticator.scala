@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.server.values
 
 import akka.http.impl.server.{ ExtractionImplBase, RouteStructure }
 import akka.http.javadsl.server.{ AbstractDirective, RequestVal, Route }
-import akka.http.scaladsl.util.FastFuture
 import scala.reflect.ClassTag
 import java.util.concurrent.CompletionStage
 import java.util.Optional
@@ -33,16 +32,16 @@ trait BasicCredentials {
 }
 
 /**
- * Implement this class to provide an HTTP Basic authentication check. The [[authenticate]] method needs to be implemented
+ * Implement this class to provide an HTTP Basic authentication check. The [[#authenticate]] method needs to be implemented
  * to check if the supplied or missing credentials are authenticated and provide a domain level object representing
- * the user as a [[RequestVal]].
+ * the user as a [[akka.http.javadsl.server.RequestVal]].
  */
 abstract class HttpBasicAuthenticator[T](val realm: String) extends AbstractDirective with ExtractionImplBase[T] with RequestVal[T] {
   protected[http] implicit def classTag: ClassTag[T] = reflect.classTag[AnyRef].asInstanceOf[ClassTag[T]]
   def authenticate(credentials: BasicCredentials): CompletionStage[Optional[T]]
 
   /**
-   * Creates a return value for use in [[authenticate]] that successfully authenticates the requests and provides
+   * Creates a return value for use in [[#authenticate]] that successfully authenticates the requests and provides
    * the given user.
    */
   def authenticateAs(user: T): CompletionStage[Optional[T]] = CompletableFuture.completedFuture(Optional.of(user))

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream
 
@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.Tcp.OutgoingConnection
 import akka.stream.scaladsl._
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.util.ByteString
 
 import scala.concurrent.{ Future, Promise }

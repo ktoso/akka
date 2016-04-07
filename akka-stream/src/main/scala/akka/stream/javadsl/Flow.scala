@@ -1,19 +1,16 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl
 
-import akka.stream.impl.fusing.RecoverWith
 import akka.{ NotUsed, Done }
 import akka.event.LoggingAdapter
 import akka.japi.{ function, Pair }
-import akka.stream.impl.Timers.{ DelayInitial, IdleInject }
-import akka.stream.impl.{ ConstantFun, StreamLayout }
-import akka.stream.{ scaladsl, _ }
+import akka.stream.impl.{ConstantFun, StreamLayout}
+import akka.stream._
 import akka.stream.stage.Stage
 import org.reactivestreams.Processor
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
 import akka.japi.Util
 import java.util.Comparator
@@ -78,6 +75,8 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
   override def shape: FlowShape[In, Out] = delegate.shape
   private[stream] def module: StreamLayout.Module = delegate.module
 
+  override def toString: String = delegate.toString
+
   /** Converts this Flow to its Scala DSL counterpart */
   def asScala: scaladsl.Flow[In, Out, Mat] = delegate
 
@@ -122,6 +121,9 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * flow into the materialized value of the resulting Flow.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def viaMat[T, M, M2](flow: Graph[FlowShape[Out, T], M], combine: function.Function2[Mat, M, M2]): javadsl.Flow[In, T, M2] =
     new Flow(delegate.viaMat(flow)(combinerToScala(combine)))
@@ -161,6 +163,9 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * Sink into the materialized value of the resulting Sink.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def toMat[M, M2](sink: Graph[SinkShape[Out], M], combine: function.Function2[Mat, M, M2]): javadsl.Sink[In, M2] =
     new Sink(delegate.toMat(sink)(combinerToScala(combine)))
@@ -192,6 +197,9 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * Flow into the materialized value of the resulting Flow.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def joinMat[M, M2](flow: Graph[FlowShape[Out, In], M], combine: function.Function2[Mat, M, M2]): javadsl.RunnableGraph[M2] =
     RunnableGraph.fromGraph(delegate.joinMat(flow)(combinerToScala(combine)))
@@ -231,6 +239,9 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * [[BidiFlow]] into the materialized value of the resulting [[Flow]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def joinMat[I2, O2, Mat2, M](bidi: Graph[BidiShape[Out, O2, I2, In], Mat2], combine: function.Function2[Mat, Mat2, M]): Flow[I2, O2, M] =
     new Flow(delegate.joinMat(bidi)(combinerToScala(combine)))
@@ -321,7 +332,7 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
   /**
    * Transform this stream by applying the given function to each of the elements
    * as they pass through this processing step. The function returns a `CompletionStage` and the
-   * value of that future will be emitted downstreams. As many futures as requested elements by
+   * value of that future will be emitted downstream. As many futures as requested elements by
    * downstream may run in parallel and may complete in any order, but the elements that
    * are emitted downstream are in the same order as received from upstream.
    *
@@ -352,7 +363,7 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
   /**
    * Transform this stream by applying the given function to each of the elements
    * as they pass through this processing step. The function returns a `CompletionStage` and the
-   * value of that future will be emitted downstreams. As many futures as requested elements by
+   * value of that future will be emitted downstream. As many futures as requested elements by
    * downstream may run in parallel and each processed element will be emitted downstream
    * as soon as it is ready, i.e. it is possible that the elements are not emitted downstream
    * in the same order as received from upstream.
@@ -951,7 +962,7 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    *
    * '''Emits when''' downstream stops backpressuring
    *
-   * '''Backpressures when''' downstream backpressures or iterator runs emtpy
+   * '''Backpressures when''' downstream backpressures or iterator runs empty
    *
    * '''Completes when''' upstream completes
    *
@@ -991,6 +1002,7 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    * This operator makes it possible to extend the `Flow` API when there is no specialized
    * operator that performs the transformation.
    */
+  @deprecated("Use via(GraphStage) instead.", "2.4.3")
   def transform[U](mkStage: function.Creator[Stage[Out, U]]): javadsl.Flow[In, U, Mat] =
     new Flow(delegate.transform(() ⇒ mkStage.create()))
 
@@ -1159,7 +1171,7 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    * is [[akka.stream.Supervision.Resume]] or [[akka.stream.Supervision.Restart]]
    * the element is dropped and the stream and substreams continue.
    *
-   * '''Emits when''' an element passes through. When the provided predicate is true it emitts the element
+   * '''Emits when''' an element passes through. When the provided predicate is true it emits the element
    * and opens a new substream for subsequent element
    *
    * '''Backpressures when''' there is an element pending for the next substream, but the previous
@@ -1248,6 +1260,9 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    *
    * If this [[Flow]] gets upstream error - no elements from the given [[Source]] will be pulled.
    *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
+   *
    * @see [[#concat]]
    */
   def concatMat[T >: Out, M, M2](that: Graph[SourceShape[T], M], matF: function.Function2[Mat, M, M2]): javadsl.Flow[In, T, M2] =
@@ -1284,7 +1299,10 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    *
    * If the given [[Source]] gets upstream error - no elements from this [[Flow]] will be pulled.
    *
-   * @see [[#prepend]].
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
+   *
+   * @see [[#prepend]]
    */
   def prependMat[T >: Out, M, M2](that: Graph[SourceShape[T], M], matF: function.Function2[Mat, M, M2]): javadsl.Flow[In, T, M2] =
     new Flow(delegate.prependMat(that)(combinerToScala(matF)))
@@ -1307,6 +1325,9 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
   /**
    * Attaches the given [[Sink]] to this [[Flow]], meaning that elements that passes
    * through will also be sent to the [[Sink]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    *
    * @see [[#alsoTo]]
    */
@@ -1351,7 +1372,10 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    *
    * If this [[Flow]] or [[Source]] gets upstream error - stream completes with failure.
    *
-   * @see [[#interleave]].
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
+   *
+   * @see [[#interleave]]
    */
   def interleaveMat[T >: Out, M, M2](that: Graph[SourceShape[T], M], segmentSize: Int,
                                      matF: function.Function2[Mat, M, M2]): javadsl.Flow[In, T, M2] =
@@ -1391,6 +1415,9 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    * Merge the given [[Source]] to this [[Flow]], taking elements as they arrive from input streams,
    * picking randomly when several elements ready.
    *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
+   *
    * @see [[#merge]]
    */
   def mergeMat[T >: Out, M, M2](that: Graph[SourceShape[T], M],
@@ -1400,6 +1427,9 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
   /**
    * Merge the given [[Source]] to this [[Flow]], taking elements as they arrive from input streams,
    * picking randomly when several elements ready.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    *
    * @see [[#merge]]
    */
@@ -1433,6 +1463,9 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    * waiting for elements, this merge will block when one of the inputs does not have more elements (and
    * does not complete).
    *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
+   *
    * @see [[#mergeSorted]].
    */
   def mergeSortedMat[U >: Out, Mat2, Mat3](that: Graph[SourceShape[U], Mat2], comp: Comparator[U],
@@ -1456,12 +1489,15 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
   /**
    * Combine the elements of current [[Flow]] and the given [[Source]] into a stream of tuples.
    *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
+   *
    * @see [[#zip]]
    */
   def zipMat[T, M, M2](that: Graph[SourceShape[T], M],
                        matF: function.Function2[Mat, M, M2]): javadsl.Flow[In, Out @uncheckedVariance Pair T, M2] =
     this.viaMat(Flow.fromGraph(GraphDSL.create(that,
-      new function.Function2[GraphDSL.Builder[M], SourceShape[T], FlowShape[Out, Out @ uncheckedVariance Pair T]] {
+      new function.Function2[GraphDSL.Builder[M], SourceShape[T], FlowShape[Out, Out @uncheckedVariance Pair T]] {
         def apply(b: GraphDSL.Builder[M], s: SourceShape[T]): FlowShape[Out, Out @uncheckedVariance Pair T] = {
           val zip: FanInShape2[Out, T, Out Pair T] = b.add(Zip.create[Out, T])
           b.from(s).toInlet(zip.in1)
@@ -1488,6 +1524,9 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
   /**
    * Put together the elements of current [[Flow]] and the given [[Source]]
    * into a stream of combined elements using a combiner function.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    *
    * @see [[#zipWith]]
    */
@@ -1567,13 +1606,20 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    *
    * Throttle implements the token bucket model. There is a bucket with a given token capacity (burst size or maximumBurst).
    * Tokens drops into the bucket at a given rate and can be `spared` for later use up to bucket capacity
-   * to allow some burstyness. Whenever stream wants to send an element, it takes as many
+   * to allow some burstiness. Whenever stream wants to send an element, it takes as many
    * tokens from the bucket as number of elements. If there isn't any, throttle waits until the
    * bucket accumulates enough tokens. Bucket is full when stream just materialized and started.
    *
    * Parameter `mode` manages behaviour when upstream is faster than throttle rate:
    *  - [[akka.stream.ThrottleMode.Shaping]] makes pauses before emitting messages to meet throttle rate
    *  - [[akka.stream.ThrottleMode.Enforcing]] fails with exception when upstream is faster than throttle rate
+   *
+   * It is recommended to use non-zero burst sizes as they improve both performance and throttling precision by allowing
+   * the implementation to avoid using the scheduler when input rates fall below the enforced limit and to reduce
+   * most of the inaccuracy caused by the scheduler resolution (which is in the range of milliseconds).
+   *
+   * Throttler always enforces the rate limit, but in certain cases (mostly due to limited scheduler resolution) it
+   * enforces a tighter bound than what was prescribed. This can be also mitigated by increasing the burst size.
    *
    * '''Emits when''' upstream emits an element and configured time per each element elapsed
    *
@@ -1595,7 +1641,7 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    *
    * Throttle implements the token bucket model. There is a bucket with a given token capacity (burst size or maximumBurst).
    * Tokens drops into the bucket at a given rate and can be `spared` for later use up to bucket capacity
-   * to allow some burstyness. Whenever stream wants to send an element, it takes as many
+   * to allow some burstiness. Whenever stream wants to send an element, it takes as many
    * tokens from the bucket as element cost. If there isn't any, throttle waits until the
    * bucket accumulates enough tokens. Elements that costs more than the allowed burst will be delayed proportionally
    * to their cost minus available tokens, meeting the target rate.
@@ -1639,6 +1685,15 @@ final class Flow[-In, +Out, +Mat](delegate: scaladsl.Flow[In, Out, Mat]) extends
    */
   def watchTermination[M]()(matF: function.Function2[Mat, CompletionStage[Done], M]): javadsl.Flow[In, Out, M] =
     new Flow(delegate.watchTermination()((left, right) ⇒ matF(left, right.toJava)))
+
+  /**
+    * Materializes to `FlowMonitor[Out]` that allows monitoring of the the current flow. All events are propagated
+    * by the monitor unchanged. Note that the monitor inserts a memory barrier every time it processes an
+    * event, and may therefor affect performance.
+    * The `combine` function is used to combine the `FlowMonitor` with this flow's materialized value.
+    */
+  def monitor[M]()(combine: function.Function2[Mat, FlowMonitor[Out], M]): javadsl.Flow[In, Out, M] =
+    new Flow(delegate.monitor()(combinerToScala(combine)))
 
   /**
    * Delays the initial element by the specified duration.
@@ -1794,6 +1849,9 @@ object RunnableGraph {
   private final class RunnableGraphAdapter[Mat](runnable: scaladsl.RunnableGraph[Mat]) extends RunnableGraph[Mat] {
     def shape = ClosedShape
     def module = runnable.module
+
+    override def toString: String = runnable.toString
+
     override def mapMaterializedValue[Mat2](f: function.Function[Mat, Mat2]): RunnableGraphAdapter[Mat2] =
       new RunnableGraphAdapter(runnable.mapMaterializedValue(f.apply _))
 

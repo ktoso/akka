@@ -1,14 +1,15 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.ActorMaterializerSettings
-import akka.stream.testkit.{ AkkaSpec, TestSubscriber }
+import akka.stream.testkit.TestSubscriber
 import org.reactivestreams.Subscriber
 import org.scalatest.Matchers
+import akka.testkit.AkkaSpec
 
 class FlowAppendSpec extends AkkaSpec with River {
 

@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2015-2016 Typesafe <http://typesafe.com/>
+ *  Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com/>
  */
 package docs.stream.javadsl.cookbook;
 
@@ -50,7 +50,7 @@ public class RecipeWorkerPool extends RecipeTest {
                 b.add(Merge.<Out>create(workerCount));
 
         for (int i = 0; i < workerCount; i++) {
-            b.from(balance.out(i)).via(b.add(worker)).toInlet(merge.in(i));
+            b.from(balance.out(i)).via(b.add(worker.async())).toInlet(merge.in(i));
         }
 
         return FlowShape.of(balance.in(), merge.out());

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package io.akka.integrationtest.http
@@ -38,7 +38,6 @@ class HttpModelIntegrationSpec extends WordSpec with Matchers with BeforeAndAfte
     akka.event-handlers = ["akka.testkit.TestEventListener"]
     akka.loglevel = WARNING""")
   implicit val system = ActorSystem(getClass.getSimpleName, testConf)
-  import system.dispatcher
 
   override def afterAll() = system.terminate()
 
@@ -114,7 +113,7 @@ class HttpModelIntegrationSpec extends WordSpec with Matchers with BeforeAndAfte
       parseErrors shouldBe empty
 
       // Most of these headers are modeled by Akka HTTP as a Seq[HttpHeader],
-      // but the the Content-Type and Content-Length are special: their
+      // but the Content-Type and Content-Length are special: their
       // values relate to the HttpEntity and so they're modeled as part of
       // the HttpEntity. These headers need to be stripped out of the main
       // Seq[Header] and dealt with separately.

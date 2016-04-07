@@ -1,23 +1,25 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.model
 
 import java.util.OptionalLong
 
+import akka.http.impl.model.JavaInitialization
+
 import language.implicitConversions
 import java.io.File
-import java.lang.{ Iterable ⇒ JIterable, Long ⇒ JLong }
+import java.lang.{ Iterable ⇒ JIterable}
 import scala.util.control.NonFatal
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.collection.immutable
-import akka.util.ByteString
+import akka.util.{Unsafe, ByteString}
 import akka.stream.scaladsl._
 import akka.stream.stage._
 import akka.stream._
-import akka.{ NotUsed, japi, stream }
+import akka.{ NotUsed, stream }
 import akka.http.scaladsl.model.ContentType.{ NonBinary, Binary }
 import akka.http.scaladsl.util.FastFuture
 import akka.http.javadsl.{ model ⇒ jm }
@@ -126,6 +128,11 @@ sealed trait RequestEntity extends HttpEntity with jm.RequestEntity with Respons
    */
   def withSizeLimit(maxBytes: Long): RequestEntity
 
+  /**
+   * See [[HttpEntity#withoutSizeLimit]].
+   */
+  def withoutSizeLimit: RequestEntity
+
   def transformDataBytes(transformer: Flow[ByteString, ByteString, Any]): RequestEntity
 }
 
@@ -142,6 +149,11 @@ sealed trait ResponseEntity extends HttpEntity with jm.ResponseEntity {
    */
   def withSizeLimit(maxBytes: Long): ResponseEntity
 
+  /**
+   * See [[HttpEntity#withoutSizeLimit]]
+   */
+  def withoutSizeLimit: ResponseEntity
+
   def transformDataBytes(transformer: Flow[ByteString, ByteString, Any]): ResponseEntity
 }
 /* An entity that can be used for requests, responses, and body parts */
@@ -152,6 +164,11 @@ sealed trait UniversalEntity extends jm.UniversalEntity with MessageEntity with 
    * See [[HttpEntity#withSizeLimit]].
    */
   def withSizeLimit(maxBytes: Long): UniversalEntity
+
+  /**
+   * See [[HttpEntity#withoutSizeLimit]]
+   */
+  def withoutSizeLimit: UniversalEntity
 
   def contentLength: Long
   def contentLengthOption: Option[Long] = Some(contentLength)
@@ -180,8 +197,8 @@ object HttpEntity {
     HttpEntity.Chunked.fromData(contentType, data)
 
   /**
-   * Returns either the empty entity, if the given file is empty, or a [[Default]] entity
-   * consisting of a stream of [[ByteString]] instances each containing `chunkSize` bytes
+   * Returns either the empty entity, if the given file is empty, or a [[HttpEntity.Default]] entity
+   * consisting of a stream of [[akka.util.ByteString]] instances each containing `chunkSize` bytes
    * (except for the final ByteString, which simply contains the remaining bytes).
    *
    * If the given `chunkSize` is -1 the default chunk size is used.
@@ -199,6 +216,9 @@ object HttpEntity {
   def empty(contentType: ContentType): HttpEntity.Strict =
     if (contentType == Empty.contentType) Empty
     else HttpEntity.Strict(contentType, data = ByteString.empty)
+
+  JavaInitialization.initializeStaticFieldWith(
+    Empty, classOf[jm.HttpEntity].getField("EMPTY"))
 
   // TODO: re-establish serializability
   // TODO: equal/hashcode ?
@@ -228,7 +248,7 @@ object HttpEntity {
       if (contentType == this.contentType) this else copy(contentType = contentType)
 
     override def withSizeLimit(maxBytes: Long): UniversalEntity =
-      if (data.length <= maxBytes) this
+      if (data.length <= maxBytes || isKnownEmpty) this
       else HttpEntity.Default(contentType, data.length, limitableByteSource(Source.single(data))) withSizeLimit maxBytes
 
     override def withoutSizeLimit: UniversalEntity =

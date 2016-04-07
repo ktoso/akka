@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.io
 
@@ -140,7 +140,8 @@ private[akka] class InputStreamAdapter(sharedBuffer: BlockingQueue[StreamToAdapt
                 case Failed(ex) ⇒
                   isStageAlive = false
                   throw new IOException(ex)
-                case null ⇒ throw new IOException("Timeout on waiting for new data")
+                case null        ⇒ throw new IOException("Timeout on waiting for new data")
+                case Initialized ⇒ throw new IllegalStateException("message 'Initialized' must come first")
               }
             } catch {
               case ex: InterruptedException ⇒ throw new IOException(ex)
@@ -215,4 +216,3 @@ private[akka] class InputStreamAdapter(sharedBuffer: BlockingQueue[StreamToAdapt
     }
   }
 }
-

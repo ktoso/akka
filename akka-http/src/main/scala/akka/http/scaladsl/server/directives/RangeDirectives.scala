@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.server
@@ -32,11 +32,10 @@ trait RangeDirectives {
    * it on the *inside* of the `conditional(...)` directive, i.e. `conditional(...)` must be
    * on a higher level in your route structure in order to function correctly.
    *
-   * @see https://tools.ietf.org/html/rfc7233
+   * @see [[https://tools.ietf.org/html/rfc7233]]
    */
   def withRangeSupport: Directive0 =
     extractRequestContext.flatMap { ctx ⇒
-      import ctx.materializer
       val settings = ctx.settings
       implicit val log = ctx.log
       import settings.{ rangeCountLimit, rangeCoalescingThreshold }

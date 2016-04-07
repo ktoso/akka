@@ -1,9 +1,9 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl
 
-import java.util.concurrent.atomic.{ AtomicBoolean, AtomicLong }
+import java.util.concurrent.atomic.{ AtomicBoolean }
 import java.{ util ⇒ ju }
 import akka.NotUsed
 import akka.actor._
@@ -11,7 +11,7 @@ import akka.event.Logging
 import akka.dispatch.Dispatchers
 import akka.pattern.ask
 import akka.stream._
-import akka.stream.impl.StreamLayout.Module
+import akka.stream.impl.StreamLayout.{ Module, AtomicModule }
 import akka.stream.impl.fusing.{ ActorGraphInterpreter, GraphModule }
 import akka.stream.impl.io.TLSActor
 import akka.stream.impl.io.TlsModule
@@ -97,14 +97,15 @@ private[akka] case class ActorMaterializerImpl(system: ActorSystem,
         name
       }
 
-      override protected def materializeAtomic(atomic: Module, effectiveAttributes: Attributes, matVal: ju.Map[Module, Any]): Unit = {
+      override protected def materializeAtomic(atomic: AtomicModule, effectiveAttributes: Attributes, matVal: ju.Map[Module, Any]): Unit = {
+        if (MaterializerSession.Debug) println(s"materializing $atomic")
 
         def newMaterializationContext() =
           new MaterializationContext(ActorMaterializerImpl.this, effectiveAttributes, stageName(effectiveAttributes))
         atomic match {
           case sink: SinkModule[_, _] ⇒
             val (sub, mat) = sink.create(newMaterializationContext())
-            assignPort(sink.shape.in, sub.asInstanceOf[Subscriber[Any]])
+            assignPort(sink.shape.in, sub)
             matVal.put(atomic, mat)
           case source: SourceModule[_, _] ⇒
             val (pub, mat) = source.create(newMaterializationContext())

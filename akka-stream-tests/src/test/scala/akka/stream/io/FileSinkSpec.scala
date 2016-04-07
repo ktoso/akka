@@ -1,11 +1,10 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.io
 
 import java.io.File
 import java.nio.file.StandardOpenOption
-
 import akka.actor.ActorSystem
 import akka.stream.impl.ActorMaterializerImpl
 import akka.stream.impl.StreamSupervisor
@@ -18,10 +17,10 @@ import akka.stream.ActorMaterializerSettings
 import akka.stream.ActorAttributes
 import akka.util.ByteString
 import akka.util.Timeout
-
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import akka.testkit.AkkaSpec
 
 class FileSinkSpec extends AkkaSpec(UnboundedMailboxConfig) {
 
@@ -106,8 +105,6 @@ class FileSinkSpec extends AkkaSpec(UnboundedMailboxConfig) {
       targetFile { f ⇒
         val sys = ActorSystem("dispatcher-testing", UnboundedMailboxConfig)
         val materializer = ActorMaterializer()(sys)
-        implicit val timeout = Timeout(3.seconds)
-
         try {
           Source.fromIterator(() ⇒ Iterator.continually(TestByteStrings.head)).runWith(FileIO.toFile(f))(materializer)
 
@@ -155,4 +152,3 @@ class FileSinkSpec extends AkkaSpec(UnboundedMailboxConfig) {
   }
 
 }
-

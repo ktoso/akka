@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.cluster.client
 
@@ -24,7 +24,6 @@ import akka.actor.Identify
 import akka.actor.NoSerializationVerificationNeeded
 import akka.actor.Props
 import akka.actor.ReceiveTimeout
-import akka.actor.Terminated
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 import akka.cluster.Member
@@ -593,7 +592,7 @@ object ClusterReceptionist {
  * the `sender()`, as seen by the destination actor, is not the client itself.
  * The `sender()` of the response messages, as seen by the client, is `deadLetters`
  * since the client should normally send subsequent messages via the `ClusterClient`.
- * It is possible to pass the the original sender inside the reply messages if
+ * It is possible to pass the original sender inside the reply messages if
  * the client is supposed to communicate directly to the actor in the cluster.
  *
  */

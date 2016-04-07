@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -9,7 +9,6 @@ import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
 import scala.util.control.NoStackTrace
 import akka.stream.ActorMaterializer
-import akka.stream.stage._
 import akka.stream.testkit._
 import akka.stream.testkit.Utils._
 import akka.testkit.TestLatch
@@ -17,17 +16,14 @@ import akka.testkit.TestProbe
 import akka.stream.ActorAttributes.supervisionStrategy
 import akka.stream.Supervision.resumingDecider
 import akka.stream.impl.ReactiveStreamsCompliance
-import scala.util.Try
-import scala.concurrent.ExecutionContext
-import scala.util.Failure
-import scala.util.Success
 import scala.annotation.tailrec
 import scala.concurrent.Promise
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.LinkedBlockingQueue
 import org.scalatest.concurrent.ScalaFutures
+import akka.testkit.AkkaSpec
 
-class FlowMapAsyncSpec extends AkkaSpec with ScalaFutures {
+class FlowMapAsyncSpec extends AkkaSpec {
 
   implicit val materializer = ActorMaterializer()
 

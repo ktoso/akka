@@ -1,13 +1,12 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl
 
 import java.io.File
 import java.nio.file.StandardOpenOption
-import java.nio.file.StandardOpenOption._
 import java.util
-import akka.stream.{ scaladsl, javadsl, ActorAttributes }
+import akka.stream.{ scaladsl, javadsl }
 import akka.stream.IOResult
 import akka.util.ByteString
 import java.util.concurrent.CompletionStage

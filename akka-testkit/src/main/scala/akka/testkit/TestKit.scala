@@ -1,10 +1,10 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.testkit
 
 import language.postfixOps
-import scala.annotation.{ varargs, tailrec }
+import scala.annotation.{ tailrec }
 import scala.collection.immutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -12,7 +12,6 @@ import scala.reflect.ClassTag
 import java.util.concurrent._
 import java.util.concurrent.atomic.AtomicInteger
 import akka.actor._
-import akka.actor.Actor._
 import akka.util.{ Timeout, BoxedType }
 import scala.util.control.NonFatal
 import scala.Some
@@ -433,7 +432,7 @@ trait TestKitBase {
   private def expectMsgClass_internal[C](max: FiniteDuration, c: Class[C]): C = {
     val o = receiveOne(max)
     assert(o ne null, s"timeout ($max) during expectMsgClass waiting for $c")
-    assert(BoxedType(c) isInstance o, s"expected $c, found ${o.getClass}")
+    assert(BoxedType(c) isInstance o, s"expected $c, found ${o.getClass} ($o)")
     o.asInstanceOf[C]
   }
 

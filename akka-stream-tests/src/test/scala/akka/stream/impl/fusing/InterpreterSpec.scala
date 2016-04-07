@@ -1,24 +1,26 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.fusing
 
 import akka.stream.impl.ConstantFun
 import akka.stream.stage._
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.testkit.EventFilter
 
-import scala.util.control.NoStackTrace
 import akka.stream.Supervision
 
 class InterpreterSpec extends AkkaSpec with GraphInterpreterSpecKit {
   import Supervision.stoppingDecider
 
   /*
-   * These tests were writtern for the previous veryion of the interpreter, the so called OneBoundedInterpreter.
+   * These tests were written for the previous version of the interpreter, the so called OneBoundedInterpreter.
    * These stages are now properly emulated by the GraphInterpreter and many of the edge cases were relevant to
    * the execution model of the old one. Still, these tests are very valuable, so please do not remove.
    */
+
+  val takeOne = Take(1)
+  val takeTwo = Take(2)
 
   "Interpreter" must {
 
@@ -127,7 +129,7 @@ class InterpreterSpec extends AkkaSpec with GraphInterpreterSpecKit {
       lastEvents() should be(Set(Cancel))
     }
 
-    "implement take" in new OneBoundedSetup[Int](Seq(Take(2))) {
+    "implement take" in new OneBoundedSetup[Int](takeTwo) {
 
       lastEvents() should be(Set.empty)
 
@@ -144,10 +146,10 @@ class InterpreterSpec extends AkkaSpec with GraphInterpreterSpecKit {
       lastEvents() should be(Set(OnNext(1), Cancel, OnComplete))
     }
 
-    "implement take inside a chain" in new OneBoundedSetup[Int](Seq(
-      Filter((x: Int) ⇒ x != 0, stoppingDecider),
-      Take(2),
-      Map((x: Int) ⇒ x + 1, stoppingDecider))) {
+    "implement take inside a chain" in new OneBoundedSetup[Int](
+      Filter((x: Int) ⇒ x != 0, stoppingDecider).toGS,
+      takeTwo,
+      Map((x: Int) ⇒ x + 1, stoppingDecider).toGS) {
 
       lastEvents() should be(Set.empty)
 
@@ -522,9 +524,9 @@ class InterpreterSpec extends AkkaSpec with GraphInterpreterSpecKit {
       } should be(true)
     }
 
-    "implement take-take" in new OneBoundedSetup[Int](Seq(
-      Take(1),
-      Take(1))) {
+    "implement take-take" in new OneBoundedSetup[Int](
+      takeOne,
+      takeOne) {
       lastEvents() should be(Set.empty)
 
       downstream.requestOne()
@@ -535,9 +537,9 @@ class InterpreterSpec extends AkkaSpec with GraphInterpreterSpecKit {
 
     }
 
-    "implement take-take with pushAndFinish from upstream" in new OneBoundedSetup[Int](Seq(
-      Take(1),
-      Take(1))) {
+    "implement take-take with pushAndFinish from upstream" in new OneBoundedSetup[Int](
+      takeOne,
+      takeOne) {
       lastEvents() should be(Set.empty)
 
       downstream.requestOne()

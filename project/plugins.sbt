@@ -17,8 +17,7 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "0.7.1")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-osgi" % "0.6.0")
 
-addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.1.7-32-g3bebac4")
-resolvers += Resolver.url("2m-sbt-plugins", url("https://dl.bintray.com/2m/sbt-plugins/"))(Resolver.ivyStylePatterns)
+addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.1.9")
 
 addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.0.0")
 
@@ -40,6 +39,6 @@ addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.8.0")
 
 libraryDependencies += "org.kohsuke" % "github-api" % "1.68"
 
-addSbtPlugin("io.spray" % "sbt-boilerplate" % "0.5.9")
+addSbtPlugin("io.spray" % "sbt-boilerplate" % "0.6.0")
 
 addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.1.8")

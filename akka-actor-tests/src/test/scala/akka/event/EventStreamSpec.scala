@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.event
 
@@ -8,10 +8,7 @@ import language.postfixOps
 import scala.concurrent.duration._
 import akka.actor._
 import com.typesafe.config.ConfigFactory
-import scala.collection.JavaConverters._
-import akka.event.Logging.InitializeLogger
-import akka.pattern.gracefulStop
-import akka.testkit.{ EventFilter, TestEvent, TestProbe, AkkaSpec }
+import akka.testkit.{ TestProbe, AkkaSpec }
 
 object EventStreamSpec {
 

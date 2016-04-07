@@ -1,11 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.persistence.fsm
 
 import akka.actor._
-import akka.persistence.fsm.PersistentFSM.{ State, FSMState }
+import akka.persistence.fsm.PersistentFSM.{ FSMState }
 import akka.persistence.serialization.Message
 import akka.persistence.{ PersistentActor, RecoveryCompleted }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.http.scaladsl
 
@@ -70,7 +70,6 @@ class WebSocketClientExampleSpec extends WordSpec with Matchers {
     import akka.http.scaladsl.Http
     import akka.stream.ActorMaterializer
     import akka.stream.scaladsl._
-    import akka.http.scaladsl.model._
     import akka.http.scaladsl.model.ws._
     implicit val system = ActorSystem()
     implicit val materializer = ActorMaterializer()

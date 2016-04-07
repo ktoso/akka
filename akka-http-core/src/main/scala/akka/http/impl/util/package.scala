@@ -1,13 +1,13 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl
 
 import akka.NotUsed
+import akka.stream.{ Attributes, Outlet, Inlet, FlowShape }
 
 import language.implicitConversions
-import language.higherKinds
 import java.nio.charset.Charset
 import com.typesafe.config.Config
 import akka.stream.scaladsl.{ Flow, Source }
@@ -89,15 +89,6 @@ package object util {
     }
   }
 
-  private[http] def errorHandling[T](handler: Throwable ⇒ Unit): PushStage[T, T] =
-    new PushStage[T, T] {
-      override def onPush(element: T, ctx: Context[T]): SyncDirective = ctx.push(element)
-      override def onUpstreamFailure(cause: Throwable, ctx: Context[T]): TerminationDirective = {
-        handler(cause)
-        super.onUpstreamFailure(cause, ctx)
-      }
-    }
-
   private[http] def humanReadableByteCount(bytes: Long, si: Boolean): String = {
     val unit = if (si) 1000 else 1024
     if (bytes >= unit) {
@@ -111,8 +102,27 @@ package object util {
 package util {
 
   import akka.http.scaladsl.model.{ ContentType, HttpEntity }
+  import akka.stream.impl.fusing.GraphStages.SimpleLinearGraphStage
   import akka.stream.{ Attributes, Outlet, Inlet, FlowShape }
   import scala.concurrent.duration.FiniteDuration
+
+  /**
+   * Maps error with the provided function if it is defined for an error or, otherwise, passes it on unchanged.
+   */
+  private[http] final case class MapError[T](f: PartialFunction[Throwable, Throwable]) extends SimpleLinearGraphStage[T] {
+    override def createLogic(attr: Attributes) =
+      new GraphStageLogic(shape) with InHandler with OutHandler {
+        override def onPush(): Unit = push(out, grab(in))
+
+        override def onUpstreamFailure(ex: Throwable): Unit =
+          if (f.isDefinedAt(ex)) super.onUpstreamFailure(f(ex))
+          else super.onUpstreamFailure(ex)
+
+        override def onPull(): Unit = pull(in)
+
+        setHandlers(in, out, this)
+      }
+  }
 
   private[http] class ToStrict(timeout: FiniteDuration, contentType: ContentType)
     extends GraphStage[FlowShape[ByteString, HttpEntity.Strict]] {
@@ -125,7 +135,7 @@ package util {
     override val shape = FlowShape(in, out)
 
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new TimerGraphStageLogic(shape) {
-      var bytes = ByteString.newBuilder
+      val bytes = ByteString.newBuilder
       private var emptyStream = false
 
       override def preStart(): Unit = scheduleOnce("ToStrictTimeoutTimer", timeout)

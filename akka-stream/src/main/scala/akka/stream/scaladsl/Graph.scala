@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -8,7 +8,7 @@ import akka.stream._
 import akka.stream.impl._
 import akka.stream.impl.fusing.GraphStages
 import akka.stream.impl.fusing.GraphStages.MaterializedValueSource
-import akka.stream.impl.Stages.{ DefaultAttributes, StageModule, SymbolicStage }
+import akka.stream.impl.Stages.{ DefaultAttributes, StageModule }
 import akka.stream.impl.StreamLayout._
 import akka.stream.scaladsl.Partition.PartitionOutOfBoundsException
 import akka.stream.stage.{ OutHandler, InHandler, GraphStageLogic, GraphStage }
@@ -71,10 +71,10 @@ final class Merge[T] private (val inputPorts: Int, val eagerComplete: Boolean) e
       setHandler(i, new InHandler {
         override def onPush(): Unit = {
           if (isAvailable(out)) {
-            if (!pending) {
-              push(out, grab(i))
-              tryPull(i)
-            }
+            // isAvailable(out) implies !pending
+            // -> grab and push immediately
+            push(out, grab(i))
+            tryPull(i)
           } else pendingQueue.enqueue(i)
         }
 
@@ -391,7 +391,7 @@ object Broadcast {
 final class Broadcast[T](private val outputPorts: Int, eagerCancel: Boolean) extends GraphStage[UniformFanOutShape[T, T]] {
   // one output might seem counter intuitive but saves us from special handling in other places
   require(outputPorts >= 1, "A Broadcast must have one or more output ports")
-  val in: Inlet[T] = Inlet[T]("Broadast.in")
+  val in: Inlet[T] = Inlet[T]("Broadcast.in")
   val out: immutable.IndexedSeq[Outlet[T]] = Vector.tabulate(outputPorts)(i ⇒ Outlet[T]("Broadcast.out" + i))
   override def initialAttributes = DefaultAttributes.broadcast
   override val shape: UniformFanOutShape[T, T] = UniformFanOutShape(in, out: _*)
@@ -862,6 +862,20 @@ object GraphDSL extends GraphApply {
      * @return The outlet that will emit the materialized value.
      */
     def materializedValue: Outlet[M @uncheckedVariance] = {
+      /*
+       * This brings the graph into a homogenous shape: if only one `add` has
+       * been performed so far, the moduleInProgress will be a CopiedModule
+       * that upon the next `composeNoMat` will be wrapped together with the
+       * MaterializedValueSource into a CompositeModule, leading to its
+       * relevant computation being an Atomic() for the CopiedModule. This is
+       * what we must reference, and we can only get this reference if we
+       * create that computation up-front: just making one up will not work
+       * because that computation node would not be part of the tree and
+       * the source would not be triggered.
+       */
+      if (moduleInProgress.isInstanceOf[CopiedModule]) {
+        moduleInProgress = CompositeModule(moduleInProgress, moduleInProgress.shape)
+      }
       val source = new MaterializedValueSource[M](moduleInProgress.materializedValueComputation)
       moduleInProgress = moduleInProgress.composeNoMat(source.module)
       source.out

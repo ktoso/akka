@@ -1,9 +1,8 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.persistence.journal
 
-import scala.concurrent.duration._
 import akka.actor._
 import akka.testkit._
 import akka.persistence.JournalProtocol

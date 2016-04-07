@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.client
@@ -9,7 +9,6 @@ import java.nio.ByteBuffer
 import java.nio.channels.{ SocketChannel, ServerSocketChannel }
 import java.util.concurrent.atomic.AtomicInteger
 import akka.http.impl.settings.ConnectionPoolSettingsImpl
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
@@ -18,12 +17,13 @@ import akka.util.ByteString
 import akka.http.scaladsl.{ TestUtils, Http }
 import akka.http.impl.util.{ SingletonException, StreamUtils }
 import akka.http.scaladsl.settings.{ ClientConnectionSettings, ConnectionPoolSettings, ServerSettings }
-import akka.stream.{ BidiShape, ActorMaterializer }
+import akka.stream.{ ActorMaterializer }
 import akka.stream.TLSProtocol._
-import akka.stream.testkit.{ TestPublisher, TestSubscriber, AkkaSpec }
+import akka.stream.testkit.{ TestPublisher, TestSubscriber }
 import akka.stream.scaladsl._
 import akka.http.scaladsl.model.headers._
 import akka.http.scaladsl.model._
+import akka.testkit.AkkaSpec
 
 class ConnectionPoolSpec extends AkkaSpec("""
     akka.loggers = []

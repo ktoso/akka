@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.remote
 
@@ -23,11 +23,10 @@ import akka.{ OnlyCauseStackTrace, AkkaException }
 import java.io.NotSerializableException
 import java.util.concurrent.{ TimeUnit, TimeoutException, ConcurrentHashMap }
 import scala.annotation.tailrec
-import scala.concurrent.duration.{ Duration, Deadline }
+import scala.concurrent.duration.{ Deadline }
 import scala.util.control.NonFatal
 import java.util.concurrent.locks.LockSupport
 import scala.concurrent.Future
-import scala.concurrent.blocking
 
 /**
  * INTERNAL API
@@ -228,8 +227,9 @@ private[remote] class ReliableDeliverySupervisor(
   var resendBuffer: AckedSendBuffer[Send] = _
   var seqCounter: Long = _
 
-  def reset() {
+  def reset(): Unit = {
     resendBuffer = new AckedSendBuffer[Send](settings.SysMsgBufferSize)
+    bufferWasInUse = false
     seqCounter = 0L
     bailoutAt = None
   }
@@ -809,6 +809,12 @@ private[remote] class EndpointWriter(
 
     case s: Send ⇒
       enqueueInBuffer(s)
+
+    case OutboundAck(_) ⇒
+    // Ignore outgoing acks during take over, since we might have
+    // replaced the handle with a connection to a new, restarted, system
+    // and the ack might be targeted to the old incarnation.
+    // See issue #19780
   }
 
   override def unhandled(message: Any): Unit = message match {

@@ -56,7 +56,7 @@ to avoid inbound connections from other cluster nodes to the client, i.e.
 the ``sender()``, as seen by the destination actor, is not the client itself.
 The ``sender()`` of the response messages, as seen by the client, is ``deadLetters``
 since the client should normally send subsequent messages via the ``ClusterClient``.
-It is possible to pass the the original sender inside the reply messages if
+It is possible to pass the original sender inside the reply messages if
 the client is supposed to communicate directly to the actor in the cluster.
 
 While establishing a connection to a receptionist the ``ClusterClient`` will buffer
@@ -93,8 +93,8 @@ The ``initialContacts`` parameter is a ``Set[ActorPath]``, which can be created 
 You will probably define the address information of the initial contact points in configuration or system property.
 See also :ref:`cluster-client-config-scala`.
 
-A more comprehensive sample is available in the `Typesafe Activator <http://www.typesafe.com/platform/getstarted>`_
-tutorial named `Distributed workers with Akka and Scala! <http://www.typesafe.com/activator/template/akka-distributed-workers>`_.
+A more comprehensive sample is available in the `Lightbend Activator <http://www.lightbend.com/platform/getstarted>`_
+tutorial named `Distributed workers with Akka and Scala! <http://www.lightbend.com/activator/template/akka-distributed-workers>`_.
 
 ClusterClientReceptionist Extension
 -----------------------------------

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl
@@ -12,7 +12,6 @@ import akka.http.javadsl.model.ws._
 import akka.http.javadsl.settings.{ ConnectionPoolSettings, ClientConnectionSettings, ServerSettings }
 import akka.{ NotUsed, stream }
 import akka.stream.TLSProtocol._
-import scala.language.implicitConversions
 import scala.concurrent.Future
 import scala.util.Try
 import akka.stream.scaladsl.Keep

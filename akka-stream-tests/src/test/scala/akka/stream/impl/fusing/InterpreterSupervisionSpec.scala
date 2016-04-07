@@ -1,17 +1,16 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.fusing
 
 import scala.util.control.NoStackTrace
 import akka.stream.Supervision
 import akka.stream.stage.Context
-import akka.stream.stage.Directive
 import akka.stream.stage.PushPullStage
 import akka.stream.stage.Stage
 import akka.stream.stage.TerminationDirective
 import akka.stream.stage.SyncDirective
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 
 object InterpreterSupervisionSpec {
   val TE = new Exception("TEST") with NoStackTrace {
@@ -301,27 +300,6 @@ class InterpreterSupervisionSpec extends AkkaSpec with GraphInterpreterSpecKit {
 
       upstream.onNext(3)
       lastEvents() should be(Set(OnNext(3)))
-    }
-
-    "restart when Collect throws" in {
-      // TODO can't get type inference to work with `pf` inlined
-      val pf: PartialFunction[Int, Int] =
-        { case x: Int ⇒ if (x == 0) throw TE else x }
-      new OneBoundedSetup[Int](Seq(
-        Collect(pf, restartingDecider))) {
-        downstream.requestOne()
-        lastEvents() should be(Set(RequestOne))
-        upstream.onNext(2)
-        lastEvents() should be(Set(OnNext(2)))
-
-        downstream.requestOne()
-        lastEvents() should be(Set(RequestOne))
-        upstream.onNext(0) // boom
-        lastEvents() should be(Set(RequestOne))
-
-        upstream.onNext(3)
-        lastEvents() should be(Set(OnNext(3)))
-      }
     }
 
     "resume when Scan throws" in new OneBoundedSetup[Int](Seq(

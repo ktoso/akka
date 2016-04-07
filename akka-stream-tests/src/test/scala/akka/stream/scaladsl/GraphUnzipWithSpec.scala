@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -11,6 +11,7 @@ import org.reactivestreams.Publisher
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 import akka.testkit.EventFilter
+import akka.testkit.AkkaSpec
 
 class GraphUnzipWithSpec extends AkkaSpec {
 
@@ -187,7 +188,7 @@ class GraphUnzipWithSpec extends AkkaSpec {
       rightProbe.expectNoMsg(100.millis)
     }
 
-    "unzipWith expanded Person.unapply (3 ouputs)" in {
+    "unzipWith expanded Person.unapply (3 outputs)" in {
       val probe0 = TestSubscriber.manualProbe[String]()
       val probe1 = TestSubscriber.manualProbe[String]()
       val probe2 = TestSubscriber.manualProbe[Int]()

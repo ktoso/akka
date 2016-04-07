@@ -1,12 +1,12 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
-import akka.stream.Attributes._
 import akka.stream.{ ClosedShape, ActorMaterializer, OverflowStrategy }
 import akka.stream.testkit._
 import akka.stream.stage._
+import akka.testkit.AkkaSpec
 
 object FlowGraphCompileSpec {
   class Fruit

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.persistence
 
@@ -8,8 +8,6 @@ import akka.event.Logging
 import akka.event.Logging.Warning
 import akka.testkit.{ EventFilter, ImplicitSender, TestEvent }
 import com.typesafe.config.ConfigFactory
-
-import scala.language.postfixOps
 
 object OptionalSnapshotStoreSpec {
 

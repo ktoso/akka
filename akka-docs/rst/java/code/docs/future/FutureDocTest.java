@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.future;
 
@@ -153,56 +153,6 @@ public class FutureDocTest extends AbstractJavaTest {
 
     f2.onSuccess(new PrintResult<Integer>(), system.dispatcher());
     //#map
-    int result = Await.result(f2, Duration.create(5, SECONDS));
-    assertEquals(10, result);
-  }
-
-  @Test
-  public void useMap2() throws Exception {
-    //#map2
-    final ExecutionContext ec = system.dispatcher();
-
-    Future<String> f1 = future(new Callable<String>() {
-      public String call() throws Exception {
-        Thread.sleep(100);
-        return "Hello" + "World";
-      }
-    }, ec);
-
-    Future<Integer> f2 = f1.map(new Mapper<String, Integer>() {
-      public Integer apply(String s) {
-        return s.length();
-      }
-    }, ec);
-
-    f2.onSuccess(new PrintResult<Integer>(), system.dispatcher());
-    //#map2
-    int result = Await.result(f2, Duration.create(5, SECONDS));
-    assertEquals(10, result);
-  }
-
-  @Test
-  public void useMap3() throws Exception {
-    //#map3
-    final ExecutionContext ec = system.dispatcher();
-
-    Future<String> f1 = future(new Callable<String>() {
-      public String call() {
-        return "Hello" + "World";
-      }
-    }, ec);
-
-    // Thread.sleep is only here to prove a point
-    Thread.sleep(100); // Do not use this in your code
-
-    Future<Integer> f2 = f1.map(new Mapper<String, Integer>() {
-      public Integer apply(String s) {
-        return s.length();
-      }
-    }, ec);
-
-    f2.onSuccess(new PrintResult<Integer>(), system.dispatcher());
-    //#map3
     int result = Await.result(f2, Duration.create(5, SECONDS));
     assertEquals(10, result);
   }

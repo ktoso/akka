@@ -1,15 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.testkit
 
 import akka.actor._
-import scala.concurrent.duration.Duration
-import akka.dispatch.DispatcherPrerequisites
 import scala.concurrent.duration.FiniteDuration
-import akka.dispatch.MessageDispatcher
-import akka.dispatch.MailboxType
 import scala.reflect.ClassTag
 
 /**

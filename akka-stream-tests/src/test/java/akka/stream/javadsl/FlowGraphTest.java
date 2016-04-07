@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl;
 
@@ -11,7 +11,7 @@ import akka.stream.*;
 import akka.stream.javadsl.GraphDSL.Builder;
 import akka.stream.stage.*;
 import akka.japi.function.*;
-import akka.stream.testkit.AkkaSpec;
+import akka.testkit.AkkaSpec;
 import akka.testkit.JavaTestKit;
 import akka.testkit.TestProbe;
 

@@ -1,12 +1,13 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.remote
 
 import akka.AkkaException
+import akka.Done
 import akka.actor._
-import akka.event.{ Logging, LoggingAdapter }
+import akka.event.{ LoggingAdapter }
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.util.control.NoStackTrace
@@ -39,7 +40,7 @@ private[akka] abstract class RemoteTransport(val system: ExtendedActorSystem, va
   /**
    * Shuts down the remoting
    */
-  def shutdown(): Future[Unit]
+  def shutdown(): Future[Done]
 
   /**
    * Address to be used in RootActorPath of refs generated for this transport.

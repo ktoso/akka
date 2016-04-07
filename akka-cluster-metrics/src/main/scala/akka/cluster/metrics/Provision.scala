@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster.metrics
@@ -8,7 +8,6 @@ import java.io.File
 import kamon.sigar.SigarProvisioner
 import org.hyperic.sigar.Sigar
 import org.hyperic.sigar.SigarProxy
-import org.hyperic.sigar.SigarException
 import scala.language.postfixOps
 import scala.util.Success
 import scala.util.Failure

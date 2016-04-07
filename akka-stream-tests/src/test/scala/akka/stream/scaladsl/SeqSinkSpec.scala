@@ -1,10 +1,10 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import scala.collection.immutable
 import scala.concurrent.{ Future, Await }
 import scala.concurrent.duration._

@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+ */
 package akka
 
 import sbt._
@@ -19,7 +22,7 @@ object Release {
     commands ++= Seq(buildReleaseCommand, uploadReleaseCommand)
   )
 
-  def buildReleaseCommand = Command.command("build-release") { state =>
+  def buildReleaseCommand = Command.command("buildRelease") { state =>
     val extracted = Project.extract(state)
     val release = extracted.get(releaseDirectory)
     val dist = extracted.get(Dist.distDirectory)
@@ -50,7 +53,7 @@ object Release {
     state5
   }
 
-  def uploadReleaseCommand = Command.command("upload-release") { state =>
+  def uploadReleaseCommand = Command.command("uploadRelease") { state =>
     val extracted = Project.extract(state)
     val (state1, _) = extracted.runTask(S3.upload, state)
     state1

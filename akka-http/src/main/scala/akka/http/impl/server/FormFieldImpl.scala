@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.server
@@ -12,7 +12,6 @@ import akka.http.scaladsl.common.{ StrictForm, NameUnmarshallerReceptacle, NameR
 import akka.http.scaladsl.unmarshalling._
 
 import scala.reflect.ClassTag
-import akka.http.scaladsl.server.directives.FormFieldDirectives._
 import akka.http.scaladsl.server.{ Directives, Directive1 }
 
 import scala.compat.java8.OptionConverters._

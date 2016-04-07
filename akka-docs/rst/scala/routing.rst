@@ -262,6 +262,19 @@ BalancingPool
 A Router that will try to redistribute work from busy routees to idle routees.
 All routees share the same mailbox.
 
+.. note::
+
+   The BalancingPool has the property that its routees do not have truly distinct
+   identity: they have different names, but talking to them will not end up at the
+   right actor in most cases. Therefore you cannot use it for workflows that
+   require state to be kept within the routee, you would in this case have to
+   include the whole state in the messages.
+
+   With a `SmallestMailboxPool`_ you can have a vertically scaling service that
+   can interact in a stateful fashion with other services in the back-end before
+   replying to the original client. The other advantage is that it does not place
+   a restriction on the message queue implementation as BalancingPool does.
+
 BalancingPool defined in configuration:
 
 .. includecode:: code/docs/routing/RouterDocSpec.scala#config-balancing-pool
@@ -544,7 +557,7 @@ a resizer.
 .. note::
 
   Brendan W McAdams' excellent blog post `Distributing Akka Workloads - And Shutting Down Afterwards
-  <http://blog.evilmonkeylabs.com/2013/01/17/Distributing_Akka_Workloads_And_Shutting_Down_After/>`_
+  <http://bytes.codes/2013/01/17/Distributing_Akka_Workloads_And_Shutting_Down_After/>`_
   discusses in more detail how ``PoisonPill`` messages can be used to shut down routers and routees.
 
 Kill Messages

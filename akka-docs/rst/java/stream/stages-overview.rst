@@ -160,6 +160,23 @@ Emit each integer in a range, with an option to take bigger steps than 1.
 
 **completes** when the end of the range has been reached
 
+unfoldResource
+^^^^^
+Wrap any resource that can be opened, queried for next element (in a blocking way) and closed using three distinct functions into a source.
+
+**emits** when there is demand and read method returns value
+
+**completes** when read function returns ``None``
+
+unfoldAsyncResource
+^^^^^
+Wrap any resource that can be opened, queried for next element and closed using three distinct functions into a source.
+Functions return ``CompletionStage`` result to achieve asynchronous processing
+
+**emits** when there is demand and ``CompletionStage`` from read function returns value
+
+**completes** when ``CompletionStage`` from read function returns ``None``
+
 queue
 ^^^^^
 Materialize a ``SourceQueue`` onto which elements can be pushed for emitting from the source. The queue contains
@@ -885,7 +902,7 @@ splitAfter
 ^^^^^^^^^^
 End the current substream whenever a predicate returns ``true``, starting a new substream for the next element.
 
-**emits** when an element passes through. When the provided predicate is true it emitts the element * and opens a new substream for subsequent element
+**emits** when an element passes through. When the provided predicate is true it emits the element * and opens a new substream for subsequent element
 
 **backpressures** when there is an element pending for the next substream, but the previous is not fully consumed yet, or the substream backpressures
 
@@ -1064,6 +1081,18 @@ The stage otherwise passes through elements unchanged.
 **emits** when input has an element available
 
 **backpressures** when output backpressures
+
+**completes** when upstream completes
+
+monitor
+^^^^^^^
+Materializes to a ``FlowMonitor`` that monitors messages flowing through or completion of the stage. The stage otherwise
+passes through elements unchanged. Note that the ``FlowMonitor`` inserts a memory barrier every time it processes an
+event, and may therefore affect performance.
+
+**emits** when upstream emits an element
+
+**backpressures** when downstream **backpressures**
 
 **completes** when upstream completes
 

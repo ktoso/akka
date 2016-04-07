@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster
@@ -8,7 +8,7 @@ package akka.cluster
 
 import java.io.Closeable
 import scala.collection.immutable
-import akka.actor.{ Actor, ActorRef, ActorSystemImpl, Address, Props }
+import akka.actor.{ Actor, ActorRef, Address, Props }
 import akka.cluster.ClusterEvent._
 import akka.actor.PoisonPill
 import akka.dispatch.{ UnboundedMessageQueueSemantics, RequiresMessageQueue }

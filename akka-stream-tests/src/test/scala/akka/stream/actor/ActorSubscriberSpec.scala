@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.actor
 
@@ -7,7 +7,7 @@ import akka.actor.{ Actor, ActorRef, Props }
 import akka.routing.{ ActorRefRoutee, RoundRobinRoutingLogic, Router }
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{ Sink, Source }
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.testkit.ImplicitSender
 import org.reactivestreams.Subscription
 

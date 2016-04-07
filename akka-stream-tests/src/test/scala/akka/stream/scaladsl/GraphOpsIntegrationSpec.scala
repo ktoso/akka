@@ -1,14 +1,13 @@
 package akka.stream.scaladsl
 
 import akka.NotUsed
-
 import scala.collection.immutable
 import scala.concurrent.{ Future, Await }
 import scala.concurrent.duration._
 import akka.stream._
 import akka.stream.testkit._
-import akka.util.ByteString
 import org.scalactic.ConversionCheckedTripleEquals
+import akka.testkit.AkkaSpec
 
 object GraphOpsIntegrationSpec {
   import GraphDSL.Implicits._
@@ -44,7 +43,7 @@ object GraphOpsIntegrationSpec {
 
 }
 
-class GraphOpsIntegrationSpec extends AkkaSpec with ConversionCheckedTripleEquals {
+class GraphOpsIntegrationSpec extends AkkaSpec {
   import akka.stream.scaladsl.GraphOpsIntegrationSpec._
   import GraphDSL.Implicits._
 
@@ -90,7 +89,6 @@ class GraphOpsIntegrationSpec extends AkkaSpec with ConversionCheckedTripleEqual
     }
 
     "support wikipedia Topological_sorting 2" in {
-      import Attributes.name
       // see https://en.wikipedia.org/wiki/Topological_sorting#mediaviewer/File:Directed_acyclic_graph.png
       val seqSink = Sink.head[Seq[Int]]
 

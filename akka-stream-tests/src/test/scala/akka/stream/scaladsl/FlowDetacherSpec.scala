@@ -1,22 +1,20 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import org.scalactic.ConversionCheckedTripleEquals
 import org.scalatest.concurrent.ScalaFutures
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.stream._
-import akka.stream.scaladsl._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.testkit.Utils
 
-class FlowDetacherSpec extends AkkaSpec with ConversionCheckedTripleEquals with ScalaFutures {
+class FlowDetacherSpec extends AkkaSpec {
 
   implicit val materializer = ActorMaterializer()
-  implicit val patience = PatienceConfig(2.seconds)
 
   "A Detacher" must {
 

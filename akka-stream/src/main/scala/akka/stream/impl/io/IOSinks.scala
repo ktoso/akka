@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.io
 
@@ -21,6 +21,8 @@ import scala.concurrent.{ Future, Promise }
  */
 private[akka] final class FileSink(f: File, options: Set[StandardOpenOption], val attributes: Attributes, shape: SinkShape[ByteString])
   extends SinkModule[ByteString, Future[IOResult]](shape) {
+
+  override protected def label: String = s"FileSink($f, $options)"
 
   override def create(context: MaterializationContext) = {
     val materializer = ActorMaterializer.downcast(context.materializer)
@@ -68,4 +70,3 @@ private[akka] final class OutputStreamSink(createOutput: () ⇒ OutputStream, va
   override def withAttributes(attr: Attributes): Module =
     new OutputStreamSink(createOutput, attr, amendShape(attr), autoFlush)
 }
-

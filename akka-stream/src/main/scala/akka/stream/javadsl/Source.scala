@@ -1,21 +1,17 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl
 
-import java.io.{ OutputStream, InputStream, File }
 import java.util
 import java.util.Optional
 import akka.{ Done, NotUsed }
 import akka.actor.{ ActorRef, Cancellable, Props }
 import akka.event.LoggingAdapter
 import akka.japi.{ Pair, Util, function }
-import akka.stream.Attributes._
 import akka.stream._
-import akka.stream.impl.fusing.{ GraphStages, Delay }
-import akka.stream.impl.{ ConstantFun, StreamLayout }
+import akka.stream.impl.{ ConstantFun, StreamLayout, SourceQueueAdapter }
 import akka.stream.stage.Stage
-import akka.util.ByteString
 import org.reactivestreams.{ Publisher, Subscriber }
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.JavaConverters._
@@ -23,12 +19,10 @@ import scala.collection.immutable
 import scala.collection.immutable.Range.Inclusive
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ Future, Promise }
-import scala.language.{ higherKinds, implicitConversions }
 import scala.compat.java8.OptionConverters._
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.CompletableFuture
 import scala.compat.java8.FutureConverters._
-import akka.stream.impl.SourceQueueAdapter
 
 /** Java API */
 object Source {
@@ -115,7 +109,7 @@ object Source {
    * `ConcurrentModificationException` or other more subtle errors may occur.
    */
   def from[O](iterable: java.lang.Iterable[O]): javadsl.Source[O, NotUsed] = {
-    // this adapter is not immutable if the the underlying java.lang.Iterable is modified
+    // this adapter is not immutable if the underlying java.lang.Iterable is modified
     // but there is not anything we can do to prevent that from happening.
     // ConcurrentModificationException will be thrown in some cases.
     val scalaIterable = new immutable.Iterable[O] {
@@ -309,9 +303,65 @@ object Source {
    * @param bufferSize size of buffer in element count
    * @param overflowStrategy Strategy that is used when incoming elements cannot fit inside the buffer
    */
-  def queue[T](bufferSize: Int, overflowStrategy: OverflowStrategy): Source[T, SourceQueue[T]] =
+  def queue[T](bufferSize: Int, overflowStrategy: OverflowStrategy): Source[T, SourceQueueWithComplete[T]] =
     new Source(scaladsl.Source.queue[T](bufferSize, overflowStrategy).mapMaterializedValue(new SourceQueueAdapter(_)))
 
+  /**
+    * Start a new `Source` from some resource which can be opened, read and closed.
+    * Interaction with resource happens in a blocking way.
+    *
+    * Example:
+    * {{{
+    * Source.unfoldResource(
+    *   () -> new BufferedReader(new FileReader("...")),
+    *   reader -> reader.readLine(),
+    *   reader -> reader.close())
+    * }}}
+    *
+    * You can use the supervision strategy to handle exceptions for `read` function. All exceptions thrown by `create`
+    * or `close` will fail the stream.
+    *
+    * `Restart` supervision strategy will close and create blocking IO again. Default strategy is `Stop` which means
+    * that stream will be terminated on error in `read` function by default.
+    *
+    * You can configure the default dispatcher for this Source by changing the `akka.stream.blocking-io-dispatcher` or
+    * set it for a given Source by using [[ActorAttributes]].
+    *
+    * @param create - function that is called on stream start and creates/opens resource.
+    * @param read - function that reads data from opened resource. It is called each time backpressure signal
+    *             is received. Stream calls close and completes when `read` returns None.
+    * @param close - function that closes resource
+    */
+  def unfoldResource[T, S](create: function.Creator[S],
+                     read: function.Function[S, Optional[T]],
+                     close: function.Procedure[S]): javadsl.Source[T, NotUsed] =
+    new Source(scaladsl.Source.unfoldResource[T,S](create.create,
+      (s: S) ⇒ read.apply(s).asScala, close.apply))
+
+  /**
+    * Start a new `Source` from some resource which can be opened, read and closed.
+    * It's similar to `unfoldResource` but takes functions that return `CopletionStage` instead of plain values.
+    *
+    * You can use the supervision strategy to handle exceptions for `read` function or failures of produced `Futures`.
+    * All exceptions thrown by `create` or `close` as well as fails of returned futures will fail the stream.
+    *
+    * `Restart` supervision strategy will close and create resource. Default strategy is `Stop` which means
+    * that stream will be terminated on error in `read` function (or future) by default.
+    *
+    * You can configure the default dispatcher for this Source by changing the `akka.stream.blocking-io-dispatcher` or
+    * set it for a given Source by using [[ActorAttributes]].
+    *
+    * @param create - function that is called on stream start and creates/opens resource.
+    * @param read - function that reads data from opened resource. It is called each time backpressure signal
+    *             is received. Stream calls close and completes when `CompletionStage` from read function returns None.
+    * @param close - function that closes resource
+    */
+  def unfoldResourceAsync[T, S](create: function.Creator[CompletionStage[S]],
+    read: function.Function[S, CompletionStage[Optional[T]]],
+    close: function.Function[S, CompletionStage[Done]]): javadsl.Source[T, NotUsed] =
+  new Source(scaladsl.Source.unfoldResourceAsync[T,S](() ⇒ create.create().toScala,
+    (s: S) ⇒ read.apply(s).toScala.map(_.asScala)(akka.dispatch.ExecutionContexts.sameThreadExecutionContext),
+    (s: S) ⇒ close.apply(s).toScala))
 }
 
 /**
@@ -327,6 +377,8 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
   override def shape: SourceShape[Out] = delegate.shape
 
   private[stream] def module: StreamLayout.Module = delegate.module
+
+  override def toString: String = delegate.toString
 
   /** Converts this Java DSL element to its Scala DSL counterpart. */
   def asScala: scaladsl.Source[Out, Mat] = delegate
@@ -372,6 +424,9 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * flow into the materialized value of the resulting Flow.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def viaMat[T, M, M2](flow: Graph[FlowShape[Out, T], M], combine: function.Function2[Mat, M, M2]): javadsl.Source[T, M2] =
     new Source(delegate.viaMat(flow)(combinerToScala(combine)))
@@ -411,6 +466,9 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    * }}}
    * The `combine` function is used to compose the materialized values of this flow and that
    * Sink into the materialized value of the resulting Sink.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    */
   def toMat[M, M2](sink: Graph[SinkShape[Out], M], combine: function.Function2[Mat, M, M2]): javadsl.RunnableGraph[M2] =
     RunnableGraph.fromGraph(delegate.toMat(sink)(combinerToScala(combine)))
@@ -475,6 +533,9 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    *
    * If this [[Source]] gets upstream error - no elements from the given [[Source]] will be pulled.
    *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
+   *
    * @see [[#concat]].
    */
   def concatMat[T >: Out, M, M2](that: Graph[SourceShape[T], M],
@@ -512,6 +573,9 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    *
    * If the given [[Source]] gets upstream error - no elements from this [[Source]] will be pulled.
    *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
+   *
    * @see [[#prepend]].
    */
   def prependMat[T >: Out, M, M2](that: Graph[SourceShape[T], M],
@@ -536,6 +600,9 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
   /**
    * Attaches the given [[Sink]] to this [[Flow]], meaning that elements that passes
    * through will also be sent to the [[Sink]].
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    *
    * @see [[#alsoTo]]
    */
@@ -579,6 +646,9 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    *
    * If one of sources gets upstream error - stream completes with failure.
    *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
+   *
    * @see [[#interleave]].
    */
   def interleaveMat[T >: Out, M, M2](that: Graph[SourceShape[T], M], segmentSize: Int,
@@ -603,6 +673,9 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
   /**
    * Merge the given [[Source]] to the current one, taking elements as they arrive from input streams,
    * picking randomly when several elements ready.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    *
    * @see [[#merge]].
    */
@@ -635,6 +708,9 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    * waiting for elements, this merge will block when one of the inputs does not have more elements (and
    * does not complete).
    *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
+   *
    * @see [[#mergeSorted]].
    */
   def mergeSortedMat[U >: Out, Mat2, Mat3](that: Graph[SourceShape[U], Mat2], comp: util.Comparator[U],
@@ -657,6 +733,9 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
 
   /**
    * Combine the elements of current [[Source]] and the given one into a stream of tuples.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    *
    * @see [[#zip]].
    */
@@ -683,6 +762,9 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
   /**
    * Put together the elements of current [[Source]] and the given one
    * into a stream of combined elements using a combiner function.
+   *
+   * It is recommended to use the internally optimized `Keep.left` and `Keep.right` combiners
+   * where appropriate instead of manually writing functions that pass through one of the values.
    *
    * @see [[#zipWith]].
    */
@@ -812,7 +894,7 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
   /**
    * Transform this stream by applying the given function to each of the elements
    * as they pass through this processing step. The function returns a `CompletionStage` and the
-   * value of that future will be emitted downstreams. As many CompletionStages as requested elements by
+   * value of that future will be emitted downstream. As many CompletionStages as requested elements by
    * downstream may run in parallel and may complete in any order, but the elements that
    * are emitted downstream are in the same order as received from upstream.
    *
@@ -843,7 +925,7 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
   /**
    * Transform this stream by applying the given function to each of the elements
    * as they pass through this processing step. The function returns a `CompletionStage` and the
-   * value of that future will be emitted downstreams. As many CompletionStages as requested elements by
+   * value of that future will be emitted downstream. As many CompletionStages as requested elements by
    * downstream may run in parallel and each processed element will be emitted downstream
    * as soon as it is ready, i.e. it is possible that the elements are not emitted downstream
    * in the same order as received from upstream.
@@ -1393,7 +1475,7 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    *
    * '''Emits when''' downstream stops backpressuring
    *
-   * '''Backpressures when''' downstream backpressures or iterator runs emtpy
+   * '''Backpressures when''' downstream backpressures or iterator runs empty
    *
    * '''Completes when''' upstream completes
    *
@@ -1433,6 +1515,7 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    * This operator makes it possible to extend the `Flow` API when there is no specialized
    * operator that performs the transformation.
    */
+  @deprecated("Use via(GraphStage) instead.", "2.4.3")
   def transform[U](mkStage: function.Creator[Stage[Out, U]]): javadsl.Source[U, Mat] =
     new Source(delegate.transform(() ⇒ mkStage.create()))
 
@@ -1588,7 +1671,7 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    * is [[akka.stream.Supervision.Resume]] or [[akka.stream.Supervision.Restart]]
    * the element is dropped and the stream and substreams continue.
    *
-   * '''Emits when''' an element passes through. When the provided predicate is true it emitts the element
+   * '''Emits when''' an element passes through. When the provided predicate is true it emits the element
    * and opens a new substream for subsequent element
    *
    * '''Backpressures when''' there is an element pending for the next substream, but the previous
@@ -1706,13 +1789,20 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    *
    * Throttle implements the token bucket model. There is a bucket with a given token capacity (burst size or maximumBurst).
    * Tokens drops into the bucket at a given rate and can be `spared` for later use up to bucket capacity
-   * to allow some burstyness. Whenever stream wants to send an element, it takes as many
+   * to allow some burstiness. Whenever stream wants to send an element, it takes as many
    * tokens from the bucket as number of elements. If there isn't any, throttle waits until the
    * bucket accumulates enough tokens. Bucket is full when stream just materialized and started.
    *
    * Parameter `mode` manages behaviour when upstream is faster than throttle rate:
    *  - [[akka.stream.ThrottleMode.Shaping]] makes pauses before emitting messages to meet throttle rate
    *  - [[akka.stream.ThrottleMode.Enforcing]] fails with exception when upstream is faster than throttle rate
+   *
+   * It is recommended to use non-zero burst sizes as they improve both performance and throttling precision by allowing
+   * the implementation to avoid using the scheduler when input rates fall below the enforced limit and to reduce
+   * most of the inaccuracy caused by the scheduler resolution (which is in the range of milliseconds).
+   *
+   * Throttler always enforces the rate limit, but in certain cases (mostly due to limited scheduler resolution) it
+   * enforces a tighter bound than what was prescribed. This can be also mitigated by increasing the burst size.
    *
    * '''Emits when''' upstream emits an element and configured time per each element elapsed
    *
@@ -1734,7 +1824,7 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    *
    * Throttle implements the token bucket model. There is a bucket with a given token capacity (burst size or maximumBurst).
    * Tokens drops into the bucket at a given rate and can be `spared` for later use up to bucket capacity
-   * to allow some burstyness. Whenever stream wants to send an element, it takes as many
+   * to allow some burstiness. Whenever stream wants to send an element, it takes as many
    * tokens from the bucket as element cost. If there isn't any, throttle waits until the
    * bucket accumulates enough tokens. Elements that costs more than the allowed burst will be delayed proportionally
    * to their cost minus available tokens, meeting the target rate.
@@ -1778,6 +1868,15 @@ final class Source[+Out, +Mat](delegate: scaladsl.Source[Out, Mat]) extends Grap
    */
   def watchTermination[M]()(matF: function.Function2[Mat, CompletionStage[Done], M]): javadsl.Source[Out, M] =
     new Source(delegate.watchTermination()((left, right) ⇒ matF(left, right.toJava)))
+
+  /**
+    * Materializes to `FlowMonitor[Out]` that allows monitoring of the the current flow. All events are propagated
+    * by the monitor unchanged. Note that the monitor inserts a memory barrier every time it processes an
+    * event, and may therefor affect performance.
+    * The `combine` function is used to combine the `FlowMonitor` with this flow's materialized value.
+    */
+  def monitor[M]()(combine: function.Function2[Mat, FlowMonitor[Out], M]): javadsl.Source[Out, M] =
+    new Source(delegate.monitor()(combinerToScala(combine)))
 
   /**
    * Delays the initial element by the specified duration.

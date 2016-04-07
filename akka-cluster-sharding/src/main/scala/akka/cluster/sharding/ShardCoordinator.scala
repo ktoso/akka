@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.cluster.sharding
 
@@ -339,9 +339,9 @@ object ShardCoordinator {
    * INTERNAL API. Rebalancing process is performed by this actor.
    * It sends `BeginHandOff` to all `ShardRegion` actors followed by
    * `HandOff` to the `ShardRegion` responsible for the shard.
-   * When the handoff is completed it sends [[RebalanceDone]] to its
+   * When the handoff is completed it sends [[akka.cluster.sharding.RebalanceDone]] to its
    * parent `ShardCoordinator`. If the process takes longer than the
-   * `handOffTimeout` it also sends [[RebalanceDone]].
+   * `handOffTimeout` it also sends [[akka.cluster.sharding.RebalanceDone]].
    */
   private[akka] class RebalanceWorker(shard: String, from: ActorRef, handOffTimeout: FiniteDuration,
                                       regions: Set[ActorRef]) extends Actor {
@@ -646,6 +646,7 @@ abstract class ShardCoordinator(typeName: String, settings: ClusterShardingSetti
         state = state.updated(evt)
         gracefulShutdownInProgress -= ref
         regionTerminationInProgress -= ref
+        aliveRegions -= ref
         allocateShardHomes()
       }
     }

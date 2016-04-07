@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.cluster.sharding
 
@@ -9,11 +9,13 @@ import akka.actor.ActorRef
 import akka.actor.Deploy
 import akka.actor.Props
 import akka.actor.Terminated
-import akka.cluster.sharding.Shard.{ GetCurrentShardState, ShardCommand }
+import akka.cluster.sharding.Shard.{ ShardCommand }
 import akka.persistence.PersistentActor
 import akka.persistence.SnapshotOffer
 import akka.actor.Actor
 import akka.persistence.RecoveryCompleted
+import akka.persistence.SaveSnapshotFailure
+import akka.persistence.SaveSnapshotSuccess
 
 /**
  * INTERNAL API
@@ -348,6 +350,13 @@ private[akka] class PersistentShard(
       super.initialized()
       log.debug("Shard recovery completed {}", shardId)
   }
+
+  override def receiveCommand: Receive = ({
+    case _: SaveSnapshotSuccess ⇒
+      log.debug("PersistentShard snapshot saved successfully")
+    case SaveSnapshotFailure(_, reason) ⇒
+      log.warning("PersistentShard snapshot failure: {}", reason.getMessage)
+  }: Receive).orElse(super.receiveCommand)
 
   override def entityTerminated(ref: ActorRef): Unit = {
     val id = idByRef(ref)

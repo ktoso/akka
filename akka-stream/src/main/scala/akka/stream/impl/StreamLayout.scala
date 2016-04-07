@@ -1,14 +1,13 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl
 
-import java.util.concurrent.atomic.{ AtomicInteger, AtomicReference }
+import java.util.concurrent.atomic.{ AtomicReference }
 import java.{ util ⇒ ju }
 import akka.NotUsed
 import akka.stream.impl.MaterializerSession.MaterializationPanic
 import akka.stream.impl.StreamLayout.Module
-import akka.stream.impl.fusing.GraphStages.MaterializedValueSource
 import akka.stream.scaladsl.Keep
 import akka.stream._
 import org.reactivestreams.{ Processor, Subscription, Publisher, Subscriber }
@@ -19,8 +18,8 @@ import java.util.concurrent.atomic.AtomicLong
 import scala.collection.JavaConverters._
 import akka.stream.impl.fusing.GraphStageModule
 import akka.stream.impl.fusing.GraphStages.MaterializedValueSource
-import akka.stream.impl.fusing.GraphStages.MaterializedValueSource
 import akka.stream.impl.fusing.GraphModule
+import akka.event.Logging
 
 /**
  * INTERNAL API
@@ -53,16 +52,16 @@ object StreamLayout {
     var problems: List[String] = Nil
 
     if (inset.size != shape.inlets.size) problems ::= "shape has duplicate inlets: " + ins(shape.inlets)
-    if (inset != inPorts) problems ::= s"shape has extra ${ins(inset -- inPorts)}, module has extra ${ins(inPorts -- inset)}"
+    if (inset != inPorts) problems ::= s"shape has extra ${ins(inset diff inPorts)}, module has extra ${ins(inPorts diff inset)}"
     if (inset.intersect(upstreams.keySet).nonEmpty) problems ::= s"found connected inlets ${inset.intersect(upstreams.keySet)}"
     if (outset.size != shape.outlets.size) problems ::= "shape has duplicate outlets: " + outs(shape.outlets)
-    if (outset != outPorts) problems ::= s"shape has extra ${outs(outset -- outPorts)}, module has extra ${outs(outPorts -- outset)}"
+    if (outset != outPorts) problems ::= s"shape has extra ${outs(outset diff outPorts)}, module has extra ${outs(outPorts diff outset)}"
     if (outset.intersect(downstreams.keySet).nonEmpty) problems ::= s"found connected outlets ${outset.intersect(downstreams.keySet)}"
     val ups = upstreams.toSet
     val ups2 = ups.map(_.swap)
     val downs = downstreams.toSet
     val inter = ups2.intersect(downs)
-    if (downs != ups2) problems ::= s"inconsistent maps: ups ${pairs(ups2 -- inter)} downs ${pairs(downs -- inter)}"
+    if (downs != ups2) problems ::= s"inconsistent maps: ups ${pairs(ups2 diff inter)} downs ${pairs(downs diff inter)}"
     val (allIn, dupIn, allOut, dupOut) =
       subModules.foldLeft((Set.empty[InPort], Set.empty[InPort], Set.empty[OutPort], Set.empty[OutPort])) {
         case ((ai, di, ao, doo), sm) ⇒
@@ -70,11 +69,11 @@ object StreamLayout {
       }
     if (dupIn.nonEmpty) problems ::= s"duplicate ports in submodules ${ins(dupIn)}"
     if (dupOut.nonEmpty) problems ::= s"duplicate ports in submodules ${outs(dupOut)}"
-    if (!isSealed && (inset -- allIn).nonEmpty) problems ::= s"foreign inlets ${ins(inset -- allIn)}"
-    if (!isSealed && (outset -- allOut).nonEmpty) problems ::= s"foreign outlets ${outs(outset -- allOut)}"
-    val unIn = allIn -- inset -- upstreams.keySet
+    if (!isSealed && (inset diff allIn).nonEmpty) problems ::= s"foreign inlets ${ins(inset diff allIn)}"
+    if (!isSealed && (outset diff allOut).nonEmpty) problems ::= s"foreign outlets ${outs(outset diff allOut)}"
+    val unIn = allIn diff inset diff upstreams.keySet
     if (unIn.nonEmpty && !isCopied) problems ::= s"unconnected inlets ${ins(unIn)}"
-    val unOut = allOut -- outset -- downstreams.keySet
+    val unOut = allOut diff outset diff downstreams.keySet
     if (unOut.nonEmpty && !isCopied) problems ::= s"unconnected outlets ${outs(unOut)}"
 
     def atomics(n: MaterializedValueNode): Set[Module] =
@@ -89,8 +88,8 @@ object StreamLayout {
       case GraphModule(_, _, _, mvids) ⇒ mvids
       case _                           ⇒ Nil
     }
-    if ((atomic -- subModules -- graphValues - m).nonEmpty)
-      problems ::= s"computation refers to non-existent modules [${atomic -- subModules -- graphValues - m mkString ","}]"
+    if (((atomic diff subModules diff graphValues) - m).nonEmpty)
+      problems ::= s"computation refers to non-existent modules [${(atomic diff subModules diff graphValues) - m mkString ","}]"
 
     val print = doPrint || problems.nonEmpty
 
@@ -106,9 +105,21 @@ object StreamLayout {
     if (problems.nonEmpty && !doPrint) throw new IllegalStateException(s"module inconsistent, found ${problems.size} problems")
   }
 
-  // TODO: Materialization order
-  // TODO: Special case linear composites
-  // TODO: Cycles
+  object IgnorableMatValComp {
+    def apply(comp: MaterializedValueNode): Boolean =
+      comp match {
+        case Atomic(module)            ⇒ IgnorableMatValComp(module)
+        case _: Combine | _: Transform ⇒ false
+        case Ignore                    ⇒ true
+      }
+    def apply(module: Module): Boolean =
+      module match {
+        case _: AtomicModule | EmptyModule        ⇒ true
+        case CopiedModule(_, _, module)           ⇒ IgnorableMatValComp(module)
+        case CompositeModule(_, _, _, _, comp, _) ⇒ IgnorableMatValComp(comp)
+        case FusedModule(_, _, _, _, comp, _, _)  ⇒ IgnorableMatValComp(comp)
+      }
+  }
 
   sealed trait MaterializedValueNode {
     /*
@@ -123,14 +134,14 @@ object StreamLayout {
     override def toString: String = s"Combine($dep1,$dep2)"
   }
   case class Atomic(module: Module) extends MaterializedValueNode {
-    override def toString: String = s"Atomic(${module.attributes.nameOrDefault(module.getClass.getName)}[${module.hashCode}])"
+    override def toString: String = f"Atomic(${module.attributes.nameOrDefault(module.getClass.getName)}[${System.identityHashCode(module)}%08x])"
   }
   case class Transform(f: Any ⇒ Any, dep: MaterializedValueNode) extends MaterializedValueNode {
     override def toString: String = s"Transform($dep)"
   }
   case object Ignore extends MaterializedValueNode
 
-  trait Module {
+  sealed trait Module {
 
     def shape: Shape
     /**
@@ -243,19 +254,30 @@ object StreamLayout {
       require(that ne this, "A module cannot be added to itself. You should pass a separate instance to compose().")
       require(!subModules(that), "An existing submodule cannot be added again. All contained modules must be unique.")
 
-      val modules1 = if (this.isSealed) Set(this) else this.subModules
-      val modules2 = if (that.isSealed) Set(that) else that.subModules
+      val modulesLeft = if (this.isSealed) Set(this) else this.subModules
+      val modulesRight = if (that.isSealed) Set(that) else that.subModules
 
-      val matComputation1 = if (this.isSealed) Atomic(this) else this.materializedValueComputation
-      val matComputation2 = if (that.isSealed) Atomic(that) else that.materializedValueComputation
+      val matCompLeft = if (this.isSealed) Atomic(this) else this.materializedValueComputation
+      val matCompRight = if (that.isSealed) Atomic(that) else that.materializedValueComputation
+
+      val mat =
+        {
+          val comp =
+            if (f == scaladsl.Keep.left) {
+              if (IgnorableMatValComp(matCompRight)) matCompLeft else null
+            } else if (f == scaladsl.Keep.right) {
+              if (IgnorableMatValComp(matCompLeft)) matCompRight else null
+            } else null
+          if (comp == null) Combine(f.asInstanceOf[(Any, Any) ⇒ Any], matCompLeft, matCompRight)
+          else comp
+        }
 
       CompositeModule(
-        modules1 ++ modules2,
+        modulesLeft union modulesRight,
         AmorphousShape(shape.inlets ++ that.shape.inlets, shape.outlets ++ that.shape.outlets),
         downstreams ++ that.downstreams,
         upstreams ++ that.upstreams,
-        // would like to optimize away this allocation for Keep.{left,right} but that breaks side-effecting transformations
-        Combine(f.asInstanceOf[(Any, Any) ⇒ Any], matComputation1, matComputation2),
+        mat,
         Attributes.none)
     }
 
@@ -316,7 +338,7 @@ object StreamLayout {
     final override def equals(obj: scala.Any): Boolean = super.equals(obj)
   }
 
-  object EmptyModule extends Module {
+  case object EmptyModule extends Module {
     override def shape = ClosedShape
     override def replaceShape(s: Shape) =
       if (s != shape) throw new UnsupportedOperationException("cannot replace the shape of the EmptyModule")
@@ -359,16 +381,16 @@ object StreamLayout {
 
     override def isCopied: Boolean = true
 
-    override def toString: String = s"$copyOf (copy)"
+    override def toString: String = f"[${System.identityHashCode(this)}%08x] copy of $copyOf"
   }
 
   final case class CompositeModule(
-    override val subModules: Set[Module],
-    override val shape: Shape,
-    override val downstreams: Map[OutPort, InPort],
-    override val upstreams: Map[InPort, OutPort],
-    override val materializedValueComputation: MaterializedValueNode,
-    override val attributes: Attributes) extends Module {
+      override val subModules: Set[Module],
+      override val shape: Shape,
+      override val downstreams: Map[OutPort, InPort],
+      override val upstreams: Map[InPort, OutPort],
+      override val materializedValueComputation: MaterializedValueNode,
+      override val attributes: Attributes) extends Module {
 
     override def replaceShape(s: Shape): Module =
       if (s != shape) {
@@ -381,13 +403,13 @@ object StreamLayout {
     override def withAttributes(attributes: Attributes): Module = copy(attributes = attributes)
 
     override def toString =
-      s"""
+      f"""CompositeModule [${System.identityHashCode(this)}%08x]
          |  Name: ${this.attributes.nameOrDefault("unnamed")}
          |  Modules:
-         |    ${subModules.iterator.map(m ⇒ m.attributes.nameLifted.getOrElse(m.toString.replaceAll("\n", "\n    "))).mkString("\n    ")}
+         |    ${subModules.iterator.map(m ⇒ s"(${m.attributes.nameLifted.getOrElse("unnamed")}) ${m.toString.replaceAll("\n", "\n    ")}").mkString("\n    ")}
          |  Downstreams: ${downstreams.iterator.map { case (in, out) ⇒ s"\n    $in -> $out" }.mkString("")}
          |  Upstreams: ${upstreams.iterator.map { case (out, in) ⇒ s"\n    $out -> $in" }.mkString("")}
-         |""".stripMargin
+         |  MatValue: $materializedValueComputation""".stripMargin
   }
 
   object CompositeModule {
@@ -395,13 +417,13 @@ object StreamLayout {
   }
 
   final case class FusedModule(
-    override val subModules: Set[Module],
-    override val shape: Shape,
-    override val downstreams: Map[OutPort, InPort],
-    override val upstreams: Map[InPort, OutPort],
-    override val materializedValueComputation: MaterializedValueNode,
-    override val attributes: Attributes,
-    info: Fusing.StructuralInfo) extends Module {
+      override val subModules: Set[Module],
+      override val shape: Shape,
+      override val downstreams: Map[OutPort, InPort],
+      override val upstreams: Map[InPort, OutPort],
+      override val materializedValueComputation: MaterializedValueNode,
+      override val attributes: Attributes,
+      info: Fusing.StructuralInfo) extends Module {
 
     override def isFused: Boolean = true
 
@@ -416,114 +438,299 @@ object StreamLayout {
     override def withAttributes(attributes: Attributes): FusedModule = copy(attributes = attributes)
 
     override def toString =
-      s"""
-        |  Name: ${this.attributes.nameOrDefault("unnamed")}
-        |  Modules:
-        |    ${subModules.iterator.map(m ⇒ m.attributes.nameLifted.getOrElse(m.toString.replaceAll("\n", "\n    "))).mkString("\n    ")}
-        |  Downstreams: ${downstreams.iterator.map { case (in, out) ⇒ s"\n    $in -> $out" }.mkString("")}
-        |  Upstreams: ${upstreams.iterator.map { case (out, in) ⇒ s"\n    $out -> $in" }.mkString("")}
-        |""".stripMargin
+      f"""FusedModule [${System.identityHashCode(this)}%08x]
+         |  Name: ${this.attributes.nameOrDefault("unnamed")}
+         |  Modules:
+         |    ${subModules.iterator.map(m ⇒ m.attributes.nameLifted.getOrElse(m.toString.replaceAll("\n", "\n    "))).mkString("\n    ")}
+         |  Downstreams: ${downstreams.iterator.map { case (in, out) ⇒ s"\n    $in -> $out" }.mkString("")}
+         |  Upstreams: ${upstreams.iterator.map { case (out, in) ⇒ s"\n    $out -> $in" }.mkString("")}
+         |  MatValue: $materializedValueComputation""".stripMargin
+  }
+
+  /**
+   * This is the only extension point for the sealed type hierarchy: composition
+   * (i.e. the module tree) is managed strictly within this file, only leaf nodes
+   * may be declared elsewhere.
+   */
+  abstract class AtomicModule extends Module {
+    final override def subModules: Set[Module] = Set.empty
+    final override def downstreams: Map[OutPort, InPort] = super.downstreams
+    final override def upstreams: Map[InPort, OutPort] = super.upstreams
   }
 }
 
+/**
+ * INTERNAL API
+ */
 private[stream] object VirtualProcessor {
-  sealed trait Termination
-  case object Allowed extends Termination
-  case object Completed extends Termination
-  case class Failed(ex: Throwable) extends Termination
-
-  private val InertSubscriber = new CancellingSubscriber[Any]
+  case object Inert {
+    val subscriber = new CancellingSubscriber[Any]
+  }
+  case class Both(subscriber: Subscriber[Any])
+  object Both {
+    def create(s: Subscriber[_]) = Both(s.asInstanceOf[Subscriber[Any]])
+  }
 }
 
-private[stream] final class VirtualProcessor[T] extends Processor[T, T] {
+/**
+ * INTERNAL API
+ *
+ * This is a transparent processor that shall consume as little resources as
+ * possible. Due to the possibility of receiving uncoordinated inputs from both
+ * downstream and upstream, this needs an atomic state machine which looks a
+ * little like this:
+ *
+ *            +--------------+      (2)    +------------+
+ *            |     null     | ----------> | Subscriber |
+ *            +--------------+             +------------+
+ *                   |                           |
+ *               (1) |                           | (1)
+ *                  \|/                         \|/
+ *            +--------------+      (2)    +------------+ --\
+ *            | Subscription | ----------> |    Both    |    | (4)
+ *            +--------------+             +------------+ <-/
+ *                   |                           |
+ *               (3) |                           | (3)
+ *                  \|/                         \|/
+ *            +--------------+      (2)    +------------+ --\
+ *            |   Publisher  | ----------> |   Inert    |    | (4, *)
+ *            +--------------+             +------------+ <-/
+ *
+ * The idea is to keep the major state in only one atomic reference. The actions
+ * that can happen are:
+ *
+ *  (1) onSubscribe
+ *  (2) subscribe
+ *  (3) onError / onComplete
+ *  (4) onNext
+ *      (*) Inert can be reached also by cancellation after which onNext is still fine
+ *          so we just silently ignore possible spec violations here
+ *
+ * Any event that occurs in a state where no matching outgoing arrow can be found
+ * is a spec violation, leading to the shutdown of this processor (meaning that
+ * the state is updated such that all following actions match that of a failed
+ * Publisher or a cancelling Subscriber, and the non-guilty party is informed if
+ * already connected).
+ *
+ * request() can only be called after the Subscriber has received the Subscription
+ * and that also means that onNext() will only happen after having transitioned into
+ * the Both state as well. The Publisher state means that if the real
+ * Publisher terminates before we get the Subscriber, we can just forget about the
+ * real one and keep an already finished one around for the Subscriber.
+ *
+ * The Subscription that is offered to the Subscriber must cancel the original
+ * Publisher if things go wrong (like `request(0)` coming in from downstream) and
+ * it must ensure that we drop the Subscriber reference when `cancel` is invoked.
+ */
+private[stream] final class VirtualProcessor[T] extends AtomicReference[AnyRef] with Processor[T, T] {
   import VirtualProcessor._
   import ReactiveStreamsCompliance._
 
-  private val subscriptionStatus = new AtomicReference[AnyRef]
-  private val terminationStatus = new AtomicReference[Termination]
-
   override def subscribe(s: Subscriber[_ >: T]): Unit = {
-    requireNonNullSubscriber(s)
-    if (subscriptionStatus.compareAndSet(null, s)) () // wait for onSubscribe
-    else
-      subscriptionStatus.get match {
-        case sub: Subscriber[_] ⇒ rejectAdditionalSubscriber(s, "VirtualProcessor")
-        case sub: Sub ⇒
-          try {
-            subscriptionStatus.set(s)
-            tryOnSubscribe(s, sub)
-            sub.closeLatch() // allow onNext only now
-            terminationStatus.getAndSet(Allowed) match {
-              case null                        ⇒ // nothing happened yet
-              case VirtualProcessor.Completed  ⇒ tryOnComplete(s)
-              case VirtualProcessor.Failed(ex) ⇒ tryOnError(s, ex)
-              case VirtualProcessor.Allowed    ⇒ // all good
-            }
-          } catch {
-            case NonFatal(ex) ⇒ sub.cancel()
-          }
+    @tailrec def rec(sub: Subscriber[Any]): Unit =
+      get() match {
+        case null => if (!compareAndSet(null, s)) rec(sub)
+        case subscription: Subscription =>
+          if (compareAndSet(subscription, Both(sub))) establishSubscription(sub, subscription)
+          else rec(sub)
+        case pub: Publisher[_] =>
+          if (compareAndSet(pub, Inert)) pub.subscribe(sub)
+          else rec(sub)
+        case _ =>
+          rejectAdditionalSubscriber(sub, "VirtualProcessor")
       }
+
+    if (s == null) {
+      val ex = subscriberMustNotBeNullException
+      try rec(Inert.subscriber)
+      finally throw ex // must throw NPE, rule 2:13
+    } else rec(s.asInstanceOf[Subscriber[Any]])
   }
 
-  override def onSubscribe(s: Subscription): Unit = {
-    requireNonNullSubscription(s)
-    val wrapped = new Sub(s)
-    if (subscriptionStatus.compareAndSet(null, wrapped)) () // wait for Subscriber
-    else
-      subscriptionStatus.get match {
-        case sub: Subscriber[_] ⇒
-          terminationStatus.get match {
-            case Allowed ⇒
-              /*
-               * There is a race condition here: if this thread reads the subscriptionStatus after
-               * set set() in subscribe() but then sees the terminationStatus before the getAndSet()
-               * is published then we will rely upon the downstream Subscriber for cancelling this
-               * Subscription. I only mention this because the TCK requires that we handle this here
-               * (since the manualSubscriber used there does not expose this behavior).
-               */
-              s.cancel()
-            case _ ⇒
-              tryOnSubscribe(sub, wrapped)
-              wrapped.closeLatch() // allow onNext only now
-              terminationStatus.set(Allowed)
+  override final def onSubscribe(s: Subscription): Unit = {
+    @tailrec def rec(obj: AnyRef): Unit =
+      get() match {
+        case null => if (!compareAndSet(null, obj)) rec(obj)
+        case subscriber: Subscriber[_] =>
+          obj match {
+            case subscription: Subscription =>
+              if (compareAndSet(subscriber, Both.create(subscriber))) establishSubscription(subscriber, subscription)
+              else rec(obj)
+            case pub: Publisher[_] =>
+              getAndSet(Inert) match {
+                case Inert => // nothing to be done
+                case _     => pub.subscribe(subscriber.asInstanceOf[Subscriber[Any]])
+              }
           }
-        case sub: Subscription ⇒
-          s.cancel() // reject further Subscriptions
+        case _ =>
+          // spec violation
+          tryCancel(s)
       }
+
+    if (s == null) {
+      val ex = subscriptionMustNotBeNullException
+      try rec(ErrorPublisher(ex, "failed-VirtualProcessor"))
+      finally throw ex // must throw NPE, rule 2:13
+    } else rec(s)
+  }
+
+  private def establishSubscription(subscriber: Subscriber[_], subscription: Subscription): Unit = {
+    val wrapped = new WrappedSubscription(subscription)
+    try subscriber.onSubscribe(wrapped)
+    catch {
+      case NonFatal(ex) =>
+        set(Inert)
+        tryCancel(subscription)
+        tryOnError(subscriber, ex)
+    }
   }
 
   override def onError(t: Throwable): Unit = {
-    requireNonNullException(t)
-    if (terminationStatus.compareAndSet(null, Failed(t))) () // let it be picked up by subscribe()
-    else tryOnError(subscriptionStatus.get.asInstanceOf[Subscriber[T]], t)
+    /*
+     * `ex` is always a reasonable Throwable that we should communicate downstream,
+     * but if `t` was `null` then the spec requires us to throw an NPE (which `ex`
+     * will be in this case).
+     */
+    @tailrec def rec(ex: Throwable): Unit =
+      get() match {
+        case null =>
+          if (!compareAndSet(null, ErrorPublisher(ex, "failed-VirtualProcessor"))) rec(ex)
+          else if (t == null) throw ex
+        case s: Subscription =>
+          if (!compareAndSet(s, ErrorPublisher(ex, "failed-VirtualProcessor"))) rec(ex)
+          else if (t == null) throw ex
+        case Both(s) =>
+          set(Inert)
+          try tryOnError(s, ex)
+          finally if (t == null) throw ex // must throw NPE, rule 2:13
+        case s: Subscriber[_] => // spec violation
+          getAndSet(Inert) match {
+            case Inert => // nothing to be done
+            case _     => ErrorPublisher(ex, "failed-VirtualProcessor").subscribe(s)
+          }
+        case _ => // spec violation or cancellation race, but nothing we can do
+      }
+
+    val ex = if (t == null) exceptionMustNotBeNullException else t
+    rec(ex)
   }
 
-  override def onComplete(): Unit =
-    if (terminationStatus.compareAndSet(null, Completed)) () // let it be picked up by subscribe()
-    else tryOnComplete(subscriptionStatus.get.asInstanceOf[Subscriber[T]])
-
-  override def onNext(t: T): Unit = {
-    requireNonNullElement(t)
-    tryOnNext(subscriptionStatus.get.asInstanceOf[Subscriber[T]], t)
-  }
-
-  private final class Sub(s: Subscription) extends AtomicLong with Subscription {
-    override def cancel(): Unit = {
-      subscriptionStatus.set(InertSubscriber)
-      s.cancel()
+  @tailrec override final def onComplete(): Unit =
+    get() match {
+      case null            => if (!compareAndSet(null, EmptyPublisher)) onComplete()
+      case s: Subscription => if (!compareAndSet(s, EmptyPublisher)) onComplete()
+      case Both(s) =>
+        set(Inert)
+        tryOnComplete(s)
+      case s: Subscriber[_] => // spec violation
+        set(Inert)
+        EmptyPublisher.subscribe(s)
+      case _ => // spec violation or cancellation race, but nothing we can do
     }
-    @tailrec
+
+  override def onNext(t: T): Unit =
+    if (t == null) {
+      val ex = elementMustNotBeNullException
+      @tailrec def rec(): Unit =
+        get() match {
+          case x @ (null | _: Subscription) => if (!compareAndSet(x, ErrorPublisher(ex, "failed-VirtualProcessor"))) rec()
+          case s: Subscriber[_]             => try s.onError(ex) catch { case NonFatal(_) => } finally set(Inert)
+          case Both(s)                      => try s.onError(ex) catch { case NonFatal(_) => } finally set(Inert)
+          case _                            => // spec violation or cancellation race, but nothing we can do
+        }
+      rec()
+      throw ex // must throw NPE, rule 2:13
+    } else {
+      @tailrec def rec(): Unit =
+        get() match {
+          case Both(s) =>
+            try s.onNext(t)
+            catch {
+              case NonFatal(e) =>
+                set(Inert)
+                throw new IllegalStateException("Subscriber threw exception, this is in violation of rule 2:13", e)
+            }
+          case s: Subscriber[_] => // spec violation
+            val ex = new IllegalStateException(noDemand)
+            getAndSet(Inert) match {
+              case Inert => // nothing to be done
+              case _     => ErrorPublisher(ex, "failed-VirtualProcessor").subscribe(s)
+            }
+            throw ex
+          case Inert | _: Publisher[_] => // nothing to be done
+          case other =>
+            val pub = ErrorPublisher(new IllegalStateException(noDemand), "failed-VirtualPublisher")
+            if (!compareAndSet(other, pub)) rec()
+            else throw pub.t
+        }
+      rec()
+    }
+
+  private def noDemand = "spec violation: onNext was signaled from upstream without demand"
+
+  private class WrappedSubscription(real: Subscription) extends Subscription {
     override def request(n: Long): Unit = {
-      val current = get
-      if (current < 0) s.request(n)
-      else if (compareAndSet(current, current + n)) ()
-      else request(n)
+      if (n < 1) {
+        tryCancel(real)
+        getAndSet(Inert) match {
+          case Both(s) => rejectDueToNonPositiveDemand(s)
+          case Inert   => // another failure has won the race
+          case _       => // this cannot possibly happen, but signaling errors is impossible at this point
+        }
+      } else real.request(n)
     }
-    def closeLatch(): Unit = {
-      val requested = getAndSet(-1)
-      if (requested > 0) s.request(requested)
+    override def cancel(): Unit = {
+      set(Inert)
+      real.cancel()
     }
   }
+}
+
+/**
+ * INTERNAL API
+ *
+ * The implementation of `Sink.asPublisher` needs to offer a `Publisher` that
+ * defers to the upstream that is connected during materialization. This would
+ * be trivial if it were not for materialized value computations that may even
+ * spawn the code that does `pub.subscribe(sub)` in a Future, running concurrently
+ * with the actual materialization. Therefore we implement a minimial shell here
+ * that plugs the downstream and the upstream together as soon as both are known.
+ * Using a VirtualProcessor would technically also work, but it would defeat the
+ * purpose of subscription timeouts—the subscription would always already be
+ * established from the Actor’s perspective, regardless of whether a downstream
+ * will ever be connected.
+ *
+ * One important consideration is that this `Publisher` must not retain a reference
+ * to the `Subscriber` after having hooked it up with the real `Publisher`, hence
+ * the use of `Inert.subscriber` as a tombstone.
+ */
+private[impl] class VirtualPublisher[T] extends AtomicReference[AnyRef] with Publisher[T] {
+  import VirtualProcessor.Inert
+  import ReactiveStreamsCompliance._
+
+  override def subscribe(subscriber: Subscriber[_ >: T]): Unit = {
+    requireNonNullSubscriber(subscriber)
+    @tailrec def rec(): Unit = {
+      get() match {
+        case null => if (!compareAndSet(null, subscriber)) rec()
+        case pub: Publisher[_] =>
+          if (compareAndSet(pub, Inert.subscriber)) {
+            pub.asInstanceOf[Publisher[T]].subscribe(subscriber)
+          } else rec()
+        case _: Subscriber[_] => rejectAdditionalSubscriber(subscriber, "Sink.asPublisher(fanout = false)")
+      }
+    }
+    rec() // return value is boolean only to make the expressions above compile
+  }
+
+  @tailrec final def registerPublisher(pub: Publisher[_]): Unit =
+    get() match {
+      case null => if (!compareAndSet(null, pub)) registerPublisher(pub)
+      case sub: Subscriber[r] =>
+        set(Inert.subscriber)
+        pub.asInstanceOf[Publisher[r]].subscribe(sub)
+      case _ => throw new IllegalStateException("internal error")
+    }
 }
 
 /**
@@ -541,10 +748,13 @@ private[stream] object MaterializerSession {
 private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Module, val initialAttributes: Attributes) {
   import StreamLayout._
 
-  private var subscribersStack: List[ju.Map[InPort, Subscriber[Any]]] =
-    new ju.HashMap[InPort, Subscriber[Any]] :: Nil
+  // the contained maps store either Subscriber[Any] or VirtualPublisher, but the type system cannot express that
+  private var subscribersStack: List[ju.Map[InPort, AnyRef]] =
+    new ju.HashMap[InPort, AnyRef] :: Nil
   private var publishersStack: List[ju.Map[OutPort, Publisher[Any]]] =
     new ju.HashMap[OutPort, Publisher[Any]] :: Nil
+  private var matValSrcStack: List[ju.Map[MaterializedValueNode, List[MaterializedValueSource[Any]]]] =
+    new ju.HashMap[MaterializedValueNode, List[MaterializedValueSource[Any]]] :: Nil
 
   /*
    * Please note that this stack keeps track of the scoped modules wrapped in CopiedModule but not the CopiedModule
@@ -556,16 +766,19 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
    */
   private var moduleStack: List[Module] = topLevel :: Nil
 
-  private def subscribers: ju.Map[InPort, Subscriber[Any]] = subscribersStack.head
+  private def subscribers: ju.Map[InPort, AnyRef] = subscribersStack.head
   private def publishers: ju.Map[OutPort, Publisher[Any]] = publishersStack.head
   private def currentLayout: Module = moduleStack.head
+  private def matValSrc: ju.Map[MaterializedValueNode, List[MaterializedValueSource[Any]]] = matValSrcStack.head
 
   // Enters a copied module and establishes a scope that prevents internals to leak out and interfere with copies
   // of the same module.
   // We don't store the enclosing CopiedModule itself as state since we don't use it anywhere else than exit and enter
   private def enterScope(enclosing: CopiedModule): Unit = {
+    if (MaterializerSession.Debug) println(f"entering scope [${System.identityHashCode(enclosing)}%08x]")
     subscribersStack ::= new ju.HashMap
     publishersStack ::= new ju.HashMap
+    matValSrcStack ::= new ju.HashMap
     moduleStack ::= enclosing.copyOf
   }
 
@@ -574,11 +787,15 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
   // leading to port identity collisions)
   // We don't store the enclosing CopiedModule itself as state since we don't use it anywhere else than exit and enter
   private def exitScope(enclosing: CopiedModule): Unit = {
+    if (MaterializerSession.Debug) println(f"exiting scope [${System.identityHashCode(enclosing)}%08x]")
     val scopeSubscribers = subscribers
     val scopePublishers = publishers
     subscribersStack = subscribersStack.tail
     publishersStack = publishersStack.tail
+    matValSrcStack = matValSrcStack.tail
     moduleStack = moduleStack.tail
+
+    if (MaterializerSession.Debug) println(s"  subscribers = $scopeSubscribers\n  publishers = $scopePublishers")
 
     // When we exit the scope of a copied module,  pick up the Subscribers/Publishers belonging to exposed ports of
     // the original module and assign them to the copy ports in the outer scope that we will return to
@@ -592,6 +809,7 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
   }
 
   final def materialize(): Any = {
+    if (MaterializerSession.Debug) println(s"beginning materialization of $topLevel")
     require(topLevel ne EmptyModule, "An empty module cannot be materialized (EmptyModule was given)")
     require(
       topLevel.isRunnable,
@@ -604,7 +822,7 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
         // (This is an attempt to clean up after an exception during materialization)
         val errorPublisher = new ErrorPublisher(new MaterializationPanic(cause), "")
         for (subMap ← subscribersStack; sub ← subMap.asScala.valuesIterator)
-          errorPublisher.subscribe(sub)
+          doSubscribe(errorPublisher, sub)
 
         for (pubMap ← publishersStack; pub ← pubMap.asScala.valuesIterator)
           pub.subscribe(new CancellingSubscriber)
@@ -616,7 +834,6 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
   protected def mergeAttributes(parent: Attributes, current: Attributes): Attributes =
     parent and current
 
-  private val matValSrc: ju.Map[MaterializedValueNode, List[MaterializedValueSource[Any]]] = new ju.HashMap
   def registerSrc(ms: MaterializedValueSource[Any]): Unit = {
     if (MaterializerSession.Debug) println(s"registering source $ms")
     matValSrc.get(ms.computation) match {
@@ -628,64 +845,71 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
   protected def materializeModule(module: Module, effectiveAttributes: Attributes): Any = {
     val materializedValues: ju.Map[Module, Any] = new ju.HashMap
 
+    if (MaterializerSession.Debug) println(f"entering module [${System.identityHashCode(module)}%08x] (${Logging.simpleName(module)})")
+
     for (submodule ← module.subModules) {
       val subEffectiveAttributes = mergeAttributes(effectiveAttributes, submodule.attributes)
       submodule match {
-        case GraphStageModule(shape, attributes, mv: MaterializedValueSource[_]) ⇒
-          val copy = mv.copySrc.asInstanceOf[MaterializedValueSource[Any]]
-          registerSrc(copy)
-          materializeAtomic(copy.module, subEffectiveAttributes, materializedValues)
-        case atomic if atomic.isAtomic ⇒
+        case atomic: AtomicModule ⇒
           materializeAtomic(atomic, subEffectiveAttributes, materializedValues)
         case copied: CopiedModule ⇒
           enterScope(copied)
           materializedValues.put(copied, materializeModule(copied, subEffectiveAttributes))
           exitScope(copied)
-        case composite ⇒
+        case composite @ (_: CompositeModule | _: FusedModule) ⇒
           materializedValues.put(composite, materializeComposite(composite, subEffectiveAttributes))
+        case EmptyModule => // nothing to do or say
       }
     }
 
     if (MaterializerSession.Debug) {
-      println("RESOLVING")
-      println(s"  module = $module")
-      println(s"  computation = ${module.materializedValueComputation}")
+      println(f"resolving module [${System.identityHashCode(module)}%08x] computation ${module.materializedValueComputation}")
       println(s"  matValSrc = $matValSrc")
-      println(s"  matVals = $materializedValues")
+      println(s"  matVals =\n    ${materializedValues.asScala.map(p ⇒ "%08x".format(System.identityHashCode(p._1)) -> p._2).mkString("\n    ")}")
     }
-    resolveMaterialized(module.materializedValueComputation, materializedValues, "  ")
+
+    val ret = resolveMaterialized(module.materializedValueComputation, materializedValues, 2)
+    while (!matValSrc.isEmpty) {
+      val node = matValSrc.keySet.iterator.next()
+      if (MaterializerSession.Debug) println(s"  delayed computation of $node")
+      resolveMaterialized(node, materializedValues, 4)
+    }
+
+    if (MaterializerSession.Debug) println(f"exiting module [${System.identityHashCode(module)}%08x]")
+
+    ret
   }
 
   protected def materializeComposite(composite: Module, effectiveAttributes: Attributes): Any = {
     materializeModule(composite, effectiveAttributes)
   }
 
-  protected def materializeAtomic(atomic: Module, effectiveAttributes: Attributes, matVal: ju.Map[Module, Any]): Unit
+  protected def materializeAtomic(atomic: AtomicModule, effectiveAttributes: Attributes, matVal: ju.Map[Module, Any]): Unit
 
-  private def resolveMaterialized(matNode: MaterializedValueNode, matVal: ju.Map[Module, Any], indent: String): Any = {
-    if (MaterializerSession.Debug) println(indent + matNode)
+  private def resolveMaterialized(matNode: MaterializedValueNode, matVal: ju.Map[Module, Any], spaces: Int): Any = {
+    if (MaterializerSession.Debug) println(" " * spaces + matNode)
     val ret = matNode match {
       case Atomic(m)          ⇒ matVal.get(m)
-      case Combine(f, d1, d2) ⇒ f(resolveMaterialized(d1, matVal, indent + "  "), resolveMaterialized(d2, matVal, indent + "  "))
-      case Transform(f, d)    ⇒ f(resolveMaterialized(d, matVal, indent + "  "))
+      case Combine(f, d1, d2) ⇒ f(resolveMaterialized(d1, matVal, spaces + 2), resolveMaterialized(d2, matVal, spaces + 2))
+      case Transform(f, d)    ⇒ f(resolveMaterialized(d, matVal, spaces + 2))
       case Ignore             ⇒ NotUsed
     }
-    if (MaterializerSession.Debug) println(indent + s"result = $ret")
+    if (MaterializerSession.Debug) println(" " * spaces + s"result = $ret")
     matValSrc.remove(matNode) match {
       case null ⇒ // nothing to do
       case srcs ⇒
-        if (MaterializerSession.Debug) println(indent + s"triggering sources $srcs")
+        if (MaterializerSession.Debug) println(" " * spaces + s"triggering sources $srcs")
         srcs.foreach(_.setValue(ret))
     }
     ret
   }
 
-  final protected def assignPort(in: InPort, subscriber: Subscriber[Any]): Unit = {
-    subscribers.put(in, subscriber)
+  final protected def assignPort(in: InPort, subscriberOrVirtual: AnyRef): Unit = {
+    subscribers.put(in, subscriberOrVirtual)
     // Interface (unconnected) ports of the current scope will be wired when exiting the scope
     if (!currentLayout.inPorts(in)) {
       val publisher = publishers.get(currentLayout.upstreams(in))
-      if (publisher ne null) publisher.subscribe(subscriber)
+      if (publisher ne null) doSubscribe(publisher, subscriberOrVirtual)
     }
   }
 
@@ -694,8 +918,14 @@ private[stream] abstract class MaterializerSession(val topLevel: StreamLayout.Mo
     // Interface (unconnected) ports of the current scope will be wired when exiting the scope
     if (!currentLayout.outPorts(out)) {
       val subscriber = subscribers.get(currentLayout.downstreams(out))
-      if (subscriber ne null) publisher.subscribe(subscriber)
+      if (subscriber ne null) doSubscribe(publisher, subscriber)
     }
   }
+
+  private def doSubscribe(publisher: Publisher[_ <: Any], subscriberOrVirtual: AnyRef): Unit =
+    subscriberOrVirtual match {
+      case s: Subscriber[_]       => publisher.subscribe(s.asInstanceOf[Subscriber[Any]])
+      case v: VirtualPublisher[_] => v.registerPublisher(publisher)
+    }
 
 }

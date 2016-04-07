@@ -1,13 +1,13 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.fusing
 
 import akka.actor.{ NoSerializationVerificationNeeded, ActorRef }
-import akka.stream.scaladsl.{ Keep, Source, Sink }
+import akka.stream.scaladsl.{ Keep, Source }
 import akka.stream.{ Attributes, Inlet, SinkShape, ActorMaterializer }
 import akka.stream.stage.{ InHandler, AsyncCallback, GraphStageLogic, GraphStageWithMaterializedValue }
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.stream.testkit.Utils._
 
 import scala.concurrent.{ Await, Promise, Future }

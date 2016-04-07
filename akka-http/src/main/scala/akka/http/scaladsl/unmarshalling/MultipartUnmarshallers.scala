@@ -1,10 +1,9 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.unmarshalling
 
-import akka.actor.ActorSystem
 import akka.http.scaladsl.settings.ParserSettings
 
 import scala.collection.immutable
@@ -15,7 +14,6 @@ import akka.stream.{ActorMaterializer, OverflowStrategy}
 import akka.stream.impl.fusing.IteratorInterpreter
 import akka.stream.scaladsl._
 import akka.http.impl.engine.parsing.BodyPartParser
-import akka.http.impl.util._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.util.FastFuture
 import MediaRanges._
@@ -24,8 +22,8 @@ import HttpCharsets._
 import akka.stream.impl.fusing.SubSource
 
 /**
- * Provides [[Multipart]] marshallers.
- * It is possible to configure the default parsing mode by providing an implicit [[ParserSettings]] instance.
+ * Provides [[akka.http.scaladsl.model.Multipart]] marshallers.
+ * It is possible to configure the default parsing mode by providing an implicit [[akka.http.scaladsl.settings.ParserSettings]] instance.
  */
 trait MultipartUnmarshallers {
 

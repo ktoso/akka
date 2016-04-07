@@ -1,11 +1,9 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster
 
-import language.postfixOps
-import language.reflectiveCalls
 import scala.concurrent.duration._
 import akka.actor.Address
 import akka.actor.Scheduler

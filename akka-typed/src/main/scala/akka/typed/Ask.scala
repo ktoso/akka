@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.typed
 
@@ -9,10 +9,6 @@ import akka.actor.InternalActorRef
 import akka.pattern.AskTimeoutException
 import akka.pattern.PromiseActorRef
 import java.lang.IllegalArgumentException
-import scala.util.Success
-import scala.concurrent.ExecutionContext
-import scala.util.Failure
-import akka.actor.Status
 
 /**
  * The ask-pattern implements the initiator side of a request–reply protocol.

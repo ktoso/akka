@@ -1,14 +1,15 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.testkit
 
-import akka.stream.{ ActorMaterializer, ActorMaterializerSettings, Inlet, Outlet }
+import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
 import akka.stream.scaladsl._
 import org.reactivestreams.Publisher
 import scala.collection.immutable
 import scala.util.control.NoStackTrace
 import akka.stream.testkit.Utils._
+import akka.testkit.AkkaSpec
 
 abstract class BaseTwoStreamsSetup extends AkkaSpec {
 

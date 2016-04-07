@@ -201,6 +201,8 @@ The graph consists of a ``Balance`` node which is a special fan-out operation th
 downstream consumers. In a ``for`` loop we wire all of our desired workers as outputs of this balancer element, then
 we wire the outputs of these workers to a ``Merge`` element that will collect the results from the workers.
 
+To make the worker stages run in parallel we mark them as asynchronous with `async`.
+
 .. includecode:: ../code/docs/stream/cookbook/RecipeWorkerPool.scala#worker-pool
 
 Working with rate
@@ -284,7 +286,7 @@ case: if the very first element is not yet available.
 We introduce a boolean variable ``waitingFirstValue`` to denote whether the first element has been provided or not
 (alternatively an :class:`Option` can be used for ``currentValue`` or if the element type is a subclass of AnyRef
 a null can be used with the same purpose). In the downstream ``onPull()`` handler the difference from the previous
-version is that we check if we have received the the first value and only emit if we have. This leads to that when the
+version is that we check if we have received the first value and only emit if we have. This leads to that when the
 first element comes in we must check if there possibly already was demand from downstream so that we in that case can
 push the element directly.
 

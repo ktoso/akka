@@ -1,12 +1,12 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl;
 
 import org.junit.rules.ExternalResource;
 
 import akka.actor.ActorSystem;
-import akka.stream.testkit.AkkaSpec;
+import akka.testkit.AkkaSpec;
 import akka.testkit.JavaTestKit;
 
 import com.typesafe.config.Config;

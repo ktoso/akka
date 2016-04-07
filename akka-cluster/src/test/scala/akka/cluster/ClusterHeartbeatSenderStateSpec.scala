@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster
@@ -7,8 +7,6 @@ package akka.cluster
 import org.scalatest.WordSpec
 import org.scalatest.Matchers
 import akka.actor.Address
-import scala.concurrent.duration._
-import scala.collection.immutable
 import akka.remote.FailureDetector
 import akka.remote.DefaultFailureDetectorRegistry
 import java.util.concurrent.ThreadLocalRandom

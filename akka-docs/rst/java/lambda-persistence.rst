@@ -117,28 +117,16 @@ about successful state changes by publishing events.
 
 When persisting events with ``persist`` it is guaranteed that the persistent actor will not receive further commands between
 the ``persist`` call and the execution(s) of the associated event handler. This also holds for multiple ``persist``
-calls in context of a single command. Incoming messages are :ref:`stashed <stash-lambda-java>` until the ``persist``
-is completed. You should be careful to not send more messages to a persistent actor than it can keep up with,
-otherwise the number of stashed messages will grow. It can be wise to protect against `OutOfMemoryError`
-by defining a maximum stash capacity in the mailbox configuration::
-
-    akka.actor.default-mailbox.stash-capacity=10000
-
-If the stash capacity is exceeded for an actor the stashed messages are discarded and a
-``MessageQueueAppendFailedException`` is thrown, causing actor restart if default supervision
-strategy is used.
-
-Note that the stash capacity is per actor. If you have many persistent actors, e.g. when using cluster sharding,
-you may need to define a small stash capacity to ensure that the total number of stashed messages in the system
-don't consume too much memory.
+calls in context of a single command. Incoming messages are :ref:`stashed <internal-stash-lambda>` until the ``persist``
+is completed.
 
 If persistence of an event fails, ``onPersistFailure`` will be invoked (logging the error by default),
 and the actor will unconditionally be stopped. If persistence of an event is rejected before it is
 stored, e.g. due to serialization error, ``onPersistRejected`` will be invoked (logging a warning
 by default), and the actor continues with next message.
 
-The easiest way to run this example yourself is to download `Typesafe Activator <http://www.typesafe.com/platform/getstarted>`_
-and open the tutorial named `Akka Persistence Samples in Java with Lambdas <http://www.typesafe.com/activator/template/akka-sample-persistence-java-lambda>`_.
+The easiest way to run this example yourself is to download `Lightbend Activator <http://www.lightbend.com/platform/getstarted>`_
+and open the tutorial named `Akka Persistence Samples in Java with Lambdas <http://www.lightbend.com/activator/template/akka-sample-persistence-java-lambda>`_.
 It contains instructions on how to run the ``PersistentActorExample``.
 
 .. note::
@@ -201,6 +189,47 @@ and before any other received messages.
 
 If there is a problem with recovering the state of the actor from the journal, ``onRecoveryFailure``
 is called (logging the error by default), and the actor will be stopped.
+
+.. _internal-stash-lambda:
+
+Internal stash 
+--------------
+
+The persistent actor has a private :ref:`stash <stash-lambda>` for internally caching incoming messages during 
+:ref:`recovery <recovery-java-lambda>` or the ``persist\persistAll`` method persisting events. You can still 
+use/inherit from the ``Stash`` interface. The internal stash cooperates with the normal stash by hooking into 
+``unstashAll`` method and making sure messages are unstashed properly to the internal stash to maintain ordering 
+guarantees.
+
+You should be careful to not send more messages to a persistent actor than it can keep up with, otherwise the number 
+of stashed messages will grow without bounds. It can be wise to protect against ``OutOfMemoryError`` by defining a 
+maximum stash capacity in the mailbox configuration::
+
+    akka.actor.default-mailbox.stash-capacity=10000
+
+Note that the stash capacity is per actor. If you have many persistent actors, e.g. when using cluster sharding,
+you may need to define a small stash capacity to ensure that the total number of stashed messages in the system
+don't consume too much memory. Additionally, The persistent actor defines three strategies to handle failure when the 
+internal stash capacity is exceeded. The default overflow strategy is the ``ThrowOverflowExceptionStrategy``, which 
+discards the current received message and throws a ``StashOverflowException``, causing actor restart if default 
+supervision strategy is used. you can override the ``internalStashOverflowStrategy`` method to return 
+``DiscardToDeadLetterStrategy`` or ``ReplyToStrategy`` for any "individual" persistent actor, or define the "default" 
+for all persistent actors by providing FQCN, which must be a subclass of ``StashOverflowStrategyConfigurator``, in the 
+persistence configuration::
+
+    akka.persistence.internal-stash-overflow-strategy=
+      "akka.persistence.ThrowExceptionConfigurator"
+    
+The ``DiscardToDeadLetterStrategy`` strategy also has a pre-packaged companion configurator 
+``akka.persistence.DiscardConfigurator``.
+
+You can also query default strategy via the Akka persistence extension singleton::
+
+    Persistence.get(context().system()).defaultInternalStashOverflowStrategy();
+
+.. note::
+  The bounded mailbox should be avoided in the persistent actor, by which the messages come from storage backends may 
+  be discarded. You can use bounded stash instead of it.
 
 
 Relaxed local consistency requirements and high throughput use-cases
@@ -531,7 +560,7 @@ saved snapshot matches the specified ``SnapshotSelectionCriteria`` will replay a
 
   Since it is acceptable for some applications to not use any snapshotting, it is legal to not configure a snapshot store.
   However Akka will log a warning message when this situation is detected and then continue to operate until
-  an actor tries to store a snapshot, at which point the the operation will fail (by replying with an ``SaveSnapshotFailure`` for example).
+  an actor tries to store a snapshot, at which point the operation will fail (by replying with an ``SaveSnapshotFailure`` for example).
 
   Note that :ref:`cluster_sharding_java` is using snapshots, so if you use Cluster Sharding you need to define a snapshot store plugin.
 

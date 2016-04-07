@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.http.scaladsl.server.directives
 
@@ -9,7 +9,7 @@ import akka.http.scaladsl.server.{ MissingFormFieldRejection, Directive1 }
 import akka.http.scaladsl.model.{ ContentType, Multipart }
 import akka.util.ByteString
 import scala.concurrent.Future
-import scala.util.{ Failure, Success, Try }
+import scala.util.{ Failure, Success }
 import akka.stream.scaladsl._
 
 trait FileUploadDirectives {

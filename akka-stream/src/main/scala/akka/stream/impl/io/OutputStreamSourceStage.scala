@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.io
 
@@ -107,6 +107,8 @@ final private[stream] class OutputStreamSourceStage(writeTimeout: FiniteDuration
           //assuming there can be no further in messages
           downstreamStatus.set(Canceled)
           dataQueue.clear()
+          // if blocked reading, make sure the take() completes
+          dataQueue.put(ByteString())
           completeStage()
         }
         override def onPull(): Unit = {

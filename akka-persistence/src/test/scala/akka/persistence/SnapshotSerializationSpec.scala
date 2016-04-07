@@ -1,12 +1,12 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.persistence
 
 import akka.actor.{ Props, ActorRef }
 import akka.serialization.Serializer
-import akka.testkit.{ ImplicitSender, AkkaSpec }
+import akka.testkit.{ ImplicitSender }
 import java.io._
 
 object SnapshotSerializationSpec {

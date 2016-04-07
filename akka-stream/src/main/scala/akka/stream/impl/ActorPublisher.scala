@@ -1,14 +1,13 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.immutable
-import scala.util.control.{ NoStackTrace, NonFatal }
-import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Terminated }
-import akka.stream.ActorMaterializerSettings
+import scala.util.control.{ NoStackTrace }
+import akka.actor.{ Actor, ActorRef, Terminated }
 import org.reactivestreams.{ Publisher, Subscriber }
 import org.reactivestreams.Subscription
 

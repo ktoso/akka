@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.model;
@@ -7,6 +7,8 @@ package akka.http.javadsl.model;
 /**
  * Represents an HTTP request method. See {@link HttpMethods} for a set of predefined methods
  * and static constructors to create custom ones.
+ *
+ * @see HttpMethods for convenience access to often used values.
  */
 public abstract class HttpMethod {
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.persistence.query.journal.leveldb
 
@@ -50,7 +50,6 @@ class ColorTagger extends WriteEventAdapter {
 
 class EventsByTagSpec extends AkkaSpec(EventsByTagSpec.config)
   with Cleanup with ImplicitSender {
-  import EventsByTagSpec._
 
   implicit val mat = ActorMaterializer()(system)
 

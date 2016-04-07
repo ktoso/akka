@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream
 
@@ -10,7 +10,7 @@ import akka.stream.testkit.scaladsl._
 import scala.util._
 import scala.concurrent.duration._
 import scala.concurrent._
-import akka.testkit.TestProbe
+import akka.testkit.{ AkkaSpec, TestProbe }
 import akka.pattern
 
 class StreamTestKitDocSpec extends AkkaSpec {

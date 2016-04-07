@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.persistence
 
@@ -93,7 +93,7 @@ object EventAdapterSpec {
 
 }
 
-class EventAdapterSpec(journalName: String, journalConfig: Config, adapterConfig: Config)
+abstract class EventAdapterSpec(journalName: String, journalConfig: Config, adapterConfig: Config)
   extends PersistenceSpec(journalConfig.withFallback(adapterConfig)) with ImplicitSender {
 
   import EventAdapterSpec._
@@ -148,7 +148,7 @@ class EventAdapterSpec(journalName: String, journalConfig: Config, adapterConfig
   }
 
   def persister(name: String, journalId: String = journalName) =
-    system.actorOf(Props(classOf[PersistAllIncomingActor], name, "akka.persistence.journal." + journalId), name)
+    system.actorOf(Props(classOf[PersistAllIncomingActor], name, "akka.persistence.journal." + journalId))
 
   def toJournal(in: Any, journalId: String = journalName) =
     Persistence(system).adaptersFor("akka.persistence.journal." + journalId).get(in.getClass).toJournal(in)

@@ -1,14 +1,12 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.tck
 
 import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
-import akka.stream.impl.ActorMaterializerImpl
 import akka.stream.scaladsl.Flow
-import akka.stream.Attributes
 import akka.stream.stage.{ Context, PushStage }
-import org.reactivestreams.{ Processor, Publisher }
+import org.reactivestreams.{ Processor }
 
 class TransformProcessorTest extends AkkaIdentityProcessorVerification[Int] {
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.persistence
 
@@ -8,7 +8,7 @@ import java.io.File
 import akka.actor._
 import akka.persistence.EndToEndEventAdapterSpec.NewA
 import akka.persistence.journal.{ EventSeq, EventAdapter }
-import akka.testkit.{ ImplicitSender, WatchedByCoroner, AkkaSpec, TestProbe, EventFilter }
+import akka.testkit.{ TestProbe, EventFilter }
 import com.typesafe.config.{ Config, ConfigFactory }
 import org.apache.commons.io.FileUtils
 import org.scalatest.{ WordSpecLike, Matchers, BeforeAndAfterAll }

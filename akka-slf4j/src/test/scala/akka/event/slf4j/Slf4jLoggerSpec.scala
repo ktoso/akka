@@ -1,16 +1,15 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.event.slf4j
 
 import language.postfixOps
 
 import akka.testkit.AkkaSpec
-import akka.actor.{ DiagnosticActorLogging, Actor, ActorLogging, Props }
+import akka.actor.{ DiagnosticActorLogging, Actor, Props }
 import scala.concurrent.duration._
 import akka.event.Logging
 import ch.qos.logback.core.OutputStreamAppender
-import java.io.StringWriter
 import java.io.ByteArrayOutputStream
 import org.scalatest.BeforeAndAfterEach
 

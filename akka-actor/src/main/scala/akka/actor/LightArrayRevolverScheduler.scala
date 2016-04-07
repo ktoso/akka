@@ -1,17 +1,17 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.actor
 
 import java.io.Closeable
 import java.util.concurrent.ThreadFactory
-import java.util.concurrent.atomic.{ AtomicLong, AtomicReference, AtomicReferenceArray }
+import java.util.concurrent.atomic.{ AtomicLong, AtomicReference }
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.{ Await, ExecutionContext, Future, Promise }
 import scala.concurrent.duration._
-import scala.util.control.{ NoStackTrace, NonFatal }
+import scala.util.control.{ NonFatal }
 import com.typesafe.config.Config
 import akka.event.LoggingAdapter
 import akka.util.Helpers

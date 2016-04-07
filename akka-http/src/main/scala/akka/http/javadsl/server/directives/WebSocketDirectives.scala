@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.server
@@ -12,7 +12,7 @@ import akka.stream.javadsl.Flow
 abstract class WebSocketDirectives extends SchemeDirectives {
   /**
    * Handles websocket requests with the given handler and rejects other requests with a
-   * [[ExpectedWebSocketRequestRejection]].
+   * [[akka.http.scaladsl.server.ExpectedWebSocketRequestRejection]].
    */
   def handleWebSocketMessages(handler: Flow[Message, Message, _]): Route =
     RouteStructure.HandleWebSocketMessages(handler)

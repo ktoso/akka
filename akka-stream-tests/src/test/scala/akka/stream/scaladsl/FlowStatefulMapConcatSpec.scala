@@ -1,13 +1,13 @@
 /**
- * Copyright (C) 2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ ActorMaterializer, ActorAttributes, Supervision, ActorMaterializerSettings }
 import akka.stream.testkit._
-
 import scala.util.control.NoStackTrace
+import akka.testkit.AkkaSpec
 
 class FlowStatefulMapConcatSpec extends AkkaSpec with ScriptedTest {
 

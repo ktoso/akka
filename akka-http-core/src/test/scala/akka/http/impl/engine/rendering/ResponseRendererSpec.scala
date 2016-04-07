@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.rendering
@@ -26,7 +26,6 @@ class ResponseRendererSpec extends FreeSpec with Matchers with BeforeAndAfterAll
     akka.event-handlers = ["akka.testkit.TestEventListener"]
     akka.loglevel = WARNING""")
   implicit val system = ActorSystem(getClass.getSimpleName, testConf)
-  import system.dispatcher
 
   val ServerOnTheMove = StatusCodes.custom(330, "Server on the move")
   implicit val materializer = ActorMaterializer()
@@ -582,6 +581,8 @@ class ResponseRendererSpec extends FreeSpec with Matchers with BeforeAndAfterAll
   class TestSetup(val serverHeader: Option[Server] = Some(Server("akka-http/1.0.0")))
     extends HttpResponseRendererFactory(serverHeader, responseHeaderSizeHint = 64, NoLogging) {
 
+    def awaitAtMost: FiniteDuration = 3.seconds
+
     def renderTo(expected: String): Matcher[HttpResponse] =
       renderTo(expected, close = false) compose (ResponseRenderingContext(_))
 
@@ -606,7 +607,7 @@ class ResponseRendererSpec extends FreeSpec with Matchers with BeforeAndAfterAll
           } catch {
             case NonFatal(_) ⇒ false
           }
-        Await.result(resultFuture, 250.millis).reduceLeft(_ ++ _).utf8String -> wasCompleted
+        Await.result(resultFuture, awaitAtMost).reduceLeft(_ ++ _).utf8String -> wasCompleted
       }
 
     override def currentTimeMillis() = DateTime(2011, 8, 25, 9, 10, 29).clicks // provide a stable date for testing

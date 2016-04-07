@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.model;
@@ -9,6 +9,8 @@ import java.nio.charset.Charset;
 /**
  * Represents a charset in Http. See {@link HttpCharsets} for a set of predefined charsets and
  * static constructors to create custom charsets.
+ *
+ * @see HttpCharsets for convenience access to often used values.
  */
 public abstract class HttpCharset {
     /**

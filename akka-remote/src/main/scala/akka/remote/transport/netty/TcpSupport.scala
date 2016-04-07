@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.remote.transport.netty
 
@@ -12,7 +12,6 @@ import java.net.InetSocketAddress
 import org.jboss.netty.buffer.{ ChannelBuffers, ChannelBuffer }
 import org.jboss.netty.channel._
 import scala.concurrent.{ Future, Promise }
-import scala.util.{ Success, Failure }
 
 /**
  * INTERNAL API

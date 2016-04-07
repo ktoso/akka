@@ -1,12 +1,12 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.NotUsed
 import akka.stream._
 import akka.stream.Supervision.resumingDecider
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.stream.testkit.TestPublisher
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.Utils._
@@ -17,7 +17,6 @@ import akka.stream.StreamSubscriptionTimeoutSettings
 import akka.stream.StreamSubscriptionTimeoutTerminationMode
 
 object FlowSplitAfterSpec {
-  import language.higherKinds
 
   implicit class Lift[M](val f: SubFlow[Int, M, Source[Int, M]#Repr, RunnableGraph[M]]) extends AnyVal {
     def lift = f.prefixAndTail(0).map(_._2).concatSubstreams

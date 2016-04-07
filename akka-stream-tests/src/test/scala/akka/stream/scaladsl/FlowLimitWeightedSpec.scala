@@ -1,10 +1,10 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.stream.{ StreamLimitReachedException, ActorMaterializer, ActorMaterializerSettings }
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import scala.concurrent.Await
 import scala.concurrent.duration._
 

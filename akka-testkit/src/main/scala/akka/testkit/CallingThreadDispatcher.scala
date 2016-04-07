@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.testkit
 
@@ -128,7 +128,6 @@ object CallingThreadDispatcher {
  */
 class CallingThreadDispatcher(_configurator: MessageDispatcherConfigurator) extends MessageDispatcher(_configurator) {
   import CallingThreadDispatcher._
-  import configurator.prerequisites._
 
   val log = akka.event.Logging(eventStream, getClass.getName)
 

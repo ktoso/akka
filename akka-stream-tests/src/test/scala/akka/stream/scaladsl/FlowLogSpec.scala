@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -8,14 +8,14 @@ import akka.event.{ DummyClassForStringSources, Logging }
 import akka.stream.ActorAttributes._
 import akka.stream.Attributes.LogLevels
 import akka.stream.Supervision._
-import akka.stream.testkit.{ AkkaSpec, ScriptedTest }
+import akka.stream.testkit.ScriptedTest
 import akka.stream.javadsl
 import akka.stream.{ ActorMaterializer, Materializer, Attributes }
 import akka.testkit.TestProbe
 import scala.concurrent.duration._
-
 import scala.concurrent.Await
 import scala.util.control.NoStackTrace
+import akka.testkit.AkkaSpec
 
 class FlowLogSpec extends AkkaSpec("akka.loglevel = DEBUG") with ScriptedTest {
 

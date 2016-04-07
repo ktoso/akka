@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.server
@@ -123,7 +123,7 @@ trait PathDirectives extends PathMatchers with ImplicitPathMatcherConstruction w
    * }}}
    *
    * For further information, refer to:
-   * [[http://googlewebmastercentral.blogspot.de/2010/04/to-slash-or-not-to-slash.html]]
+   * @see [[http://googlewebmastercentral.blogspot.de/2010/04/to-slash-or-not-to-slash.html]]
    */
   def pathEndOrSingleSlash: Directive0 = rawPathPrefix(Slash.? ~ PathEnd)
 

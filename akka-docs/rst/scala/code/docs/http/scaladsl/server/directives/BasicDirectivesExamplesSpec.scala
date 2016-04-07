@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package docs.http.scaladsl.server.directives
@@ -260,6 +260,7 @@ class BasicDirectivesExamplesSpec extends RoutingSpec {
     //#1mapResponse-advanced
     trait ApiRoutes {
       protected def system: ActorSystem
+
       private val log = Logging(system, "ApiRoutes")
 
       private val NullJsonEntity = HttpEntity(ContentTypes.`application/json`, "{}")
@@ -800,5 +801,4 @@ class BasicDirectivesExamplesSpec extends RoutingSpec {
     //#
   }
 
-  private def compileOnlySpec(block: => Unit) = pending
 }

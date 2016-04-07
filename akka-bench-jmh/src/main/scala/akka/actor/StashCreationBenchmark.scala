@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.actor
 
@@ -35,7 +35,7 @@ class StashCreationBenchmark {
   val probe = TestProbe()
 
   @TearDown(Level.Trial)
-  def shutdown() {
+  def shutdown():Unit = {
     system.terminate()
     Await.ready(system.whenTerminated, 15.seconds)
   }

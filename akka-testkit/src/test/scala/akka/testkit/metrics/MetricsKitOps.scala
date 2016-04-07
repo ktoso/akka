@@ -1,9 +1,8 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.testkit.metrics
 
-import com.codahale.metrics
 import com.codahale.metrics._
 import java.util
 import com.codahale.metrics.jvm

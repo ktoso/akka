@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.pattern
@@ -8,8 +8,6 @@ import akka.actor._
 import akka.util.{ Timeout }
 import akka.dispatch.sysmsg.{ Unwatch, Watch }
 import scala.concurrent.Future
-import scala.concurrent.duration.Duration
-import scala.util.Success
 import scala.concurrent.duration.FiniteDuration
 
 trait GracefulStopSupport {

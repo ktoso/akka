@@ -1,13 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.camel
 import org.scalatest.Matchers
 import org.scalatest.WordSpec
 import akka.actor.ActorSystem
-import scala.concurrent.duration.Duration
-import java.util.concurrent.TimeUnit._
 import akka.testkit.TestKit
 import akka.util.Helpers.ConfigOps
 

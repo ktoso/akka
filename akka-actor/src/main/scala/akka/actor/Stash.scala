@@ -1,12 +1,12 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.actor
 
 import scala.collection.immutable
 
 import akka.AkkaException
-import akka.dispatch.{ UnboundedDequeBasedMessageQueueSemantics, RequiresMessageQueue, Envelope, DequeBasedMessageQueueSemantics, Mailboxes }
+import akka.dispatch.{ UnboundedDequeBasedMessageQueueSemantics, RequiresMessageQueue, Envelope, DequeBasedMessageQueueSemantics }
 
 import scala.util.control.NoStackTrace
 
@@ -156,9 +156,10 @@ private[akka] trait StashSupport {
   def stash(): Unit = {
     val currMsg = actorCell.currentMessage
     if (theStash.nonEmpty && (currMsg eq theStash.last))
-      throw new IllegalStateException("Can't stash the same message " + currMsg + " more than once")
+      throw new IllegalStateException(s"Can't stash the same message $currMsg more than once")
     if (capacity <= 0 || theStash.size < capacity) theStash :+= currMsg
-    else throw new StashOverflowException("Couldn't enqueue message " + currMsg.getClass.getName + " to stash of " + self)
+    else throw new StashOverflowException(
+      s"Couldn't enqueue message ${currMsg.message.getClass.getName} from ${currMsg.sender} to stash of $self")
   }
 
   /**

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -8,6 +8,7 @@ import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
 import akka.stream.{ OverflowStrategy, ActorMaterializer, ActorMaterializerSettings }
 import akka.stream.testkit._
+import akka.testkit.AkkaSpec
 
 class FlowBatchSpec extends AkkaSpec {
 

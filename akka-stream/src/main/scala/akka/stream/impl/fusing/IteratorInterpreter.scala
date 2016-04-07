@@ -1,9 +1,9 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.fusing
 
-import akka.event.{ Logging, NoLogging }
+import akka.event.{ NoLogging }
 import akka.stream._
 import akka.stream.impl.fusing.GraphInterpreter.{ GraphAssembly, DownstreamBoundaryStageLogic, UpstreamBoundaryStageLogic }
 import akka.stream.stage.AbstractStage.PushPullGraphStage
@@ -145,7 +145,8 @@ private[akka] class IteratorInterpreter[I, O](val input: Iterator[I], val ops: S
       outHandlers,
       logics,
       (_, _, _) ⇒ throw new UnsupportedOperationException("IteratorInterpreter does not support asynchronous events."),
-      fuzzingMode = false)
+      fuzzingMode = false,
+      null)
     interpreter.attachUpstreamBoundary(0, upstream)
     interpreter.attachDownstreamBoundary(ops.length, downstream)
     interpreter.init(null)

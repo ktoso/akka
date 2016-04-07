@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.persistence.query.journal.leveldb
 
@@ -28,7 +28,6 @@ private[akka] object AllPersistenceIdsPublisher {
  */
 private[akka] class AllPersistenceIdsPublisher(liveQuery: Boolean, maxBufSize: Int, writeJournalPluginId: String)
   extends ActorPublisher[String] with DeliveryBuffer[String] with ActorLogging {
-  import AllPersistenceIdsPublisher._
 
   val journal: ActorRef = Persistence(context.system).journalFor(writeJournalPluginId)
 

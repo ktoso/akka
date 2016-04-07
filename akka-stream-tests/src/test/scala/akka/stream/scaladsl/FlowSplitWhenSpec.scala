@@ -1,5 +1,5 @@
 /**
- * Copyright (C-2015 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C-2015 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -12,6 +12,7 @@ import akka.stream.testkit._
 import org.reactivestreams.Publisher
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import akka.testkit.AkkaSpec
 
 class FlowSplitWhenSpec extends AkkaSpec {
   import FlowSplitAfterSpec._

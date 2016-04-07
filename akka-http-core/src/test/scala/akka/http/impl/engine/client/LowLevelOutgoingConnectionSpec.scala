@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.client
@@ -11,7 +11,7 @@ import org.scalatest.concurrent.ScalaFutures
 import akka.http.scaladsl.settings.ClientConnectionSettings
 import akka.util.ByteString
 import akka.event.NoLogging
-import akka.stream.{ClosedShape, ActorMaterializer}
+import akka.stream.{ ClosedShape, ActorMaterializer }
 import akka.stream.TLSProtocol._
 import akka.stream.testkit._
 import akka.stream.scaladsl._
@@ -20,6 +20,7 @@ import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers._
 import akka.http.impl.util._
+import akka.testkit.AkkaSpec
 
 class LowLevelOutgoingConnectionSpec extends AkkaSpec("akka.loggers = []\n akka.loglevel = OFF") with Inside {
   implicit val materializer = ActorMaterializer()
@@ -179,7 +180,7 @@ class LowLevelOutgoingConnectionSpec extends AkkaSpec("akka.loggers = []\n akka.
       }
     }
 
-    "proceed to next response once previous response's entity has been drained" in new TestSetup with ScalaFutures {
+    "proceed to next response once previous response's entity has been drained" in new TestSetup {
       def twice(action: => Unit): Unit = { action; action }
 
       twice {
@@ -203,10 +204,9 @@ class LowLevelOutgoingConnectionSpec extends AkkaSpec("akka.loggers = []\n akka.
             |""")
 
         val whenComplete = expectResponse().entity.dataBytes.runWith(Sink.ignore)
-        whenComplete.futureValue should be (akka.Done)
+        whenComplete.futureValue should be(akka.Done)
       }
     }
-
 
     "handle several requests on one persistent connection" which {
       "has a first response that was chunked" in new TestSetup {
@@ -359,7 +359,7 @@ class LowLevelOutgoingConnectionSpec extends AkkaSpec("akka.loggers = []\n akka.
         val error @ EntityStreamException(info) = probe.expectError()
         info.summary shouldEqual "Illegal chunk termination"
 
-        responses.expectError()
+        responses.expectComplete()
         netOut.expectComplete()
         requestsSub.expectCancellation()
         netInSub.expectCancellation()
@@ -583,6 +583,167 @@ class LowLevelOutgoingConnectionSpec extends AkkaSpec("akka.loggers = []\n akka.
           expectResponse().mapEntity(_ withSizeLimit 10).expectSizeErrorInEntityOfType[CloseDelimited](limit = 10)
         }
       }
+    }
+
+    "support requests with an `Expect: 100-continue` headers" which {
+
+      "have a strict entity and receive a `100 Continue` response" in new TestSetup {
+        requestsSub.sendNext(HttpRequest(POST, headers = List(Expect.`100-continue`), entity = "ABCDEF"))
+        expectWireData(
+          """POST / HTTP/1.1
+            |Expect: 100-continue
+            |Host: example.com
+            |User-Agent: akka-http/test
+            |Content-Type: text/plain; charset=UTF-8
+            |Content-Length: 6
+            |
+            |""")
+        netOutSub.request(1)
+        netOut.expectNoMsg(50.millis)
+
+        sendWireData(
+          """HTTP/1.1 100 Continue
+            |
+            |""")
+
+        netOut.expectNext().utf8String shouldEqual "ABCDEF"
+
+        sendWireData(
+          """HTTP/1.1 200 OK
+            |Content-Length: 0
+            |
+            |""")
+
+        expectResponse() shouldEqual HttpResponse()
+
+        requestsSub.sendComplete()
+        netOut.expectComplete()
+        netInSub.sendComplete()
+        responses.expectComplete()
+      }
+
+      "have a default entity and receive a `100 Continue` response" in new TestSetup {
+        val entityParts = List("ABC", "DE", "FGH").map(ByteString(_))
+        requestsSub.sendNext(HttpRequest(POST, headers = List(Expect.`100-continue`),
+          entity = HttpEntity(ContentTypes.`application/octet-stream`, 8, Source(entityParts))))
+        expectWireData(
+          """POST / HTTP/1.1
+            |Expect: 100-continue
+            |Host: example.com
+            |User-Agent: akka-http/test
+            |Content-Type: application/octet-stream
+            |Content-Length: 8
+            |
+            |""")
+        netOutSub.request(1)
+        netOut.expectNoMsg(50.millis)
+
+        sendWireData(
+          """HTTP/1.1 100 Continue
+            |
+            |""")
+
+        netOut.expectNext().utf8String shouldEqual "ABC"
+        expectWireData("DE")
+        expectWireData("FGH")
+
+        sendWireData(
+          """HTTP/1.1 200 OK
+            |Content-Length: 0
+            |
+            |""")
+
+        expectResponse() shouldEqual HttpResponse()
+
+        requestsSub.sendComplete()
+        netOut.expectComplete()
+        netInSub.sendComplete()
+        responses.expectComplete()
+      }
+
+      "receive a normal response" in new TestSetup {
+        requestsSub.sendNext(HttpRequest(POST, headers = List(Expect.`100-continue`), entity = "ABCDEF"))
+        expectWireData(
+          """POST / HTTP/1.1
+            |Expect: 100-continue
+            |Host: example.com
+            |User-Agent: akka-http/test
+            |Content-Type: text/plain; charset=UTF-8
+            |Content-Length: 6
+            |
+            |""")
+        netOutSub.request(1)
+        netOut.expectNoMsg(50.millis)
+
+        sendWireData(
+          """HTTP/1.1 200 OK
+            |Content-Length: 0
+            |
+            |""")
+
+        expectResponse() shouldEqual HttpResponse()
+
+        expectWireData("ABCDEF")
+
+        requestsSub.sendComplete()
+        netOut.expectComplete()
+        netInSub.sendComplete()
+        responses.expectComplete()
+      }
+
+      "receive an error response" in new TestSetup {
+        requestsSub.sendNext(HttpRequest(POST, headers = List(Expect.`100-continue`), entity = "ABCDEF"))
+        requestsSub.sendComplete()
+        expectWireData(
+          """POST / HTTP/1.1
+            |Expect: 100-continue
+            |Host: example.com
+            |User-Agent: akka-http/test
+            |Content-Type: text/plain; charset=UTF-8
+            |Content-Length: 6
+            |
+            |""")
+        netOutSub.request(1)
+        netOut.expectNoMsg(50.millis)
+
+        sendWireData(
+          """HTTP/1.1 400 Bad Request
+            |Content-Length: 0
+            |
+            |""")
+
+        expectResponse() shouldEqual HttpResponse(400)
+
+        netOut.expectComplete()
+        netInSub.sendComplete()
+        responses.expectComplete()
+      }
+    }
+
+    "ignore interim 1xx responses" in new TestSetup {
+      sendStandardRequest()
+      sendWireData(
+        """HTTP/1.1 102 Processing
+          |Content-Length: 0
+          |
+          |""")
+      sendWireData(
+        """HTTP/1.1 102 Processing
+          |Content-Length: 0
+          |
+          |""")
+      sendWireData(
+        """HTTP/1.1 200 OK
+          |Content-Length: 0
+          |
+          |""")
+
+      expectResponse() shouldEqual HttpResponse()
+
+      requestsSub.sendComplete()
+      netOut.expectComplete()
+      netInSub.sendComplete()
+      responses.expectComplete()
     }
   }
 

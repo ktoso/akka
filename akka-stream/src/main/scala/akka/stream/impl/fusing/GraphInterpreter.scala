@@ -1,16 +1,16 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.fusing
 
 import java.util.Arrays
+import akka.actor.ActorRef
 import akka.event.LoggingAdapter
 import akka.stream.stage._
 import scala.annotation.tailrec
 import scala.collection.immutable
 import akka.stream._
 import akka.stream.impl.StreamLayout._
-import akka.stream.impl.fusing.GraphStages.MaterializedValueSource
 import scala.concurrent.forkjoin.ThreadLocalRandom
 import scala.util.control.NonFatal
 import java.{ util ⇒ ju }
@@ -191,14 +191,17 @@ private[akka] object GraphInterpreter {
       (inHandlers, outHandlers, logics)
     }
 
-    override def toString: String =
+    override def toString: String = {
+      val stageList = stages.iterator.zip(originalAttributes.iterator).map {
+        case (stage, attr) ⇒ s"${stage.module}    [${attr.attributeList.mkString(", ")}]"
+      }
       "GraphAssembly\n  " +
-        stages.mkString("[", ",", "]") + "\n  " +
-        originalAttributes.mkString("[", ",", "]") + "\n  " +
+        stageList.mkString("[ ", "\n    ", "\n  ]") + "\n  " +
         ins.mkString("[", ",", "]") + "\n  " +
         inOwners.mkString("[", ",", "]") + "\n  " +
         outs.mkString("[", ",", "]") + "\n  " +
         outOwners.mkString("[", ",", "]")
+    }
   }
 
   object GraphAssembly {
@@ -266,7 +269,7 @@ private[akka] object GraphInterpreter {
 }
 
 /**
- * INERNAL API
+ * INTERNAL API
  *
  * From an external viewpoint, the GraphInterpreter takes an assembly of graph processing stages encoded as a
  * [[GraphInterpreter#GraphAssembly]] object and provides facilities to execute and interact with this assembly.
@@ -348,7 +351,8 @@ private[stream] final class GraphInterpreter(
   val outHandlers: Array[OutHandler], // Lookup table for the outHandler of the connection
   val logics: Array[GraphStageLogic], // Array of stage logics
   val onAsyncInput: (GraphStageLogic, Any, (Any) ⇒ Unit) ⇒ Unit,
-  val fuzzingMode: Boolean) {
+  val fuzzingMode: Boolean,
+  val context: ActorRef) {
   import GraphInterpreter._
 
   // Maintains additional information for events, basically elements in-flight, or failure.
@@ -495,7 +499,7 @@ private[stream] final class GraphInterpreter(
       case owner    ⇒ assembly.stages(owner).toString
     }
 
-  // Debug name for a connections ouput part
+  // Debug name for a connections output part
   private def outOwnerName(connection: Int): String =
     assembly.outOwners(connection) match {
       case Boundary ⇒ "UpstreamBoundary"
@@ -509,7 +513,7 @@ private[stream] final class GraphInterpreter(
       case owner    ⇒ logics(owner).toString
     }
 
-  // Debug name for a connections ouput part
+  // Debug name for a connections output part
   private def outLogicName(connection: Int): String =
     assembly.outOwners(connection) match {
       case Boundary ⇒ "UpstreamBoundary"
@@ -523,13 +527,13 @@ private[stream] final class GraphInterpreter(
    * Executes pending events until the given limit is met. If there were remaining events, isSuspended will return
    * true.
    */
-  def execute(eventLimit: Int): Unit = {
+  def execute(eventLimit: Int): Int = {
     if (Debug) println(s"$Name ---------------- EXECUTE $queueStatus (running=$runningStages, shutdown=$shutdownCounters)")
     val currentInterpreterHolder = _currentInterpreter.get()
     val previousInterpreter = currentInterpreterHolder(0)
     currentInterpreterHolder(0) = this
+    var eventsRemaining = eventLimit
     try {
-      var eventsRemaining = eventLimit
       while (eventsRemaining > 0 && queueTail != queueHead) {
         val connection = dequeue()
         try processEvent(connection)
@@ -551,6 +555,7 @@ private[stream] final class GraphInterpreter(
     }
     if (Debug) println(s"$Name ---------------- $queueStatus (running=$runningStages, shutdown=$shutdownCounters)")
     // TODO: deadlock detection
+    eventsRemaining
   }
 
   def runAsyncInput(logic: GraphStageLogic, evt: Any, handler: (Any) ⇒ Unit): Unit =
@@ -654,7 +659,7 @@ private[stream] final class GraphInterpreter(
       finalizeStage(logic)
     }
 
-  // Returns true if the given stage is alredy completed
+  // Returns true if the given stage is already completed
   def isStageCompleted(stage: GraphStageLogic): Boolean = stage != null && shutdownCounter(stage.stageId) == 0
 
   // Register that a connection in which the given stage participated has been completed and therefore the stage
@@ -734,12 +739,13 @@ private[stream] final class GraphInterpreter(
    * Only invoke this after the interpreter completely settled, otherwise the results might be off. This is a very
    * simplistic tool, make sure you are understanding what you are doing and then it will serve you well.
    */
-  def dumpWaits(): Unit = {
-    println("digraph waits {")
+  def dumpWaits(): Unit = println(toString)
 
-    for (i ← assembly.stages.indices) {
-      println(s"""N$i [label="${assembly.stages(i)}"]""")
-    }
+  override def toString: String = {
+    val builder = new StringBuilder("digraph waits {\n")
+
+    for (i ← assembly.stages.indices)
+      builder.append(s"""N$i [label="${assembly.stages(i)}"]""" + "\n")
 
     def nameIn(port: Int): String = {
       val owner = assembly.inOwners(port)
@@ -756,17 +762,18 @@ private[stream] final class GraphInterpreter(
     for (i ← portStates.indices) {
       portStates(i) match {
         case InReady ⇒
-          println(s"""  ${nameIn(i)} -> ${nameOut(i)} [label="shouldPull"; color=blue]; """)
+          builder.append(s"""  ${nameIn(i)} -> ${nameOut(i)} [label=shouldPull; color=blue]""")
         case OutReady ⇒
-          println(s"""  ${nameOut(i)} -> ${nameIn(i)} [label="shouldPush"; color=red]; """)
+          builder.append(s"""  ${nameOut(i)} -> ${nameIn(i)} [label=shouldPush; color=red];""")
         case x if (x | InClosed | OutClosed) == (InClosed | OutClosed) ⇒
-          println(s"""  ${nameIn(i)} -> ${nameOut(i)} [style=dotted; label="closed" dir=both]; """)
+          builder.append(s"""  ${nameIn(i)} -> ${nameOut(i)} [style=dotted; label=closed dir=both];""")
         case _ ⇒
       }
-
+      builder.append("\n")
     }
 
-    println("}")
-    println(s"// $queueStatus (running=$runningStages, shutdown=${shutdownCounter.mkString(",")})")
+    builder.append("}\n")
+    builder.append(s"// $queueStatus (running=$runningStages, shutdown=${shutdownCounter.mkString(",")})")
+    builder.toString()
   }
 }

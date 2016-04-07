@@ -1,9 +1,8 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.extra
 
-import scala.language.implicitConversions
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
 import scala.concurrent.duration.FiniteDuration

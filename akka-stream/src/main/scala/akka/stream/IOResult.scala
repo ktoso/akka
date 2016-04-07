@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream
 
@@ -30,7 +30,7 @@ final case class IOResult private[stream] (count: Long, status: Try[Done]) {
    */
   def getError: Throwable = status match {
     case Failure(t) ⇒ t
-    case Success(_) ⇒ throw new UnsupportedOperationException("IO operation was successfull.")
+    case Success(_) ⇒ throw new UnsupportedOperationException("IO operation was successful.")
   }
 
 }

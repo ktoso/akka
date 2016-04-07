@@ -1,20 +1,20 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.tck
 
 import java.io.{ File, FileWriter }
-
 import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.stream.scaladsl.FileIO
-import akka.stream.scaladsl.{ Source, Sink }
+import akka.stream.scaladsl.{ Sink }
 import akka.stream.testkit._
 import akka.stream.testkit.Utils._
 import akka.testkit.{ EventFilter, TestEvent }
 import akka.util.ByteString
 import org.reactivestreams.Publisher
 import org.testng.annotations.{ AfterClass, BeforeClass }
+import akka.testkit.AkkaSpec
 
 class FilePublisherTest extends AkkaPublisherVerification[ByteString] {
 

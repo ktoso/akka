@@ -1,13 +1,11 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package docs.http.scaladsl.server
 
 import akka.http.scaladsl.server._
-import Directives._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import org.scalatest._
 
 class DirectiveExamplesSpec extends RoutingSpec {
 

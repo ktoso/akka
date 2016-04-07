@@ -1,17 +1,15 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.dispatch
 
-import java.util.concurrent.{ ConcurrentHashMap, TimeUnit, ThreadFactory }
+import java.util.concurrent.{ ConcurrentHashMap, ThreadFactory }
 import com.typesafe.config.{ ConfigFactory, Config }
 import akka.actor.{ Scheduler, DynamicAccess, ActorSystem }
 import akka.event.Logging.Warning
 import akka.event.EventStream
-import scala.concurrent.duration.Duration
 import akka.ConfigurationException
-import akka.actor.Deploy
 import akka.util.Helpers.ConfigOps
 import scala.concurrent.ExecutionContext
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.stage;
 
@@ -8,7 +8,7 @@ import akka.stream.StreamTest;
 import akka.stream.javadsl.AkkaJUnitActorSystemResource;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
-import akka.stream.testkit.AkkaSpec;
+import akka.testkit.AkkaSpec;
 
 import org.junit.ClassRule;
 import org.junit.Ignore;

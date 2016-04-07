@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -12,6 +12,7 @@ import akka.stream.testkit.scaladsl._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalactic.ConversionCheckedTripleEquals
 import scala.concurrent.duration._
+import akka.testkit.AkkaSpec
 
 object ActorRefBackpressureSinkSpec {
   val initMessage = "start"
@@ -47,10 +48,9 @@ object ActorRefBackpressureSinkSpec {
 
 }
 
-class ActorRefBackpressureSinkSpec extends AkkaSpec with ScalaFutures with ConversionCheckedTripleEquals {
+class ActorRefBackpressureSinkSpec extends AkkaSpec {
   import ActorRefBackpressureSinkSpec._
   implicit val mat = ActorMaterializer()
-  implicit val patience = PatienceConfig(2.second)
 
   def createActor[T](c: Class[T]) =
     system.actorOf(Props(c, testActor).withDispatcher("akka.test.stream-dispatcher"))

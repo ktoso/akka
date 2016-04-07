@@ -1,24 +1,25 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.client
 
+import java.util.concurrent.CountDownLatch
+
 import akka.http.impl.util.One2OneBidiFlow
 
-import scala.concurrent.Await
+import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
-import akka.stream.{ ActorMaterializerSettings, FlowShape, ActorMaterializer }
+import akka.stream.{ ActorMaterializer, ActorMaterializerSettings, FlowShape, OverflowStrategy }
 import akka.stream.scaladsl._
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.http.scaladsl.{ Http, TestUtils }
 import akka.http.scaladsl.model._
 import akka.stream.testkit.Utils
 import org.scalatest.concurrent.ScalaFutures
 
-class HighLevelOutgoingConnectionSpec extends AkkaSpec with ScalaFutures {
+class HighLevelOutgoingConnectionSpec extends AkkaSpec {
   implicit val materializer = ActorMaterializer(ActorMaterializerSettings(system).withFuzzing(true))
-  implicit val patience = PatienceConfig(1.second)
 
   "The connection-level client implementation" should {
 
@@ -74,22 +75,5 @@ class HighLevelOutgoingConnectionSpec extends AkkaSpec with ScalaFutures {
       binding.futureValue.unbind()
     }
 
-    "catch response stream truncation" in Utils.assertAllStagesStopped {
-      val (_, serverHostName, serverPort) = TestUtils.temporaryServerHostnameAndPort()
-
-      val binding = Http().bindAndHandleSync({
-        case HttpRequest(_, Uri.Path("/b"), _, _, _) ⇒ HttpResponse(headers = List(headers.Connection("close")))
-        case _                                       ⇒ HttpResponse()
-      }, serverHostName, serverPort)
-
-      val x = Source(List("/a", "/b", "/c"))
-        .map(path ⇒ HttpRequest(uri = path))
-        .via(Http().outgoingConnection(serverHostName, serverPort))
-        .grouped(10)
-        .runWith(Sink.head)
-
-      a[One2OneBidiFlow.OutputTruncationException.type] should be thrownBy Await.result(x, 3.second)
-      binding.futureValue.unbind()
-    }
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.testkit
 
@@ -8,7 +8,7 @@ import scala.util.matching.Regex
 import scala.collection.immutable
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
-import akka.actor.{ DeadLetter, ActorSystem, Terminated, UnhandledMessage }
+import akka.actor.{ DeadLetter, ActorSystem, UnhandledMessage }
 import akka.dispatch.sysmsg.{ SystemMessage, Terminate }
 import akka.event.Logging.{ Warning, LogEvent, InitializeLogger, Info, Error, Debug, LoggerInitialized }
 import akka.event.Logging
@@ -23,7 +23,7 @@ import akka.util.BoxedType
  * uninstall it.
  *
  * You should always prefer the filter methods in the package object
- * (see [[akka.testkit]] `filterEvents` and `filterException`) or on the
+ * (see `akka.testkit` `filterEvents` and `filterException`) or on the
  * EventFilter implementations.
  */
 sealed trait TestEvent
@@ -34,7 +34,7 @@ sealed trait TestEvent
  * uninstall it.
  *
  * You should always prefer the filter methods in the package object
- * (see [[akka.testkit]] `filterEvents` and `filterException`) or on the
+ * (see `akka.testkit` `filterEvents` and `filterException`) or on the
  * EventFilter implementations.
  */
 object TestEvent {
@@ -141,7 +141,7 @@ abstract class EventFilter(occurrences: Int) {
  * that you can keep your test run’s console output clean and do not miss real
  * error messages.
  *
- * '''Also have a look at the [[akka.testkit]] package object’s `filterEvents` and
+ * '''Also have a look at the `akka.testkit` package object’s `filterEvents` and
  * `filterException` methods.'''
  *
  * The source filters do accept `Class[_]` arguments, matching any

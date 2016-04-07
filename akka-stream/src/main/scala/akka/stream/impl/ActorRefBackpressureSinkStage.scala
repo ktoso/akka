@@ -1,15 +1,13 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl
 
 import java.util
 
 import akka.actor._
-import akka.dispatch.sysmsg.{ DeathWatchNotification, SystemMessage, Watch }
 import akka.stream.impl.Stages.DefaultAttributes
-import akka.stream.stage.GraphStageLogic.StageActor
-import akka.stream.{ Inlet, SinkShape, ActorMaterializer, Attributes }
+import akka.stream.{ Inlet, SinkShape, Attributes }
 import akka.stream.Attributes.InputBuffer
 import akka.stream.stage._
 

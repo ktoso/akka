@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package docs.http.scaladsl
@@ -9,7 +9,7 @@ import akka.http.scaladsl.model._
 
 //#import-model
 
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.util.ByteString
 import akka.http.scaladsl.model.headers.BasicHttpCredentials
 

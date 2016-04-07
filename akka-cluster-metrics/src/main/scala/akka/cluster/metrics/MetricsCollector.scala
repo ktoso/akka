@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster.metrics
@@ -7,7 +7,6 @@ package akka.cluster.metrics
 import akka.actor.ActorSystem
 import akka.actor.ExtendedActorSystem
 import akka.event.Logging
-import akka.event.LoggingAdapter
 import akka.ConfigurationException
 import akka.actor.Address
 import java.lang.management.MemoryMXBean

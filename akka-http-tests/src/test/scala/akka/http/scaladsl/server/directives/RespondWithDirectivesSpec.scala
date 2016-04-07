@@ -1,13 +1,11 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.server.directives
 
 import akka.http.scaladsl.model._
-import MediaTypes._
 import headers._
-import StatusCodes._
 
 import akka.http.scaladsl.server._
 

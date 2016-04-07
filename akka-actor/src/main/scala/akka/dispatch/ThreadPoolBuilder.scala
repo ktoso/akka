@@ -1,11 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.dispatch
 
 import java.util.Collection
-import scala.concurrent.{ Awaitable, BlockContext, CanAwait }
+import scala.concurrent.{ BlockContext, CanAwait }
 import scala.concurrent.duration.Duration
 import scala.concurrent.forkjoin._
 import java.util.concurrent.{

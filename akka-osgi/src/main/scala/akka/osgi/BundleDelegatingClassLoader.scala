@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.osgi
 
@@ -8,7 +8,6 @@ import java.net.URL
 import java.util.Enumeration
 import org.osgi.framework.{ BundleContext, Bundle }
 import scala.util.Try
-import scala.io.Source
 import org.osgi.framework.wiring.{ BundleRevision, BundleWire, BundleWiring }
 import scala.collection.JavaConverters._
 import scala.util.Success
@@ -85,11 +84,10 @@ class BundleDelegatingClassLoader(bundle: Bundle, fallBackClassLoader: ClassLoad
                 wire ⇒ Option(wire.getProviderWiring) map { _.getBundle }
               }.toSet
             }
-          process(processed + b, rest ++ (direct -- processed))
+          process(processed + b, rest ++ (direct diff processed))
         }
       }
     }
     process(Set.empty, Set(bundle))
   }
 }
-

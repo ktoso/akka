@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.server
@@ -24,7 +24,6 @@ object TcpLeakApp extends App {
 
   import system.dispatcher
 
-  import scala.concurrent.duration._
   val tcpFlow = Tcp().outgoingConnection(new InetSocketAddress("127.0.0.1", 1234)).named("TCP-outgoingConnection")
   List
     .fill(100)(

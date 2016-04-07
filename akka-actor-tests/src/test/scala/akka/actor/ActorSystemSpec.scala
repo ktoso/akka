@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.actor
 
@@ -15,7 +15,6 @@ import akka.japi.Util.immutableSeq
 import akka.pattern.ask
 import akka.dispatch._
 import com.typesafe.config.Config
-import java.util.concurrent.{ LinkedBlockingQueue, BlockingQueue, TimeUnit }
 import akka.util.Switch
 import akka.util.Helpers.ConfigOps
 import scala.util.control.NoStackTrace

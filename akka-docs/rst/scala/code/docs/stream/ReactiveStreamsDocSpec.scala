@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream
 
@@ -8,6 +8,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{ Flow, Sink, Source }
 import akka.stream.testkit._
 import org.reactivestreams.Processor
+import akka.testkit.AkkaSpec
 
 class ReactiveStreamsDocSpec extends AkkaSpec {
   import TwitterStreamQuickstartDocSpec._

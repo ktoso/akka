@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.model.headers;
@@ -32,7 +32,7 @@ public final class CacheDirectives {
     public static final CacheDirective MUST_REVALIDATE = akka.http.scaladsl.model.headers.CacheDirectives.must$minusrevalidate$.MODULE$;
 
     public static CacheDirective NO_CACHE(String... fieldNames) {
-        return akka.http.scaladsl.model.headers.CacheDirectives.no$minuscache$.MODULE$.apply(fieldNames);
+        return akka.http.scaladsl.model.headers.CacheDirectives.no$minuscache$.MODULE$.apply(akka.japi.Util.immutableSeq(fieldNames));
     }
     public static final CacheDirective PUBLIC = akka.http.scaladsl.model.headers.CacheDirectives.getPublic();
     public static CacheDirective PRIVATE(String... fieldNames) {

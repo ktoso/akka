@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.rendering
@@ -89,7 +89,7 @@ private[http] object BodyPartRenderer {
     r.get
   }
 
-  private def renderBoundary(r: Rendering, boundary: String, suppressInitialCrLf: Boolean = false): Unit = {
+  private def renderBoundary(r: Rendering, boundary: String, suppressInitialCrLf: Boolean): Unit = {
     if (!suppressInitialCrLf) r ~~ CrLf
     r ~~ '-' ~~ '-' ~~ boundary ~~ CrLf
   }

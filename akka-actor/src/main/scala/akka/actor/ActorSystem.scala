@@ -1,23 +1,21 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.actor
 
 import java.io.Closeable
-import java.util.concurrent.{ ConcurrentHashMap, ThreadFactory, CountDownLatch, TimeoutException, RejectedExecutionException }
+import java.util.concurrent.{ ConcurrentHashMap, ThreadFactory, CountDownLatch, RejectedExecutionException }
 import java.util.concurrent.atomic.{ AtomicReference }
-import java.util.concurrent.TimeUnit.MILLISECONDS
 import com.typesafe.config.{ Config, ConfigFactory }
 import akka.event._
 import akka.dispatch._
-import akka.dispatch.sysmsg.{ SystemMessageList, EarliestFirstSystemMessageList, LatestFirstSystemMessageList, SystemMessage }
 import akka.japi.Util.immutableSeq
 import akka.actor.dungeon.ChildrenContainer
 import akka.util._
 import scala.annotation.tailrec
 import scala.collection.immutable
-import scala.concurrent.duration.{ FiniteDuration, Duration }
+import scala.concurrent.duration.{ Duration }
 import scala.concurrent.{ Await, Future, Promise, ExecutionContext, ExecutionContextExecutor }
 import scala.util.{ Failure, Success, Try }
 import scala.util.control.{ NonFatal, ControlThrowable }
@@ -166,7 +164,6 @@ object ActorSystem {
       config
     }
 
-    import scala.collection.JavaConverters._
     import akka.util.Helpers.ConfigOps
     import config._
 
@@ -182,6 +179,7 @@ object ActorSystem {
     final val LogLevel: String = getString("akka.loglevel")
     final val StdoutLogLevel: String = getString("akka.stdout-loglevel")
     final val Loggers: immutable.Seq[String] = immutableSeq(getStringList("akka.loggers"))
+    final val LoggersDispatcher: String = getString("akka.loggers-dispatcher")
     final val LoggingFilter: String = getString("akka.logging-filter")
     final val LoggerStartTimeout: Timeout = Timeout(config.getMillisDuration("akka.logger-startup-timeout"))
     final val LogConfigOnStart: Boolean = config.getBoolean("akka.log-config-on-start")

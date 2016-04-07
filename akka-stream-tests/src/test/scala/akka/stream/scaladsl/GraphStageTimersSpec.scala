@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -7,7 +7,7 @@ import akka.actor.ActorRef
 import akka.stream.{ Attributes, ActorMaterializer }
 import akka.stream.impl.fusing.GraphStages.SimpleLinearGraphStage
 import akka.stream.stage.{ TimerGraphStageLogic, OutHandler, AsyncCallback, InHandler }
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.testkit.TestDuration
 
 import scala.concurrent.Promise

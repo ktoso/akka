@@ -1,22 +1,19 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.actor.{ Kill, PoisonPill, NoSerializationVerificationNeeded, ActorRef }
 import akka.event.Logging
 import akka.stream._
-import akka.stream.stage.GraphStageLogic.StageActorRef
-import akka.stream.stage.{ GraphStageWithMaterializedValue, GraphStage, GraphStageLogic, InHandler }
-import akka.stream.testkit.AkkaSpec
-import akka.testkit.{ TestProbe, TestEvent, EventFilter, ImplicitSender }
-import org.scalatest.concurrent.PatienceConfiguration.Timeout
+import akka.stream.stage.{ GraphStageWithMaterializedValue, GraphStageLogic, InHandler }
+import akka.testkit.{ AkkaSpec, TestProbe, TestEvent, EventFilter, ImplicitSender }
 import org.scalatest.concurrent.ScalaFutures
 
 import scala.concurrent.{ Future, Promise }
 import scala.concurrent.duration._
 
-class StageActorRefSpec extends AkkaSpec with ImplicitSender with ScalaFutures {
+class StageActorRefSpec extends AkkaSpec with ImplicitSender {
   implicit val materializer = ActorMaterializer()
 
   import StageActorRefSpec._

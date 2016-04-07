@@ -220,7 +220,7 @@ Microkernel is Deprecated
 
 Akka Microkernel is deprecated and will be removed. It is replaced by using an ordinary
 user defined main class and packaging with `sbt-native-packager <https://github.com/sbt/sbt-native-packager>`_
-or `Typesafe ConductR <http://typesafe.com/products/conductr>`_.
+or `Lightbend ConductR <http://www.lightbend.com/products/conductr>`_.
 Please see :ref:`deployment-scenarios` for more information.
 
 New Cluster Metrics Extension 
@@ -373,7 +373,7 @@ actor in cluster.
 
 In 2.4 the ``sender()`` of the response messages, as seen by the client, is ``deadLetters``
 since the client should normally send subsequent messages via the ``ClusterClient``.
-It is possible to pass the the original sender inside the reply messages if
+It is possible to pass the original sender inside the reply messages if
 the client is supposed to communicate directly to the actor in the cluster.
 
 Akka Persistence

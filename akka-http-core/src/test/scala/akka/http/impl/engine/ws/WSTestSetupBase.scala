@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.ws
@@ -9,7 +9,6 @@ import akka.http.impl.engine.ws.WSTestUtils._
 import akka.util.ByteString
 import org.scalatest.Matchers
 
-import scala.annotation.tailrec
 import scala.util.Random
 
 trait WSTestSetupBase extends Matchers {

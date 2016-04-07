@@ -1,15 +1,12 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.cluster
 
-import language.postfixOps
 import scala.annotation.tailrec
 import scala.collection.immutable
-import scala.concurrent.duration._
-import akka.actor.{ ActorLogging, ActorRef, ActorSelection, Address, Actor, RootActorPath, Props }
+import akka.actor.{ ActorLogging, ActorSelection, Address, Actor, RootActorPath }
 import akka.cluster.ClusterEvent._
-import akka.routing.MurmurHash
 import akka.remote.FailureDetectorRegistry
 import akka.remote.PriorityMessage
 import akka.actor.DeadLetterSuppression
@@ -66,7 +63,6 @@ private[cluster] final class ClusterHeartbeatSender extends Actor with ActorLogg
   val verboseHeartbeat = cluster.settings.Debug.VerboseHeartbeatLogging
   import cluster.{ selfAddress, selfUniqueAddress, scheduler }
   import cluster.settings._
-  import cluster.InfoLogger._
   import context.dispatcher
 
   // the failureDetector is only updated by this actor, but read from other places

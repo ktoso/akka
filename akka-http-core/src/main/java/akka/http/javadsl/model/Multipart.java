@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.model;
@@ -18,9 +18,10 @@ import akka.stream.javadsl.Source;
  * The model of multipart content for media-types `multipart/\*` (general multipart content),
  * `multipart/form-data` and `multipart/byteranges`.
  *
- * The basic modelling classes for these media-types ([[Multipart.General]], [[Multipart.FormData]] and
- * [[Multipart.ByteRanges]], respectively) are stream-based but each have a strict counterpart
- * (namely [[Multipart.General.Strict]], [[Multipart.FormData.Strict]] and [[Multipart.ByteRanges.Strict]]).
+ * The basic modelling classes for these media-types ([[akka.http.scaladsl.Multipart.General]], [[Multipart.FormData]] and
+ * [[akka.http.scaladsl.Multipart.ByteRanges]], respectively) are stream-based but each have a strict counterpart
+ * (namely [[akka.http.scaladsl.Multipart.General.Strict]], [[akka.http.scaladsl.Multipart.FormData.Strict]] and
+ * [[akka.http.scaladsl.Multipart.ByteRanges.Strict]]).
  */
 public interface Multipart {
 

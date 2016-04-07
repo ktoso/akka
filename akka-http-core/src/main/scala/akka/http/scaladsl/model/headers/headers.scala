@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.model.headers
@@ -87,6 +87,7 @@ abstract class ModeledCustomHeaderCompanion[H <: ModeledCustomHeader[H]] {
     case _               ⇒ None
   }
 
+  final implicit val implicitlyLocatableCompanion: ModeledCustomHeaderCompanion[H] = this
 }
 
 /**
@@ -789,6 +790,19 @@ final case class Server(products: immutable.Seq[ProductVersion]) extends jm.head
 
   /** Java API */
   def getProducts: Iterable[jm.headers.ProductVersion] = products.asJava
+}
+
+// https://tools.ietf.org/html/rfc6797
+object `Strict-Transport-Security` extends ModeledCompanion[`Strict-Transport-Security`] {
+  def apply(maxAge: Long, includeSubDomains: Option[Boolean]) = new `Strict-Transport-Security`(maxAge, includeSubDomains.getOrElse(false))
+}
+final case class `Strict-Transport-Security`(maxAge: Long, includeSubDomains: Boolean = false) extends jm.headers.StrictTransportSecurity with ResponseHeader {
+  def renderValue[R <: Rendering](r: R): r.type = {
+    r ~~ "max-age=" ~~ maxAge
+    if (includeSubDomains) r ~~ "; includeSubDomains"
+    r
+  }
+  protected def companion = `Strict-Transport-Security`
 }
 
 // https://tools.ietf.org/html/rfc6265

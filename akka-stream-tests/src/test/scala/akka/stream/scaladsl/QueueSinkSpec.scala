@@ -1,24 +1,23 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.actor.Status
 import akka.pattern.pipe
 import akka.stream.Attributes.inputBuffer
-import akka.stream.{ OverflowStrategy, ActorMaterializer }
+import akka.stream.{ ActorMaterializer }
 import akka.stream.testkit.Utils._
-import akka.stream.testkit.{ AkkaSpec, _ }
+import akka.stream.testkit._
 import org.scalatest.concurrent.ScalaFutures
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
+import akka.testkit.AkkaSpec
 
-class QueueSinkSpec extends AkkaSpec with ScalaFutures {
+class QueueSinkSpec extends AkkaSpec {
   implicit val ec = system.dispatcher
   implicit val materializer = ActorMaterializer()
-  implicit val patience = PatienceConfig(2.second)
 
   val ex = new RuntimeException("ex") with NoStackTrace
 

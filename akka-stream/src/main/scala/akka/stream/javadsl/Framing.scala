@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl
 
@@ -7,7 +7,6 @@ import java.nio.ByteOrder
 
 import akka.NotUsed
 import akka.stream.scaladsl
-import akka.stream.stage._
 import akka.util.ByteString
 
 object Framing {

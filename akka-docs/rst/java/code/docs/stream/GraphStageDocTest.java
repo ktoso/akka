@@ -384,7 +384,8 @@ public class GraphStageDocTest extends AbstractJavaTest {
 
 
   //#async-side-channel
-  // will close upstream when the future completes
+  // will close upstream in all materializations of the stage instance
+  // when the completion stage completes
   public class KillSwitch<A> extends GraphStage<FlowShape<A, A>> {
 
     private final CompletionStage<Done> switchF;
@@ -442,23 +443,22 @@ public class GraphStageDocTest extends AbstractJavaTest {
   public void demonstrateAnAsynchronousSideChannel() throws Exception{
 
     // tests:
+    TestSubscriber.Probe<Integer> out = TestSubscriber.probe(system);
+    TestPublisher.Probe<Integer> in = TestPublisher.probe(0, system);
+
     CompletableFuture<Done> switchF = new CompletableFuture<>();
     Graph<FlowShape<Integer, Integer>, NotUsed> killSwitch =
       Flow.fromGraph(new KillSwitch<>(switchF));
 
-    ExecutionContext ec = system.dispatcher();
+    Source.fromPublisher(in).via(killSwitch).to(Sink.fromSubscriber(out)).run(mat);
 
-    CompletionStage<Integer> valueAfterKill = switchF.thenApply(in -> 4);
-
-
-    CompletionStage<Integer> result =
-      Source.from(Arrays.asList(1, 2, 3)).concat(Source.fromCompletionStage(valueAfterKill))
-        .via(killSwitch)
-        .runFold(0, (n, sum) -> n + sum, mat);
+    out.request(1);
+    in.sendNext(1);
+    out.expectNext(1);
 
     switchF.complete(Done.getInstance());
 
-    assertEquals(new Integer(6), result.toCompletableFuture().get(3, TimeUnit.SECONDS));
+    out.expectComplete();
   }
 
 

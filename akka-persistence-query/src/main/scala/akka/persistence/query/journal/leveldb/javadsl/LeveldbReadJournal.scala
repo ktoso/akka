@@ -1,11 +1,9 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.persistence.query.journal.leveldb.javadsl
 
 import akka.NotUsed
-
-import scala.concurrent.duration._
 
 import akka.persistence.query.EventEnvelope
 import akka.persistence.query.javadsl._

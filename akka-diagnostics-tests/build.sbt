@@ -7,3 +7,5 @@ Formatting.formatSettings
 publishArtifact in Compile := false
 
 AkkaBuild.dontPublishSettings
+
+disablePlugins(MimaPlugin)

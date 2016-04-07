@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.remote.testconductor
 
@@ -9,7 +9,6 @@ import org.jboss.netty.handler.codec.oneone.OneToOneEncoder
 import org.jboss.netty.channel.ChannelHandlerContext
 import org.jboss.netty.channel.Channel
 import akka.remote.testconductor.{ TestConductorProtocol ⇒ TCP }
-import akka.protobuf.Message
 import akka.actor.Address
 import org.jboss.netty.handler.codec.oneone.OneToOneDecoder
 import scala.concurrent.duration._

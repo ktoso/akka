@@ -1,10 +1,9 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package docs.http.scaladsl.server.directives
 
-import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.server._
 import docs.http.scaladsl.server.RoutingSpec
 

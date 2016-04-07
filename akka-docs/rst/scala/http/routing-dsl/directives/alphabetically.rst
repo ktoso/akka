@@ -24,6 +24,7 @@ Directive                                   Description
                                             a given ``AsyncAuthenticatorPF[T]``
 :ref:`-authenticateOrRejectWithChallenge-`  Lifts an authenticator function into a directive
 :ref:`-authorize-`                          Applies the given authorization check to the request
+:ref:`-authorizeAsync-`                     Applies the given asynchronous authorization check to the request
 :ref:`-cancelRejection-`                    Adds a ``TransformationRejection`` cancelling all rejections equal to the
                                             given one to the rejections potentially coming back from the inner route.
 :ref:`-cancelRejections-`                   Adds a ``TransformationRejection`` cancelling all matching rejections
@@ -210,10 +211,14 @@ Directive                                   Description
 :ref:`-tprovide-`                           Injects a given tuple of values into a directive
 :ref:`-uploadedFile-`                       Streams one uploaded file from a multipart request to a file on disk
 :ref:`-validate-`                           Checks a given condition before running its inner route
+:ref:`-withoutRequestTimeout-`              Disables :ref:`request timeouts <request-timeout>` for a given route.
 :ref:`-withExecutionContext-`               Runs its inner route with the given alternative ``ExecutionContext``
 :ref:`-withMaterializer-`                   Runs its inner route with the given alternative ``Materializer``
 :ref:`-withLog-`                            Runs its inner route with the given alternative ``LoggingAdapter``
 :ref:`-withRangeSupport-`                   Adds ``Accept-Ranges: bytes`` to responses to GET requests, produces partial
                                             responses if the initial request contained a valid ``Range`` header
+:ref:`-withRequestTimeout-`                 Configures the :ref:`request timeouts <request-timeout>` for a given route.
+:ref:`-withRequestTimeoutResponse-`         Prepares the ``HttpResponse`` that is emitted if a request timeout is triggered.
+                                            ``RequestContext => RequestContext`` function
 :ref:`-withSettings-`                       Runs its inner route with the given alternative ``RoutingSettings``
 =========================================== ============================================================================

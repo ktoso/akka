@@ -1,13 +1,13 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.testkit
 
 import akka.stream._
 import akka.stream.scaladsl.Source
 import akka.stream.testkit.scaladsl.TestSink
-
 import scala.concurrent.duration._
+import akka.testkit.AkkaSpec
 
 class StreamTestKitSpec extends AkkaSpec {
 

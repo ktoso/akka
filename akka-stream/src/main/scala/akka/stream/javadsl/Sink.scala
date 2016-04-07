@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl
 
@@ -242,7 +242,6 @@ object Sink {
    */
   def queue[T](): Sink[T, SinkQueue[T]] =
     new Sink(scaladsl.Sink.queue[T]().mapMaterializedValue(new SinkQueueAdapter(_)))
-
 }
 
 /**
@@ -255,6 +254,8 @@ final class Sink[-In, +Mat](delegate: scaladsl.Sink[In, Mat]) extends Graph[Sink
 
   override def shape: SinkShape[In] = delegate.shape
   private[stream] def module: StreamLayout.Module = delegate.module
+
+  override def toString: String = delegate.toString
 
   /** Converts this Sink to its Scala DSL counterpart */
   def asScala: scaladsl.Sink[In, Mat] = delegate

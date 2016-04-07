@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.coding
@@ -7,7 +7,7 @@ package akka.http.scaladsl.coding
 import akka.http.scaladsl.model._
 import akka.http.impl.util.StreamUtils
 import akka.stream.FlowShape
-import akka.stream.stage.{ GraphStage, Stage }
+import akka.stream.stage.{ GraphStage}
 import akka.util.ByteString
 import headers.HttpEncodings
 

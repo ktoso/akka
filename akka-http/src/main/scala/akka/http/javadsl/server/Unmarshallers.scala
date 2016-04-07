@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.server
@@ -8,7 +8,6 @@ import akka.http.impl.server.{ Util, UnmarshallerImpl }
 import akka.http.javadsl.model.{ HttpEntity, HttpMessage }
 import akka.http.scaladsl.unmarshalling.{ Unmarshaller ⇒ ScalaUnmarshaller, FromMessageUnmarshaller }
 import akka.japi.function.Function
-import akka.stream.Materializer
 import akka.util.ByteString
 
 import scala.reflect.ClassTag

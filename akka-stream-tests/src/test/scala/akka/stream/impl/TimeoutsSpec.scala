@@ -1,19 +1,18 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.stream.impl
 
 import java.util.concurrent.TimeoutException
-
 import akka.Done
 import akka.stream.scaladsl._
 import akka.stream.testkit.Utils._
-import akka.stream.testkit.{ AkkaSpec, TestPublisher, TestSubscriber }
+import akka.stream.testkit.{ TestPublisher, TestSubscriber }
 import akka.stream.{ ActorMaterializer, ClosedShape }
-
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
+import akka.testkit.AkkaSpec
 
 class TimeoutsSpec extends AkkaSpec {
   implicit val materializer = ActorMaterializer()

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.remote.transport
 
@@ -14,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadLocalRandom
 import scala.concurrent.{ Future, Promise }
 import scala.util.control.NoStackTrace
-import scala.util.Try
 
 @SerialVersionUID(1L)
 final case class FailureInjectorException(msg: String) extends AkkaException(msg) with NoStackTrace

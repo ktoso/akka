@@ -1,21 +1,18 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.stream._
-import akka.stream.scaladsl._
 import akka.stream.testkit.TwoStreamsSetup
 import org.scalacheck.Gen
-import scala.util.Random
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.duration._
 import org.scalactic.ConversionCheckedTripleEquals
 import org.scalacheck.Shrink
 
-class GraphMergeSortedSpec extends TwoStreamsSetup with GeneratorDrivenPropertyChecks with ScalaFutures with ConversionCheckedTripleEquals {
-  import GraphDSL.Implicits._
+class GraphMergeSortedSpec extends TwoStreamsSetup with GeneratorDrivenPropertyChecks {
 
   override type Outputs = Int
 
@@ -27,7 +24,6 @@ class GraphMergeSortedSpec extends TwoStreamsSetup with GeneratorDrivenPropertyC
     override def out: Outlet[Outputs] = merge.out
   }
 
-  implicit val patience = PatienceConfig(1.second)
   implicit def noShrink[T] = Shrink[T](_ ⇒ Stream.empty) // do not shrink failures, it only destroys evidence
 
   "MergeSorted" must {

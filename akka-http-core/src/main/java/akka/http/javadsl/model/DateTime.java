@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.model;
@@ -66,7 +66,7 @@ public abstract class DateTime {
     public abstract String weekdayStr();
 
     /**
-     * Returns the the month as a 3 letter abbreviation:
+     * Returns the month as a 3 letter abbreviation:
      * `Jan`, `Feb`, `Mar`, `Apr`, `May`, `Jun`, `Jul`, `Aug`, `Sep`, `Oct`, `Nov` or `Dec`
      */
     public abstract String monthStr();

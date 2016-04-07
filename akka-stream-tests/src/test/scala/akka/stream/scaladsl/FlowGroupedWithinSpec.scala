@@ -1,16 +1,16 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom.{ current ⇒ random }
-
 import akka.stream.ActorMaterializer
 import akka.stream.ActorMaterializerSettings
 import akka.stream.testkit._
 import akka.stream.testkit.Utils._
+import akka.testkit.AkkaSpec
 
 class FlowGroupedWithinSpec extends AkkaSpec with ScriptedTest {
 

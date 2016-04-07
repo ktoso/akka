@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl;
 
@@ -21,7 +21,7 @@ import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
 import akka.japi.function.Function2;
-import akka.stream.testkit.AkkaSpec;
+import akka.testkit.AkkaSpec;
 import akka.testkit.JavaTestKit;
 
 import static org.junit.Assert.*;

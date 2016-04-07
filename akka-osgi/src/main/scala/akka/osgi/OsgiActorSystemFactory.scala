@@ -1,12 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.osgi
 
 import akka.actor.ActorSystem
 import com.typesafe.config.{ ConfigFactory, Config }
 import org.osgi.framework.BundleContext
-import java.io.File
 
 /**
  * Factory class to create ActorSystem implementations in an OSGi environment.  This mainly involves dealing with

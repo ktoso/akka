@@ -1,9 +1,8 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
-import java.io.{ InputStream, OutputStream, File }
 import akka.{ Done, NotUsed }
 import akka.dispatch.ExecutionContexts
 import akka.actor.{ Status, ActorRef, Props }
@@ -11,14 +10,11 @@ import akka.stream.actor.ActorSubscriber
 import akka.stream.impl.Stages.DefaultAttributes
 import akka.stream.impl.StreamLayout.Module
 import akka.stream.impl._
-import akka.stream.impl.io.{ InputStreamSinkStage, OutputStreamSink, FileSink }
 import akka.stream.stage.{ Context, PushStage, SyncDirective, TerminationDirective }
 import akka.stream.{ javadsl, _ }
-import akka.util.ByteString
 import org.reactivestreams.{ Publisher, Subscriber }
 import scala.annotation.tailrec
 import scala.collection.immutable
-import scala.concurrent.duration.{ FiniteDuration, _ }
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success, Try }
 
@@ -30,6 +26,8 @@ final class Sink[-In, +Mat](private[stream] override val module: Module)
   extends Graph[SinkShape[In], Mat] {
 
   override val shape: SinkShape[In] = module.shape.asInstanceOf[SinkShape[In]]
+
+  override def toString: String = s"Sink($shape, $module)"
 
   /**
    * Transform this Sink by applying a function to each *incoming* upstream element before
@@ -196,7 +194,7 @@ object Sink {
     Flow[T].map(f).toMat(Sink.ignore)(Keep.right).named("foreachSink")
 
   /**
-   * Combine several sinks with fun-out strategy like `Broadcast` or `Balance` and returns `Sink`.
+   * Combine several sinks with fan-out strategy like `Broadcast` or `Balance` and returns `Sink`.
    */
   def combine[T, U](first: Sink[U, _], second: Sink[U, _], rest: Sink[U, _]*)(strategy: Int ⇒ Graph[UniformFanOutShape[T, U], NotUsed]): Sink[T, NotUsed] =
 
@@ -341,5 +339,4 @@ object Sink {
    */
   def queue[T](): Sink[T, SinkQueue[T]] =
     Sink.fromGraph(new QueueSink())
-
 }

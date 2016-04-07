@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.testkit
@@ -35,12 +35,12 @@ abstract class TestResponse(_response: HttpResponse, awaitAtMost: FiniteDuration
   lazy val response: HttpResponse = _response.withEntity(entity)
 
   /**
-   * Returns the media-type of the the response's content-type
+   * Returns the media-type of the response's content-type
    */
   def mediaType: MediaType = extractFromResponse(_.entity.contentType.mediaType)
 
   /**
-   * Returns a string representation of the media-type of the the response's content-type
+   * Returns a string representation of the media-type of the response's content-type
    */
   def mediaTypeString: String = mediaType.toString
 
@@ -63,7 +63,7 @@ abstract class TestResponse(_response: HttpResponse, awaitAtMost: FiniteDuration
   def entityAsString: String = entity.getData.utf8String
 
   /**
-   * Returns the [[StatusCode]] of the response.
+   * Returns the [[akka.http.javadsl.model.StatusCode]] of the response.
    */
   def status: StatusCode = response.status.asJava
 
@@ -117,7 +117,7 @@ abstract class TestResponse(_response: HttpResponse, awaitAtMost: FiniteDuration
     assertEqualsKind(expected, entityBytes, "entity")
 
   /**
-   * Assert on the response entity to equal the given object after applying an [[Unmarshaller]].
+   * Assert on the response entity to equal the given object after applying an [[akka.http.javadsl.server.Unmarshaller]].
    */
   def assertEntityAs[T <: AnyRef](unmarshaller: Unmarshaller[T], expected: T): TestResponse =
     assertEqualsKind(expected, entityAs(unmarshaller), "entity")

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream
 
@@ -215,6 +215,8 @@ object ClosedShape extends ClosedShape {
    * Java API: obtain ClosedShape instance
    */
   def getInstance: ClosedShape = this
+
+  override def toString: String = "ClosedShape"
 }
 
 /**

@@ -1,10 +1,9 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.persistence.japi.snapshot
 
-import akka.persistence.CapabilityFlag
-import akka.persistence.snapshot.{ SnapshotStore, SnapshotStoreSpec }
+import akka.persistence.snapshot.{ SnapshotStoreSpec }
 import com.typesafe.config.Config
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner

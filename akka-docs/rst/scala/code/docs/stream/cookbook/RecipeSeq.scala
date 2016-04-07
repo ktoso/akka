@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream.cookbook
 
@@ -8,8 +8,7 @@ import scala.concurrent.Future
 import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.duration._
 
-class RecipeSeq extends RecipeSpec with ScalaFutures {
-  implicit val patience = PatienceConfig(3.seconds)
+class RecipeSeq extends RecipeSpec {
 
   "Draining to a strict sequence" must {
 

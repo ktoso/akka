@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -14,8 +14,9 @@ import akka.stream._
 import akka.stream.testkit._
 import akka.NotUsed
 import akka.testkit.EventFilter
+import akka.testkit.AkkaSpec
 
-class SourceSpec extends AkkaSpec with DefaultTimeout with ScalaFutures {
+class SourceSpec extends AkkaSpec with DefaultTimeout {
 
   implicit val materializer = ActorMaterializer()
   implicit val config = PatienceConfig(timeout = Span(timeout.duration.toMillis, Millis))

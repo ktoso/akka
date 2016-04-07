@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -10,6 +10,7 @@ import akka.stream.testkit.scaladsl._
 import akka.stream.testkit.Utils._
 import akka.actor.PoisonPill
 import akka.actor.Status
+import akka.testkit.AkkaSpec
 
 class ActorRefSourceSpec extends AkkaSpec {
   implicit val materializer = ActorMaterializer()

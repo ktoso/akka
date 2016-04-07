@@ -1,8 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.model.headers
+
+import akka.http.impl.model.JavaInitialization
+import akka.util.Unsafe
 
 import scala.collection.immutable
 import akka.http.impl.util.{ Renderer, Rendering, ValueRenderable }
@@ -37,4 +40,8 @@ object EntityTagRange {
     require(tags.nonEmpty, "tags must not be empty")
     def render[R <: Rendering](r: R): r.type = r ~~ tags
   }
+
+  JavaInitialization.initializeStaticFieldWith(
+    `*`, classOf[jm.headers.EntityTagRange].getField("ALL"))
+
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.testkit
 
@@ -9,7 +9,6 @@ import com.typesafe.config.Config
 import akka.dispatch.DispatcherPrerequisites
 import akka.dispatch.MessageDispatcher
 import akka.dispatch.MessageDispatcherConfigurator
-import akka.dispatch.UnboundedMailbox
 
 object CallingThreadDispatcherModelSpec {
   import ActorModelSpec._

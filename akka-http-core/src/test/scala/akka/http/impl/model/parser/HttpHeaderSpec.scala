@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.model.parser
@@ -128,6 +128,7 @@ class HttpHeaderSpec extends FreeSpec with Matchers {
     }
 
     "Authorization" in {
+      BasicHttpCredentials("Aladdin", "open sesame").token shouldEqual "QWxhZGRpbjpvcGVuIHNlc2FtZQ=="
       "Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==" =!=
         Authorization(BasicHttpCredentials("Aladdin", "open sesame"))
       "Authorization: bAsIc QWxhZGRpbjpvcGVuIHNlc2FtZQ==" =!=
@@ -383,6 +384,12 @@ class HttpHeaderSpec extends FreeSpec with Matchers {
 
     "Server" in {
       "Server: as fghf.fdf/xx" =!= `Server`(Vector(ProductVersion("as"), ProductVersion("fghf.fdf", "xx")))
+    }
+
+    "Strict-Transport-Security" in {
+      "Strict-Transport-Security: max-age=31536000" =!= `Strict-Transport-Security`(maxAge = 31536000)
+      "Strict-Transport-Security: max-age=31536000" =!= `Strict-Transport-Security`(maxAge = 31536000, includeSubDomains = false)
+      "Strict-Transport-Security: max-age=31536000; includeSubDomains" =!= `Strict-Transport-Security`(maxAge = 31536000, includeSubDomains = true)
     }
 
     "Transfer-Encoding" in {

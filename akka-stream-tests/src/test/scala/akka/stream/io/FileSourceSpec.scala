@@ -1,12 +1,10 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.io
 
 import java.io.File
-import java.io.FileWriter
 import java.util.Random
-
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.ActorMaterializerSettings
@@ -22,9 +20,12 @@ import akka.stream.testkit.Utils._
 import akka.stream.testkit.scaladsl.TestSink
 import akka.util.ByteString
 import akka.util.Timeout
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import akka.testkit.AkkaSpec
+import java.io.OutputStreamWriter
+import java.io.FileOutputStream
+import java.nio.charset.StandardCharsets.UTF_8
 
 object FileSourceSpec {
   final case class Settings(chunkSize: Int, readAhead: Int)
@@ -46,7 +47,7 @@ class FileSourceSpec extends AkkaSpec(UnboundedMailboxConfig) {
 
   val testFile = {
     val f = File.createTempFile("file-source-spec", ".tmp")
-    new FileWriter(f).append(TestText).close()
+    new OutputStreamWriter(new FileOutputStream(f), UTF_8).append(TestText).close()
     f
   }
 
@@ -61,7 +62,7 @@ class FileSourceSpec extends AkkaSpec(UnboundedMailboxConfig) {
 
   val manyLines = {
     val f = File.createTempFile(s"file-source-spec-lines_$LinesCount", "tmp")
-    val w = new FileWriter(f)
+    val w = new OutputStreamWriter(new FileOutputStream(f), UTF_8)
     (1 to LinesCount).foreach { l ⇒
       w.append("a" * l).append("\n")
     }
@@ -169,8 +170,6 @@ class FileSourceSpec extends AkkaSpec(UnboundedMailboxConfig) {
     "use dedicated blocking-io-dispatcher by default" in assertAllStagesStopped {
       val sys = ActorSystem("dispatcher-testing", UnboundedMailboxConfig)
       val materializer = ActorMaterializer()(sys)
-      implicit val timeout = Timeout(500.millis)
-
       try {
         val p = FileIO.fromFile(manyLines).runWith(TestSink.probe)(materializer)
 
@@ -196,6 +195,14 @@ class FileSourceSpec extends AkkaSpec(UnboundedMailboxConfig) {
         val ref = expectMsgType[Children].children.find(_.path.toString contains "File").get
         try assertDispatcher(ref, "akka.actor.default-dispatcher") finally p.cancel()
       } finally shutdown(sys)
+    }
+
+    "not signal onComplete more than once" in {
+      FileIO.fromFile(testFile, 2 * TestText.length)
+        .runWith(TestSink.probe)
+        .requestNext(ByteString(TestText, UTF_8.name))
+        .expectComplete()
+        .expectNoMsg(1.second)
     }
   }
 

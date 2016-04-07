@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.persistence
@@ -12,7 +12,6 @@ import akka.testkit.{ EventFilter, ImplicitSender, TestEvent }
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.language.postfixOps
 import scala.util.control.NoStackTrace
 
 object PersistentActorDeleteFailureSpec {

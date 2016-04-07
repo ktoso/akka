@@ -1,26 +1,18 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.actor
 
-import akka.actor.FSM.StateTimeout
-
 import language.postfixOps
-import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfterEach }
 import akka.testkit._
-import TestEvent.Mute
 import scala.concurrent.duration._
 import akka.event._
 import com.typesafe.config.ConfigFactory
 import scala.concurrent.Await
 import akka.util.Timeout
-import org.scalatest.matchers.Matcher
-import org.scalatest.matchers.HavePropertyMatcher
-import org.scalatest.matchers.HavePropertyMatchResult
 
 object FSMActorSpec {
-  val timeout = Timeout(2 seconds)
 
   class Latches(implicit system: ActorSystem) {
     val unlockedLatch = TestLatch()
@@ -109,6 +101,8 @@ object FSMActorSpec {
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])
 class FSMActorSpec extends AkkaSpec(Map("akka.actor.debug.fsm" -> true)) with ImplicitSender {
   import FSMActorSpec._
+
+  val timeout = Timeout(2 seconds)
 
   "An FSM Actor" must {
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.pattern
 
@@ -7,7 +7,6 @@ import akka.testkit._
 import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.concurrent.{ Future, Await }
-import scala.annotation.tailrec
 
 class CircuitBreakerMTSpec extends AkkaSpec {
   implicit val ec = system.dispatcher

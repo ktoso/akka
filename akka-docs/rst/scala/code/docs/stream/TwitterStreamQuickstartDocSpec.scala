@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream
 
@@ -15,7 +15,7 @@ import scala.concurrent.Future
 
 //#imports
 
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 
 object TwitterStreamQuickstartDocSpec {
   //#model
@@ -31,7 +31,9 @@ object TwitterStreamQuickstartDocSpec {
   val akka = Hashtag("#akka")
   //#model
 
-  val tweets = Source(
+  //#tweet-source
+  val tweets: Source[Tweet, NotUsed] //#tweet-source
+  = Source(
     Tweet(Author("rolandkuhn"), System.currentTimeMillis, "#akka rocks!") ::
       Tweet(Author("patriknw"), System.currentTimeMillis, "#akka !") ::
       Tweet(Author("bantonsson"), System.currentTimeMillis, "#akka !") ::
@@ -52,12 +54,6 @@ class TwitterStreamQuickstartDocSpec extends AkkaSpec {
 
   // Disable println
   def println(s: Any): Unit = ()
-
-  trait Example0 {
-    //#tweet-source
-    val tweets: Source[Tweet, Unit]
-    //#tweet-source
-  }
 
   trait Example1 {
     //#first-sample

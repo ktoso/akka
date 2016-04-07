@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.pattern
 
@@ -18,7 +18,7 @@ object PromiseRefSpec {
   case object SecondMessage
 }
 
-class PromiseRefSpec extends AkkaSpec with ImplicitSender with ScalaFutures {
+class PromiseRefSpec extends AkkaSpec with ImplicitSender {
   import PromiseRefSpec._
   import akka.pattern._
 
@@ -71,4 +71,3 @@ class PromiseRefSpec extends AkkaSpec with ImplicitSender with ScalaFutures {
     }
   }
 }
-

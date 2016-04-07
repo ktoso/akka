@@ -1,13 +1,12 @@
 package akka.stream.scaladsl
 
 import akka.stream.{ ClosedShape, ActorMaterializer, ActorMaterializerSettings, FlowShape }
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 
-import scala.concurrent.{ Await, Future }
+import scala.concurrent.{ Await }
 import scala.concurrent.duration._
 
 class GraphPartialSpec extends AkkaSpec {
-  import GraphDSL.Implicits._
 
   val settings = ActorMaterializerSettings(system)
     .withInputBuffer(initialSize = 2, maxSize = 16)

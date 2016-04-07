@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster.metrics
@@ -10,10 +10,6 @@ import org.slf4j.bridge.SLF4JBridgeHandler
 import akka.testkit.AkkaSpec
 import akka.actor.ExtendedActorSystem
 import akka.actor.Address
-import akka.cluster.MemberStatus
-import akka.cluster.Member
-import akka.cluster.UniqueAddress
-import akka.cluster.Cluster
 import java.io.Closeable
 import akka.actor.ActorRef
 import akka.actor.Props

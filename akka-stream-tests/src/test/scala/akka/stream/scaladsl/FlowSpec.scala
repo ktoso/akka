@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -10,10 +10,8 @@ import akka.stream.impl._
 import akka.stream.impl.fusing.{ ActorGraphInterpreter }
 import akka.stream.impl.fusing.GraphInterpreter.GraphAssembly
 import akka.stream.stage.AbstractStage.PushPullGraphStage
-import akka.stream.stage.{ GraphStageLogic, OutHandler, InHandler, Stage }
 import akka.stream.testkit.Utils._
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.TestSink
 import akka.stream._
 import akka.testkit.TestEvent.{ Mute, UnMute }
 import akka.testkit.{ EventFilter, TestDuration }
@@ -25,6 +23,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 import akka.stream.impl.fusing.GraphInterpreterShell
+import akka.testkit.AkkaSpec
 
 object FlowSpec {
   class Fruit
@@ -33,8 +32,7 @@ object FlowSpec {
 
 }
 
-class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.receive=off\nakka.loglevel=INFO"))
-  with ScalaFutures {
+class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.receive=off\nakka.loglevel=INFO")) {
   import FlowSpec._
 
   val settings = ActorMaterializerSettings(system)
@@ -47,8 +45,6 @@ class FlowSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.rece
 
   class BrokenActorInterpreter(_shell: GraphInterpreterShell, brokenMessage: Any)
     extends ActorGraphInterpreter(_shell) {
-
-    import akka.stream.actor.ActorSubscriberMessage._
 
     override protected[akka] def aroundReceive(receive: Receive, msg: Any) = {
       msg match {

@@ -1,11 +1,11 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.typed
 
 import org.scalautils.ConversionCheckedTripleEquals
 
-class BehaviorSpec extends TypedSpec with ConversionCheckedTripleEquals {
+class BehaviorSpec extends TypedSpec {
 
   sealed trait Command {
     def expectedResponse(ctx: ActorContext[Command]): Seq[Event] = Nil

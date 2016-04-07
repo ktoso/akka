@@ -1,12 +1,11 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream
 
 import java.util.concurrent.CompletionStage
 import scala.concurrent.Future
 import scala.compat.java8.FutureConverters
-import akka.japi.function
 
 /**
  * Scala API: The flow DSL allows the formulation of stream transformations based on some

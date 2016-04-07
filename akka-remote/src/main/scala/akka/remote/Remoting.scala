@@ -1,8 +1,9 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.remote
 
+import akka.Done
 import akka.actor.SupervisorStrategy._
 import akka.actor._
 import akka.event.{ Logging, LoggingAdapter }
@@ -135,7 +136,7 @@ private[remote] class Remoting(_system: ExtendedActorSystem, _provider: RemoteAc
   private def notifyError(msg: String, cause: Throwable): Unit =
     eventPublisher.notifyListeners(RemotingErrorEvent(new RemoteTransportException(msg, cause)))
 
-  override def shutdown(): Future[Unit] = {
+  override def shutdown(): Future[Done] = {
     endpointManager match {
       case Some(manager) ⇒
         implicit val timeout = ShutdownTimeout
@@ -156,10 +157,10 @@ private[remote] class Remoting(_system: ExtendedActorSystem, _provider: RemoteAc
           case Failure(e) ⇒
             notifyError("Failure during shutdown of remoting.", e)
             finalize()
-        } map { _ ⇒ () } // RARP needs only type Unit, not a boolean
+        } map { _ ⇒ Done } // RARP needs only akka.Done, not a boolean
       case None ⇒
         log.warning("Remoting is not running. Ignoring shutdown attempt.")
-        Future successful (())
+        Future successful Done
     }
   }
 

@@ -1,17 +1,17 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.stream.testkit._
-import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.{ OverflowStrategy, ActorMaterializer, ActorMaterializerSettings, ClosedShape }
 import akka.stream.testkit.Utils._
 import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import akka.testkit.AkkaSpec
 
-class GraphPartitionSpec extends AkkaSpec with ScalaFutures {
+class GraphPartitionSpec extends AkkaSpec {
 
   val settings = ActorMaterializerSettings(system)
     .withInputBuffer(initialSize = 2, maxSize = 16)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.server
@@ -134,7 +134,7 @@ abstract class RejectionHandler {
   def handleUnacceptedResponseEncodingRejection(ctx: RequestContext, supported: jl.Iterable[HttpEncoding]): RouteResult = passRejection()
 
   /**
-   * Callback called to handle rejection created by an [[akka.http.scaladsl.server.authentication.HttpAuthenticator]].
+   * Callback called to handle rejection created by an [[akka.http.javadsl.server.values.HttpBasicAuthenticator]].
    * Signals that the request was rejected because the user could not be authenticated. The reason for the rejection is
    * specified in the cause.
    *

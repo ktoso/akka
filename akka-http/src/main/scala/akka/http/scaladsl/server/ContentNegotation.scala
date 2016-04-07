@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.server
@@ -38,7 +38,7 @@ final class MediaTypeNegotiator(requestHeaders: Seq[HttpHeader]) {
     }
 
   /**
-   * Determines whether the given [[MediaType]] is accepted by the client.
+   * Determines whether the given [[akka.http.scaladsl.model.MediaType]] is accepted by the client.
    */
   def isAccepted(mediaType: MediaType): Boolean = qValueFor(mediaType) > 0f
 }

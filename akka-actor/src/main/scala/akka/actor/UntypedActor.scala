@@ -1,10 +1,8 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.actor
-
-import akka.japi.{ Creator }
 
 /**
  * Actor base trait that should be extended by or mixed to create an Actor with the semantics of the 'Actor Model':

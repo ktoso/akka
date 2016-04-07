@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.model;
@@ -57,7 +57,7 @@ public abstract class Uri {
   public abstract String path();
 
   /**
-   * Returns the the path segments of this Uri as an Iterable.
+   * Returns the path segments of this Uri as an Iterable.
    */
   public abstract Iterable<String> pathSegments();
 

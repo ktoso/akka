@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.ws
@@ -32,7 +32,7 @@ private[http] object MessageToFrameRenderer {
         case BinaryMessage.Strict(data) ⇒ strictFrames(Opcode.Binary, data)
         case bm: BinaryMessage          ⇒ streamedFrames(Opcode.Binary, bm.dataStream)
         case TextMessage.Strict(text)   ⇒ strictFrames(Opcode.Text, ByteString(text, "UTF-8"))
-        case tm: TextMessage            ⇒ streamedFrames(Opcode.Text, tm.textStream.transform(() ⇒ new Utf8Encoder))
+        case tm: TextMessage            ⇒ streamedFrames(Opcode.Text, tm.textStream.via(Utf8Encoder))
       }
   }
 }

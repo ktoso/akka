@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.actor
@@ -8,8 +8,6 @@ import language.postfixOps
 
 import akka.testkit._
 import scala.concurrent.duration._
-import akka.actor.Actor._
-import scala.concurrent.Await
 import akka.pattern.{ ask, pipe }
 
 object ForwardActorSpec {

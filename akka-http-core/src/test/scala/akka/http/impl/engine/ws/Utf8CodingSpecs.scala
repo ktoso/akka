@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.ws
@@ -42,7 +42,7 @@ class Utf8CodingSpecs extends FreeSpec with Matchers with PropertyChecks with Wi
 
   def encodeUtf8(str: String): ByteString =
     Source(str.map(ch ⇒ new String(Array(ch)))) // chunk in smallest chunks possible
-      .transform(() ⇒ new Utf8Encoder)
+      .via(Utf8Encoder)
       .runFold(ByteString.empty)(_ ++ _).awaitResult(1.second)
 
   def decodeUtf8(bytes: ByteString): String = {

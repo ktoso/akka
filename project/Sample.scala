@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2016 Lightbend Inc. <http://www.lightbend.com>
+ */
 package akka
 
 import sbt._
@@ -73,7 +76,6 @@ object Sample {
    */
   private val enableAutoPlugins = (project: Project) =>
     project.settings((
-      MiMa.projectSettings ++
       Publish.projectSettings ++
       ValidatePullRequest.projectSettings
     ): _*).configs(ValidatePullRequest.ValidatePR)

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.pattern
 
@@ -14,7 +14,7 @@ import scala.util.Failure
 
 import language.postfixOps
 
-class AskSpec extends AkkaSpec with ScalaFutures {
+class AskSpec extends AkkaSpec {
 
   "The “ask” pattern" must {
     "send request to actor and wrap the answer in Future" in {
@@ -230,4 +230,3 @@ class AskSpec extends AkkaSpec with ScalaFutures {
   }
 
 }
-

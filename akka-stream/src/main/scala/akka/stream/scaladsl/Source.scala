@@ -1,9 +1,8 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
-import java.io.{ OutputStream, InputStream, File }
 import akka.{ Done, NotUsed }
 import akka.actor.{ ActorRef, Cancellable, Props }
 import akka.stream.actor.ActorPublisher
@@ -11,18 +10,14 @@ import akka.stream.impl.Stages.{ DefaultAttributes, StageModule }
 import akka.stream.impl.StreamLayout.Module
 import akka.stream.impl.fusing.GraphStages
 import akka.stream.impl.fusing.GraphStages._
-import akka.stream.impl.io.{ OutputStreamSourceStage, InputStreamSource, FileSource }
 import akka.stream.impl.{ EmptyPublisher, ErrorPublisher, _ }
 import akka.stream.{ Outlet, SourceShape, _ }
-import akka.util.ByteString
 import org.reactivestreams.{ Publisher, Subscriber }
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
-import scala.language.higherKinds
 import scala.collection.immutable
-import scala.concurrent.duration.{ FiniteDuration, _ }
+import scala.concurrent.duration.{ FiniteDuration }
 import scala.concurrent.{ Future, Promise }
-import akka.stream.impl.fusing.Buffer
 import java.util.concurrent.CompletionStage
 import scala.compat.java8.FutureConverters._
 
@@ -42,6 +37,8 @@ final class Source[+Out, +Mat](private[stream] override val module: Module)
   override type ClosedMat[+M] = RunnableGraph[M]
 
   override val shape: SourceShape[Out] = module.shape.asInstanceOf[SourceShape[Out]]
+
+  override def toString: String = s"Source($shape, $module)"
 
   override def via[T, Mat2](flow: Graph[FlowShape[Out, T], Mat2]): Repr[T] = viaMat(flow)(Keep.left)
 
@@ -74,7 +71,7 @@ final class Source[+Out, +Mat](private[stream] override val module: Module)
   /**
    * Transform only the materialized value of this Source, leaving all other properties as they were.
    */
-  def mapMaterializedValue[Mat2](f: Mat ⇒ Mat2): ReprMat[Out, Mat2] =
+  override def mapMaterializedValue[Mat2](f: Mat ⇒ Mat2): ReprMat[Out, Mat2] =
     new Source[Out, Mat2](module.transformMaterializedValue(f.asInstanceOf[Any ⇒ Any]))
 
   /** INTERNAL API */
@@ -440,7 +437,56 @@ object Source {
    * @param bufferSize size of buffer in element count
    * @param overflowStrategy Strategy that is used when incoming elements cannot fit inside the buffer
    */
-  def queue[T](bufferSize: Int, overflowStrategy: OverflowStrategy): Source[T, SourceQueue[T]] =
+  def queue[T](bufferSize: Int, overflowStrategy: OverflowStrategy): Source[T, SourceQueueWithComplete[T]] =
     Source.fromGraph(new QueueSource(bufferSize, overflowStrategy).withAttributes(DefaultAttributes.queueSource))
 
+  /**
+   * Start a new `Source` from some resource which can be opened, read and closed.
+   * Interaction with resource happens in a blocking way.
+   *
+   * Example:
+   * {{{
+   * Source.unfoldResource(
+   *   () => new BufferedReader(new FileReader("...")),
+   *   reader => Option(reader.readLine()),
+   *   reader => reader.close())
+   * }}}
+   *
+   * You can use the supervision strategy to handle exceptions for `read` function. All exceptions thrown by `create`
+   * or `close` will fail the stream.
+   *
+   * `Restart` supervision strategy will close and create blocking IO again. Default strategy is `Stop` which means
+   * that stream will be terminated on error in `read` function by default.
+   *
+   * You can configure the default dispatcher for this Source by changing the `akka.stream.blocking-io-dispatcher` or
+   * set it for a given Source by using [[ActorAttributes]].
+   *
+   * @param create - function that is called on stream start and creates/opens resource.
+   * @param read - function that reads data from opened resource. It is called each time backpressure signal
+   *             is received. Stream calls close and completes when `read` returns None.
+   * @param close - function that closes resource
+   */
+  def unfoldResource[T, S](create: () ⇒ S, read: (S) ⇒ Option[T], close: (S) ⇒ Unit): Source[T, NotUsed] =
+    Source.fromGraph(new UnfoldResourceSource(create, read, close))
+
+  /**
+   * Start a new `Source` from some resource which can be opened, read and closed.
+   * It's similar to `unfoldResource` but takes functions that return `Futures` instead of plain values.
+   *
+   * You can use the supervision strategy to handle exceptions for `read` function or failures of produced `Futures`.
+   * All exceptions thrown by `create` or `close` as well as fails of returned futures will fail the stream.
+   *
+   * `Restart` supervision strategy will close and create resource. Default strategy is `Stop` which means
+   * that stream will be terminated on error in `read` function (or future) by default.
+   *
+   * You can configure the default dispatcher for this Source by changing the `akka.stream.blocking-io-dispatcher` or
+   * set it for a given Source by using [[ActorAttributes]].
+   *
+   * @param create - function that is called on stream start and creates/opens resource.
+   * @param read - function that reads data from opened resource. It is called each time backpressure signal
+   *             is received. Stream calls close and completes when `Future` from read function returns None.
+   * @param close - function that closes resource
+   */
+  def unfoldResourceAsync[T, S](create: () ⇒ Future[S], read: (S) ⇒ Future[Option[T]], close: (S) ⇒ Future[Done]): Source[T, NotUsed] =
+    Source.fromGraph(new UnfoldResourceSourceAsync(create, read, close))
 }

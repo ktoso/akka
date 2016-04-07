@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.dispatch;
@@ -129,7 +129,7 @@ public abstract class AbstractBoundedNodeQueue<T> {
     }
 
     public final boolean isEmpty() {
-        return peekNode() == null;
+        return getEnq() == getDeq();
     }
 
     /**
@@ -169,6 +169,7 @@ public abstract class AbstractBoundedNodeQueue<T> {
             if (next != null) {
                 if (casDeq(deq, next)) {
                     deq.value = next.value;
+                    deq.setNext(null);
                     next.value = null;
                     return deq;
                 } // else we retry (concurrent consumers)

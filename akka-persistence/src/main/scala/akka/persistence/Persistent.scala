@@ -1,11 +1,8 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.persistence
-
-import java.lang.{ Iterable ⇒ JIterable }
-import java.util.{ List ⇒ JList }
 
 import akka.actor.{ ActorRef, NoSerializationVerificationNeeded }
 import akka.persistence.serialization.Message

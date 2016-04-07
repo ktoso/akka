@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl
 
@@ -9,7 +9,6 @@ import akka.stream.Attributes._
 import akka.stream.Supervision.Decider
 import akka.stream._
 import akka.stream.impl.StreamLayout._
-import akka.stream.scaladsl.Source
 import akka.stream.stage.AbstractStage.PushPullGraphStage
 import akka.stream.stage.Stage
 import org.reactivestreams.Processor
@@ -96,6 +95,8 @@ private[stream] object Stages {
     val inputStreamSource = name("inputStreamSource") and IODispatcher
     val outputStreamSource = name("outputStreamSource") and IODispatcher
     val fileSource = name("fileSource") and IODispatcher
+    val unfoldResourceSource = name("unfoldResourceSource") and IODispatcher
+    val unfoldResourceSourceAsync = name("unfoldResourceSourceAsync") and IODispatcher
 
     val subscriberSink = name("subscriberSink")
     val cancelledSink = name("cancelledSink")
@@ -156,10 +157,6 @@ private[stream] object Stages {
     override def create(attr: Attributes): Stage[T, T] = fusing.Filter(p, supervision(attr))
   }
 
-  final case class Collect[In, Out](pf: PartialFunction[In, Out], attributes: Attributes = collect) extends SymbolicStage[In, Out] {
-    override def create(attr: Attributes): Stage[In, Out] = fusing.Collect(pf, supervision(attr))
-  }
-
   final case class Recover[In, Out >: In](pf: PartialFunction[Throwable, Out], attributes: Attributes = recover) extends SymbolicStage[In, Out] {
     override def create(attr: Attributes): Stage[In, Out] = fusing.Recover(pf)
   }
@@ -169,31 +166,11 @@ private[stream] object Stages {
     override def create(attr: Attributes): Stage[T, immutable.Seq[T]] = fusing.Grouped(n)
   }
 
-  final case class LimitWeighted[T](max: Long, weightFn: T ⇒ Long, attributes: Attributes = limitWeighted) extends SymbolicStage[T, T] {
-    override def create(attr: Attributes): Stage[T, T] = fusing.LimitWeighted(max, weightFn)
-  }
-
   final case class Sliding[T](n: Int, step: Int, attributes: Attributes = sliding) extends SymbolicStage[T, immutable.Seq[T]] {
     require(n > 0, "n must be greater than 0")
     require(step > 0, "step must be greater than 0")
 
     override def create(attr: Attributes): Stage[T, immutable.Seq[T]] = fusing.Sliding(n, step)
-  }
-
-  final case class Take[T](n: Long, attributes: Attributes = take) extends SymbolicStage[T, T] {
-    override def create(attr: Attributes): Stage[T, T] = fusing.Take(n)
-  }
-
-  final case class Drop[T](n: Long, attributes: Attributes = drop) extends SymbolicStage[T, T] {
-    override def create(attr: Attributes): Stage[T, T] = fusing.Drop(n)
-  }
-
-  final case class TakeWhile[T](p: T ⇒ Boolean, attributes: Attributes = takeWhile) extends SymbolicStage[T, T] {
-    override def create(attr: Attributes): Stage[T, T] = fusing.TakeWhile(p, supervision(attr))
-  }
-
-  final case class DropWhile[T](p: T ⇒ Boolean, attributes: Attributes = dropWhile) extends SymbolicStage[T, T] {
-    override def create(attr: Attributes): Stage[T, T] = fusing.DropWhile(p, supervision(attr))
   }
 
   final case class Scan[In, Out](zero: Out, f: (Out, In) ⇒ Out, attributes: Attributes = scan) extends SymbolicStage[In, Out] {
@@ -213,6 +190,7 @@ private[stream] object Stages {
 
   final case class GroupBy(maxSubstreams: Int, f: Any ⇒ Any, attributes: Attributes = groupBy) extends StageModule {
     override def withAttributes(attributes: Attributes) = copy(attributes = attributes)
+    override protected def label: String = s"GroupBy($maxSubstreams)"
   }
 
   final case class DirectProcessor(p: () ⇒ (Processor[Any, Any], Any), attributes: Attributes = processor) extends StageModule {

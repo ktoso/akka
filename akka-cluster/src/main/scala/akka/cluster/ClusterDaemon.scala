@@ -1,10 +1,9 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.cluster
 
 import language.existentials
-import language.postfixOps
 import scala.collection.immutable
 import scala.concurrent.duration._
 import java.util.concurrent.ThreadLocalRandom
@@ -548,7 +547,7 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
           // new node will retry join
           logInfo("New incarnation of existing member [{}] is trying to join. " +
             "Existing will be removed from the cluster and then new member will be allowed to join.", m)
-          if (m.status != Down && m.status != Leaving && m.status != Exiting)
+          if (m.status != Down)
             downing(m.address)
         case None ⇒
           // remove the node from the failure detector

@@ -1,11 +1,10 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.io
 
 import java.io.{ IOException, InputStream }
 import java.util.concurrent.TimeoutException
-
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.Attributes.inputBuffer
@@ -15,14 +14,14 @@ import akka.stream.impl.{ ActorMaterializerImpl, StreamSupervisor }
 import akka.stream.scaladsl.{ Keep, Source, StreamConverters }
 import akka.stream.testkit.Utils._
 import akka.stream.testkit.scaladsl.TestSource
-import akka.stream.testkit.{ AkkaSpec, GraphStageMessages, TestSinkStage }
+import akka.stream.testkit.{ GraphStageMessages, TestSinkStage }
 import akka.testkit.TestProbe
 import akka.util.ByteString
-
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ThreadLocalRandom
 import scala.concurrent.{ Await, Future }
 import scala.util.control.NoStackTrace
+import akka.testkit.AkkaSpec
 
 class InputStreamSinkSpec extends AkkaSpec(UnboundedMailboxConfig) {
   import system.dispatcher

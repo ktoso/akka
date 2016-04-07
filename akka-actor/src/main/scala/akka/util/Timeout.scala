@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.util
@@ -7,7 +7,6 @@ package akka.util
 import language.implicitConversions
 
 import java.util.concurrent.TimeUnit
-import java.lang.{ Double ⇒ JDouble }
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 
 @SerialVersionUID(1L)

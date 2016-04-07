@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.routing
 
@@ -12,7 +12,6 @@ import akka.testkit.TestEvent._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import akka.pattern.ask
-import scala.util.Try
 
 object ResizerSpec {
 

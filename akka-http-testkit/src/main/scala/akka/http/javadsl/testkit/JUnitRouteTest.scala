@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.testkit
@@ -14,7 +14,7 @@ import scala.concurrent.duration._
 import scala.concurrent.Await
 
 /**
- * A RouteTest that uses JUnit assertions. ActorSystem and Materializer are provided as an [[ExternalResource]]
+ * A RouteTest that uses JUnit assertions. ActorSystem and Materializer are provided as an [[org.junit.rules.ExternalResource]]
  * and their lifetime is automatically managed.
  */
 abstract class JUnitRouteTestBase extends RouteTest {

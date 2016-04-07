@@ -1,10 +1,9 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.remote.transport
 
 import java.util.concurrent.TimeoutException
-import akka.ConfigurationException
 import akka.actor.SupervisorStrategy.Stop
 import akka.actor._
 import akka.pattern.pipe

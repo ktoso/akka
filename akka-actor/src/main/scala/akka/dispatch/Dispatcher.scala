@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.dispatch
@@ -8,14 +8,10 @@ import akka.event.Logging.Error
 import akka.actor.ActorCell
 import akka.event.Logging
 import akka.dispatch.sysmsg.SystemMessage
-import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{ ExecutorService, RejectedExecutionException }
-import scala.concurrent.forkjoin.ForkJoinPool
 import scala.concurrent.duration.Duration
-import scala.concurrent.Awaitable
 import scala.concurrent.duration.FiniteDuration
-import scala.annotation.tailrec
-import java.lang.reflect.ParameterizedType
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater
 
 /**
  * The event-based ``Dispatcher`` binds a set of Actors to a thread pool backed up by a
@@ -93,16 +89,17 @@ class Dispatcher(
     new Mailbox(mailboxType.create(Some(actor.self), Some(actor.system))) with DefaultSystemMessageQueue
   }
 
+  private val esUpdater = AtomicReferenceFieldUpdater.newUpdater(
+    classOf[Dispatcher],
+    classOf[LazyExecutorServiceDelegate],
+    "executorServiceDelegate")
+
   /**
    * INTERNAL API
    */
   protected[akka] def shutdown: Unit = {
     val newDelegate = executorServiceDelegate.copy() // Doesn't matter which one we copy
-    val es = synchronized {
-      val service = executorServiceDelegate
-      executorServiceDelegate = newDelegate // just a quick getAndSet
-      service
-    }
+    val es = esUpdater.getAndSet(this, newDelegate)
     es.shutdown()
   }
 

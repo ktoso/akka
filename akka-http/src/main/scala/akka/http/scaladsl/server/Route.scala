@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.server
@@ -38,7 +38,7 @@ object Route {
   /**
    * Turns a `Route` into a server flow.
    *
-   * This conversion is also implicitly available through [[RouteResult.route2HandlerFlow]].
+   * This conversion is also implicitly available through [[RouteResult#route2HandlerFlow]].
    */
   def handlerFlow(route: Route)(implicit routingSettings: RoutingSettings,
                                 parserSettings: ParserSettings,

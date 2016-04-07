@@ -1,21 +1,20 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.http.impl.util
 
 import java.util.concurrent.atomic.AtomicInteger
-
 import akka.NotUsed
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{ Flow, Keep, Sink, Source }
 import akka.stream.testkit.Utils._
-import akka.stream.testkit.{ AkkaSpec, _ }
+import akka.stream.testkit._
 import org.scalactic.ConversionCheckedTripleEquals
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import akka.testkit.AkkaSpec
 
-class One2OneBidiFlowSpec extends AkkaSpec with ConversionCheckedTripleEquals {
+class One2OneBidiFlowSpec extends AkkaSpec {
   implicit val materializer = ActorMaterializer()
 
   "A One2OneBidiFlow" must {
@@ -56,45 +55,12 @@ class One2OneBidiFlowSpec extends AkkaSpec with ConversionCheckedTripleEquals {
 
       upstreamProbe.sendNext(1)
       flowInProbe.expectNext(1)
-      flowOutProbe.sendNext(1)
-      downstreamProbe.expectNext(1)
+
+      // Request is now in the wrapped flow but no reply has been returned at this point, this is a clear truncation
 
       flowOutProbe.sendComplete()
       upstreamProbe.expectCancellation()
       flowInProbe.expectError(One2OneBidiFlow.OutputTruncationException)
-      downstreamProbe.expectError(One2OneBidiFlow.OutputTruncationException)
-    }
-
-    "trigger an `OutputTruncationException` if the wrapped stream cancels early" in assertAllStagesStopped {
-      val flowInProbe = TestSubscriber.probe[Int]()
-      val flowOutProbe = TestPublisher.probe[Int]()
-
-      val testSetup = One2OneBidiFlow[Int, Int](-1) join Flow.fromSinkAndSource(
-        Sink.fromSubscriber(flowInProbe),
-        Source.fromPublisher(flowOutProbe))
-
-      val upstreamProbe = TestPublisher.probe[Int]()
-      val downstreamProbe = TestSubscriber.probe[Int]()
-
-      Source.fromPublisher(upstreamProbe).via(testSetup).runWith(Sink.fromSubscriber(downstreamProbe))
-
-      upstreamProbe.ensureSubscription()
-      downstreamProbe.ensureSubscription()
-      flowInProbe.ensureSubscription()
-      flowOutProbe.ensureSubscription()
-
-      downstreamProbe.request(1)
-      flowInProbe.request(1)
-
-      upstreamProbe.sendNext(1)
-      flowInProbe.expectNext(1)
-      flowOutProbe.sendNext(1)
-      downstreamProbe.expectNext(1)
-
-      flowInProbe.cancel()
-      upstreamProbe.expectCancellation()
-
-      flowOutProbe.sendComplete()
       downstreamProbe.expectError(One2OneBidiFlow.OutputTruncationException)
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster
@@ -21,7 +21,6 @@ import akka.actor.ActorLogging
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Address
-import akka.actor.DynamicAccess
 import akka.actor.ExtendedActorSystem
 import akka.cluster.MemberStatus.Up
 import akka.cluster.MemberStatus.WeaklyUp

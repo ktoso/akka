@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream.io
 
@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.stream._
 import akka.stream.scaladsl.Tcp._
 import akka.stream.scaladsl._
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.testkit.TestProbe
 import akka.util.ByteString
 import docs.utils.TestUtils
@@ -133,8 +133,8 @@ class StreamTcpDocSpec extends AkkaSpec {
         .via(replParser)
 
       connection.join(repl).run()
+      //#repl-client
     }
-    //#repl-client
 
     serverProbe.expectMsg("Hello world")
     serverProbe.expectMsg("What a lovely day")

@@ -1,9 +1,10 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl
 
-import akka.stream.testkit.AkkaSpec
+import akka.stream.stage.GraphStageLogic.{ EagerTerminateOutput, EagerTerminateInput }
+import akka.testkit.AkkaSpec
 import akka.stream._
 import akka.stream.Fusing.aggressive
 import akka.stream.scaladsl._
@@ -11,12 +12,11 @@ import akka.stream.stage._
 import akka.stream.testkit.Utils.assertAllStagesStopped
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.impl.fusing._
-import akka.stream.impl.fusing.GraphInterpreter._
 import org.scalactic.ConversionCheckedTripleEquals
 import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.duration.Duration
 
-class GraphStageLogicSpec extends AkkaSpec with GraphInterpreterSpecKit with ConversionCheckedTripleEquals with ScalaFutures {
+class GraphStageLogicSpec extends AkkaSpec with GraphInterpreterSpecKit {
 
   implicit val materializer = ActorMaterializer()
 
@@ -80,7 +80,59 @@ class GraphStageLogicSpec extends AkkaSpec with GraphInterpreterSpecKit with Con
     }
   }
 
+  final case class ReadNEmitN(n: Int) extends GraphStage[FlowShape[Int, Int]] {
+    override val shape = FlowShape(Inlet[Int]("readN.in"), Outlet[Int]("readN.out"))
+
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+      new GraphStageLogic(shape) {
+        setHandler(shape.in, EagerTerminateInput)
+        setHandler(shape.out, EagerTerminateOutput)
+        override def preStart(): Unit = readN(shape.in, n)(e ⇒ emitMultiple(shape.out, e.iterator, () ⇒ completeStage()), (_) ⇒ ())
+      }
+  }
+
+  final case class ReadNEmitRestOnComplete(n: Int) extends GraphStage[FlowShape[Int, Int]] {
+    override val shape = FlowShape(Inlet[Int]("readN.in"), Outlet[Int]("readN.out"))
+
+    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+      new GraphStageLogic(shape) {
+        setHandler(shape.in, EagerTerminateInput)
+        setHandler(shape.out, EagerTerminateOutput)
+        override def preStart(): Unit =
+          readN(shape.in, n)(
+            _ ⇒ failStage(new IllegalStateException("Shouldn't happen!")),
+            e ⇒ emitMultiple(shape.out, e.iterator, () ⇒ completeStage()))
+      }
+  }
+
   "A GraphStageLogic" must {
+
+    "read N and emit N before completing" in assertAllStagesStopped {
+      Source(1 to 10).via(ReadNEmitN(2)).runWith(TestSink.probe)
+        .request(10)
+        .expectNext(1, 2)
+        .expectComplete()
+    }
+
+    "read N should not emit if upstream completes before N is sent" in assertAllStagesStopped {
+      Source(1 to 5).via(ReadNEmitN(6)).runWith(TestSink.probe)
+        .request(10)
+        .expectComplete()
+    }
+
+    "read N should not emit if upstream fails before N is sent" in assertAllStagesStopped {
+      val error = new IllegalArgumentException("Don't argue like that!")
+      Source(1 to 5).map(x ⇒ if (x > 3) throw error else x).via(ReadNEmitN(6)).runWith(TestSink.probe)
+        .request(10)
+        .expectError(error)
+    }
+
+    "read N should provide elements read if onComplete happens before N elements have been seen" in assertAllStagesStopped {
+      Source(1 to 5).via(ReadNEmitRestOnComplete(6)).runWith(TestSink.probe)
+        .request(10)
+        .expectNext(1, 2, 3, 4, 5)
+        .expectComplete()
+    }
 
     "emit all things before completing" in assertAllStagesStopped {
 

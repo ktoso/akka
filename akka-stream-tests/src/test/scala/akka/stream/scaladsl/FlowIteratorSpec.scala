@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
@@ -10,10 +10,8 @@ import akka.stream.ActorMaterializer
 import akka.stream.ActorMaterializerSettings
 import akka.stream.testkit._
 import akka.stream.testkit.Utils._
-import org.reactivestreams.Subscription
-import akka.testkit.TestProbe
-import org.reactivestreams.Subscriber
 import akka.testkit.EventFilter
+import akka.testkit.AkkaSpec
 
 class FlowIteratorSpec extends AbstractFlowIteratorSpec {
   override def testName = "A Flow based on an iterator producing function"

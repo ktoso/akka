@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl;
 
@@ -19,7 +19,7 @@ import scala.concurrent.duration.Duration;
 import scala.concurrent.duration.FiniteDuration;
 import akka.japi.Pair;
 import akka.stream.*;
-import akka.stream.testkit.AkkaSpec;
+import akka.testkit.AkkaSpec;
 import akka.stream.javadsl.GraphDSL.Builder;
 import akka.japi.function.*;
 import akka.util.ByteString;

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.cluster.ddata
 
@@ -13,13 +13,11 @@ import org.openjdk.jmh.annotations.OutputTimeUnit
 import org.openjdk.jmh.annotations.{ Scope => JmhScope }
 import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.Warmup
-import akka.actor.ActorPath
 import akka.cluster.UniqueAddress
 import akka.actor.Address
 import org.openjdk.jmh.annotations.Param
 import org.openjdk.jmh.annotations.Setup
 import org.openjdk.jmh.annotations.Level
-import scala.collection.immutable.TreeMap
 
 @Fork(2)
 @State(JmhScope.Benchmark)
@@ -47,7 +45,7 @@ class VersionVectorBenchmark {
   var dot1: VersionVector = _
 
   @Setup(Level.Trial)
-  def setup() {
+  def setup():Unit = {
     vv1 = (1 to size).foldLeft(VersionVector.empty)((vv, n) => vv + nextNode())
     vv2 = vv1 + nextNode()
     vv3 = vv1 + nextNode()

@@ -1,11 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.contrib.mailbox
 
 import com.typesafe.config.ConfigFactory
 
-import akka.actor.{ Actor, ActorSystem, DeadLetter, PoisonPill, Props, Terminated, actorRef2Scala }
+import akka.actor.{ Actor, ActorSystem, DeadLetter, PoisonPill, Props, actorRef2Scala }
 import akka.testkit.{ AkkaSpec, EventFilter, ImplicitSender }
 
 object PeekMailboxSpec {

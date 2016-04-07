@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.camel
@@ -8,14 +8,13 @@ import akka.camel.TestSupport.SharedCamelSystem
 import internal.DefaultCamel
 import org.scalatest.Matchers
 import org.scalatest.mock.MockitoSugar
-import org.apache.camel.{ CamelContext, ProducerTemplate }
+import org.apache.camel.{ ProducerTemplate }
 import org.scalatest.WordSpec
 import akka.event.LoggingAdapter
 import akka.actor.ActorSystem.Settings
 import com.typesafe.config.ConfigFactory
 import org.apache.camel.impl.DefaultCamelContext
-import org.apache.camel.spi.Registry
-import akka.actor.{ ExtendedActorSystem, ActorSystem }
+import akka.actor.{ ExtendedActorSystem }
 
 class DefaultCamelTest extends WordSpec with SharedCamelSystem with Matchers with MockitoSugar {
 

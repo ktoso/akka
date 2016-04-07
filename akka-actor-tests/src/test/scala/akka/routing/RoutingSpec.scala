@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.routing
 
@@ -13,13 +13,6 @@ import scala.concurrent.Await
 import akka.ConfigurationException
 import com.typesafe.config.ConfigFactory
 import akka.pattern.{ ask, pipe }
-import java.util.concurrent.ConcurrentHashMap
-import com.typesafe.config.Config
-import akka.dispatch.Dispatchers
-import akka.util.Collections.EmptyImmutableSeq
-import akka.util.Timeout
-import java.util.concurrent.atomic.AtomicInteger
-import akka.routing._
 
 object RoutingSpec {
 

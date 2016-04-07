@@ -1,17 +1,17 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.NotUsed
 import akka.stream.impl.ConstantFun
 
-import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 import akka.stream.ActorMaterializer
 import akka.stream.ActorMaterializerSettings
 import akka.stream.testkit._
 import akka.stream.testkit.Utils._
+import akka.testkit.AkkaSpec
 
 class FlowConcatAllSpec extends AkkaSpec {
 

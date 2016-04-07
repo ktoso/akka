@@ -1,8 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.model.headers
+
+import akka.http.impl.model.JavaInitialization
+import akka.util.Unsafe
 
 import scala.language.implicitConversions
 import scala.collection.immutable
@@ -10,7 +13,6 @@ import akka.http.impl.util._
 import akka.http.scaladsl.model.WithQValue
 import akka.http.javadsl.{ model ⇒ jm }
 import akka.http.impl.util.JavaMapping.Implicits._
-import akka.japi
 
 sealed trait LanguageRange extends jm.headers.LanguageRange with ValueRenderable with WithQValue[LanguageRange] {
   def qValue: Float
@@ -52,6 +54,10 @@ object LanguageRange {
 
   implicit def apply(language: Language): LanguageRange = apply(language, 1.0f)
   def apply(language: Language, qValue: Float): LanguageRange = One(language, qValue)
+
+  JavaInitialization.initializeStaticFieldWith(
+    `*`, classOf[jm.headers.HttpOriginRange].getField("ALL"))
+
 }
 
 final case class Language(primaryTag: String, subTags: immutable.Seq[String])

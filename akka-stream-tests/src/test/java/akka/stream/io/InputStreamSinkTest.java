@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.io;
 
@@ -9,7 +9,7 @@ import akka.stream.javadsl.AkkaJUnitActorSystemResource;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import akka.stream.javadsl.StreamConverters;
-import akka.stream.testkit.AkkaSpec;
+import akka.testkit.AkkaSpec;
 import akka.stream.testkit.Utils;
 import akka.util.ByteString;
 import org.junit.ClassRule;

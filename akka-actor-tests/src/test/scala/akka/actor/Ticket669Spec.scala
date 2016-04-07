@@ -1,14 +1,12 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.actor
 
 import language.postfixOps
 
-import java.util.concurrent.{ CountDownLatch, TimeUnit }
-import akka.actor._
 import org.scalatest.BeforeAndAfterAll
-import akka.testkit.{ TestKit, filterEvents, EventFilter }
+import akka.testkit.{ filterEvents, EventFilter }
 import akka.testkit.AkkaSpec
 import akka.testkit.ImplicitSender
 import akka.testkit.DefaultTimeout

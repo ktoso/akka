@@ -1,9 +1,8 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream
 
-import scala.util.control.NonFatal
 import akka.japi.{ function ⇒ japi }
 
 object Supervision {

@@ -1,10 +1,9 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
 import akka.stream._
-import akka.stream.impl.Stages.StageModule
 import language.higherKinds
 import scala.annotation.unchecked.uncheckedVariance
 

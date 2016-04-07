@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.util
 
@@ -8,7 +8,6 @@ import annotation.tailrec
 import java.util.concurrent.{ ConcurrentSkipListSet, ConcurrentHashMap }
 import java.util.Comparator
 import scala.collection.JavaConverters.{ asScalaIteratorConverter, collectionAsScalaIterableConverter }
-import scala.collection.mutable
 
 /**
  * An implementation of a ConcurrentMultiMap

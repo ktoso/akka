@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.io
 
@@ -235,7 +235,6 @@ object UdpMessage {
   import Udp._
   import java.lang.{ Iterable ⇒ JIterable }
   import scala.collection.JavaConverters._
-  import language.implicitConversions
 
   /**
    * Each [[Udp.Send]] can optionally request a positive acknowledgment to be sent

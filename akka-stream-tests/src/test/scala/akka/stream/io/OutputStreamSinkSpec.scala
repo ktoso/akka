@@ -1,15 +1,15 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.io
 
 import java.io.OutputStream
 
-import akka.stream.scaladsl.{ Source, Sink, StreamConverters }
+import akka.stream.scaladsl.{ Source, StreamConverters }
 import akka.stream.testkit._
 import akka.stream.testkit.Utils._
 import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
-import akka.testkit.TestProbe
+import akka.testkit.{ AkkaSpec, TestProbe }
 import akka.util.ByteString
 
 import scala.concurrent.Await

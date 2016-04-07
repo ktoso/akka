@@ -1,25 +1,18 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster.ddata
 
 import scala.concurrent.duration._
 import akka.actor.Actor
-import akka.actor.ActorSystem
 import akka.actor.Props
-import akka.cluster.Cluster
 import akka.testkit._
-import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.Matchers
-import org.scalatest.WordSpecLike
 import akka.actor.Address
 import akka.actor.ActorRef
 import akka.cluster.ddata.Replicator.Internal._
 import akka.cluster.ddata.Replicator._
 import akka.actor.ActorSelection
-import akka.cluster.UniqueAddress
 
 object WriteAggregatorSpec {
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster.routing
@@ -58,7 +58,7 @@ object AdaptiveLoadBalancingRouterMultiJvmSpec extends MultiNodeConfig {
   val third = role("third")
 
   commonConfig(debugConfig(on = false).withFallback(ConfigFactory.parseString("""
-      akka.failure-detector.acceptable-heartbeat-pause = 10s
+      akka.cluster.failure-detector.acceptable-heartbeat-pause = 10s
       akka.cluster.metrics.collect-interval = 1s
       akka.cluster.metrics.gossip-interval = 1s
       akka.cluster.metrics.moving-average-half-life = 2s

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.ws
@@ -67,6 +67,7 @@ object WebSocketClientBlueprint {
         // if some is available
         val parser = new HttpResponseParser(settings.parserSettings, HttpHeaderParser(settings.parserSettings)()) {
           var first = true
+          override def handleInformationalResponses = false
           override protected def parseMessage(input: ByteString, offset: Int): StateResult = {
             if (first) {
               first = false
@@ -77,7 +78,7 @@ object WebSocketClientBlueprint {
             }
           }
         }
-        parser.setRequestMethodForNextResponse(HttpMethods.GET)
+        parser.setContextForNextResponse(HttpResponseParser.ResponseContext(HttpMethods.GET, None))
 
         def onPush(elem: ByteString, ctx: Context[ByteString]): SyncDirective = {
           parser.parseBytes(elem) match {
@@ -101,7 +102,7 @@ object WebSocketClientBlueprint {
                   }
                 case Left(problem) ⇒
                   result.success(InvalidUpgradeResponse(response, s"WebSocket server at $uri returned $problem"))
-                  ctx.fail(throw new IllegalArgumentException(s"WebSocket upgrade did not finish because of '$problem'"))
+                  ctx.fail(new IllegalArgumentException(s"WebSocket upgrade did not finish because of '$problem'"))
               }
             case other ⇒
               throw new IllegalStateException(s"unexpected element of type ${other.getClass}")

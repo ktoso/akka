@@ -1,12 +1,10 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.scaladsl
 
-import akka.actor.PoisonPill
-import akka.stream.{ Attributes, OverflowStrategy, ActorMaterializer, ActorMaterializerSettings }
+import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
 import akka.stream.stage._
-import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 import akka.stream.ActorMaterializer
@@ -19,6 +17,7 @@ import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.testkit.scaladsl.TestSource
+import akka.testkit.AkkaSpec
 
 class FlowStageSpec extends AkkaSpec(ConfigFactory.parseString("akka.actor.debug.receive=off\nakka.loglevel=INFO")) {
 

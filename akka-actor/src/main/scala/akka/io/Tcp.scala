@@ -1,12 +1,11 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.io
 
 import java.net.InetSocketAddress
 import java.net.Socket
-import akka.ConfigurationException
 import akka.io.Inet._
 import com.typesafe.config.Config
 import scala.concurrent.duration._

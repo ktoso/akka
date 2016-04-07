@@ -1,9 +1,8 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl
 
-import java.util.concurrent.atomic.AtomicReference
 import akka.Done
 
 import scala.concurrent.Promise

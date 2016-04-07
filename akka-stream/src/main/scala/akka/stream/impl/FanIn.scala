@@ -1,10 +1,10 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl
 
 import akka.actor._
-import akka.stream.{ AbruptTerminationException, ActorMaterializerSettings, InPort, Shape }
+import akka.stream.{ AbruptTerminationException, ActorMaterializerSettings }
 import akka.stream.actor.{ ActorSubscriberMessage, ActorSubscriber }
 import org.reactivestreams.{ Subscription, Subscriber }
 
@@ -197,7 +197,7 @@ private[akka] object FanIn {
       dequeue(id)
     }
 
-    def dequeuePrefering(preferred: Int): Any = {
+    def dequeuePreferring(preferred: Int): Any = {
       preferredId = preferred
       val id = idToDequeue()
       dequeue(id)

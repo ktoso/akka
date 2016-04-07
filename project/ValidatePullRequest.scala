@@ -1,9 +1,10 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka
 
 import com.typesafe.tools.mima.plugin.MimaKeys.reportBinaryIssues
+import com.typesafe.tools.mima.plugin.MimaPlugin
 import net.virtualvoid.sbt.graph.backend.SbtUpdateReport
 import net.virtualvoid.sbt.graph.DependencyGraphKeys._
 import net.virtualvoid.sbt.graph.ModuleGraph
@@ -245,10 +246,7 @@ object ValidatePullRequest extends AutoPlugin {
       } apply { tasks: Seq[Task[Any]] =>
         tasks.join map { seq => () /* Ignore the sequence of unit returned */ }
       }
-    }.value,
-
-    // add reportBinaryIssues to validatePullRequest on minor version maintenance branch
-    validatePullRequest <<= validatePullRequest.dependsOn(reportBinaryIssues)
+    }.value
   )
 }
 
@@ -268,6 +266,20 @@ object MultiNodeWithPrValidation extends AutoPlugin {
   override def requires = ValidatePullRequest && MultiNode
   override lazy val projectSettings = Seq(
     additionalTasks in ValidatePR += MultiNode.multiTest
+  )
+}
+
+/**
+ * This autoplugin adds MiMa binary issue reporting to validatePullRequest task,
+ * when a project has MimaPlugin autoplugin enabled.
+ */
+object MimaWithPrValidation extends AutoPlugin {
+  import ValidatePullRequest._
+
+  override def trigger = allRequirements
+  override def requires = ValidatePullRequest && MimaPlugin
+  override lazy val projectSettings = Seq(
+    additionalTasks in ValidatePR += reportBinaryIssues
   )
 }
 

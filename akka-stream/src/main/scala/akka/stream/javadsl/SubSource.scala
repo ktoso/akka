@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl
 
@@ -7,10 +7,8 @@ import akka.NotUsed
 import akka.event.LoggingAdapter
 import akka.japi.function
 import akka.stream._
-import akka.stream.impl.Stages.StageModule
 import akka.stream.impl.ConstantFun
 import akka.stream.stage.Stage
-import scala.collection.immutable
 import scala.collection.JavaConverters._
 import scala.annotation.unchecked.uncheckedVariance
 import scala.concurrent.duration.FiniteDuration
@@ -173,7 +171,7 @@ class SubSource[+Out, +Mat](delegate: scaladsl.SubFlow[Out, Mat, scaladsl.Source
   /**
    * Transform this stream by applying the given function to each of the elements
    * as they pass through this processing step. The function returns a `CompletionStage` and the
-   * value of that future will be emitted downstreams. As many CompletionStages as requested elements by
+   * value of that future will be emitted downstream. As many CompletionStages as requested elements by
    * downstream may run in parallel and may complete in any order, but the elements that
    * are emitted downstream are in the same order as received from upstream.
    *
@@ -204,7 +202,7 @@ class SubSource[+Out, +Mat](delegate: scaladsl.SubFlow[Out, Mat, scaladsl.Source
   /**
    * Transform this stream by applying the given function to each of the elements
    * as they pass through this processing step. The function returns a `CompletionStage` and the
-   * value of that future will be emitted downstreams. As many CompletionStages as requested elements by
+   * value of that future will be emitted downstream. As many CompletionStages as requested elements by
    * downstream may run in parallel and each processed element will be emitted downstream
    * as soon as it is ready, i.e. it is possible that the elements are not emitted downstream
    * in the same order as received from upstream.
@@ -797,7 +795,7 @@ class SubSource[+Out, +Mat](delegate: scaladsl.SubFlow[Out, Mat, scaladsl.Source
    *
    * '''Emits when''' downstream stops backpressuring
    *
-   * '''Backpressures when''' downstream backpressures or iterator runs emtpy
+   * '''Backpressures when''' downstream backpressures or iterator runs empty
    *
    * '''Completes when''' upstream completes
    *
@@ -837,6 +835,7 @@ class SubSource[+Out, +Mat](delegate: scaladsl.SubFlow[Out, Mat, scaladsl.Source
    * This operator makes it possible to extend the `Flow` API when there is no specialized
    * operator that performs the transformation.
    */
+  @deprecated("Use via(GraphStage) instead.", "2.4.3")
   def transform[U](mkStage: function.Creator[Stage[Out, U]]): SubSource[U, Mat] =
     new SubSource(delegate.transform(() ⇒ mkStage.create()))
 
@@ -1115,7 +1114,7 @@ class SubSource[+Out, +Mat](delegate: scaladsl.SubFlow[Out, Mat, scaladsl.Source
    *
    * Throttle implements the token bucket model. There is a bucket with a given token capacity (burst size or maximumBurst).
    * Tokens drops into the bucket at a given rate and can be `spared` for later use up to bucket capacity
-   * to allow some burstyness. Whenever stream wants to send an element, it takes as many
+   * to allow some burstiness. Whenever stream wants to send an element, it takes as many
    * tokens from the bucket as number of elements. If there isn't any, throttle waits until the
    * bucket accumulates enough tokens. Bucket is full when stream just materialized and started.
    *
@@ -1143,7 +1142,7 @@ class SubSource[+Out, +Mat](delegate: scaladsl.SubFlow[Out, Mat, scaladsl.Source
    *
    * Throttle implements the token bucket model. There is a bucket with a given token capacity (burst size or maximumBurst).
    * Tokens drops into the bucket at a given rate and can be `spared` for later use up to bucket capacity
-   * to allow some burstyness. Whenever stream wants to send an element, it takes as many
+   * to allow some burstiness. Whenever stream wants to send an element, it takes as many
    * tokens from the bucket as element cost. If there isn't any, throttle waits until the
    * bucket accumulates enough tokens. Elements that costs more than the allowed burst will be delayed proportionally
    * to their cost minus available tokens, meeting the target rate.

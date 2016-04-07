@@ -1,9 +1,9 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.io
 
-import java.nio.channels.{ DatagramChannel, SocketChannel, ServerSocketChannel }
+import java.nio.channels.{ DatagramChannel }
 import java.net.DatagramSocket
 import java.net.ServerSocket
 import java.net.Socket

@@ -77,7 +77,7 @@ Picking the right serialization format
 
 Picking the serialization format is a very important decision you will have to make while building your application.
 It affects which kind of evolutions are simple (or hard) to do, how much work is required to add a new datatype, and,
-last but not least, serialization performanceion.
+last but not least, serialization performance.
 
 If you find yourself realising you have picked "the wrong" serialization format, it is always possible to change
 the format used for storing new events, however you would have to keep the old deserialization code in order to
@@ -136,7 +136,7 @@ As you can see, the ``PersistentMessage`` acts as an envelope around the payload
 origin of the event (``persistenceId``, ``sequenceNr`` and more).
 
 More advanced techniques (e.g. :ref:`remove-event-class-scala`) will dive into using the manifests for increasing the
-flexibility of the persisted vs. exposed types even more. Hhowever for now we will focus on the simpler evolution techniques,
+flexibility of the persisted vs. exposed types even more. However for now we will focus on the simpler evolution techniques,
 concerning simply configuring the payload serializers.
 
 By default the ``payload`` will be serialized using Java Serialization. This is fine for testing and initial phases

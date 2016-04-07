@@ -1,9 +1,8 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.pattern
 
-import scala.concurrent.duration.Duration
 import scala.concurrent.{ ExecutionContext, Promise, Future }
 import akka.actor._
 import scala.util.control.NonFatal

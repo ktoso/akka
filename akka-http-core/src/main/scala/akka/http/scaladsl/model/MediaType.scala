@@ -1,10 +1,9 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.model
 
-import language.implicitConversions
 import akka.http.impl.util._
 import akka.http.javadsl.{ model ⇒ jm }
 import akka.http.impl.util.JavaMapping.Implicits._
@@ -426,6 +425,7 @@ object MediaTypes extends ObjectRegistry[(String, String), MediaType] {
   val `text/css`                  = txt("css", "css")
   val `text/csv`                  = txt("csv", "csv")
   val `text/html`                 = txt("html", "htm", "html", "htmls", "htx")
+  val `text/markdown`             = txt("markdown", "markdown", "md")
   val `text/mcf`                  = txt("mcf", "mcf")
   val `text/plain`                = txt("plain", "conf", "text", "txt", "properties")
   val `text/richtext`             = txt("richtext", "rtf", "rtx")

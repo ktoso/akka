@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.ws
@@ -10,12 +10,9 @@ import akka.stream.testkit.Utils
 import akka.util.ByteString
 import org.scalatest.{ Matchers, FreeSpec }
 
-import akka.http.impl.util._
-
 import akka.http.impl.engine.server.HttpServerTestSetupBase
 
 class WebSocketServerSpec extends FreeSpec with Matchers with WithMaterializerSpec { spec ⇒
-  import WSTestUtils._
 
   "The server-side WebSocket integration should" - {
     "establish a websocket connection when the user requests it" - {

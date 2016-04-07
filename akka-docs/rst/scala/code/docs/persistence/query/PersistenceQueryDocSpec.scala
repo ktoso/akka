@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package docs.persistence.query
@@ -13,7 +13,7 @@ import akka.stream.scaladsl.{ Flow, Sink, Source }
 import akka.stream.javadsl
 import akka.testkit.AkkaSpec
 import akka.util.Timeout
-import docs.persistence.query.PersistenceQueryDocSpec.{ DummyStore, TheOneWhoWritesToQueryJournal }
+import docs.persistence.query.PersistenceQueryDocSpec.{ TheOneWhoWritesToQueryJournal }
 import org.reactivestreams.Subscriber
 import scala.collection.immutable
 import scala.concurrent.Future

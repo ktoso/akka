@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl
 
@@ -76,9 +76,9 @@ private[stream] object Timers {
   }
 
   final class Idle[T](timeout: FiniteDuration) extends SimpleLinearGraphStage[T] {
-    private var nextDeadline: Deadline = Deadline.now + timeout
 
     override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new TimerGraphStageLogic(shape) {
+      private var nextDeadline: Deadline = Deadline.now + timeout
       setHandler(in, new InHandler {
         override def onPush(): Unit = {
           nextDeadline = Deadline.now + timeout

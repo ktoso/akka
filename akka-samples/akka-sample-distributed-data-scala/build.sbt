@@ -4,9 +4,11 @@ import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.MultiJvm
 val akkaVersion = "2.4-SNAPSHOT"
 
 val project = Project(
-  id = "akka-sample-distributed-data-scala",
-  base = file("."),
-  settings = Project.defaultSettings ++ SbtMultiJvm.multiJvmSettings ++ Seq(
+    id = "akka-sample-distributed-data-scala",
+    base = file(".")
+  )
+  .settings(SbtMultiJvm.multiJvmSettings: _*)
+  .settings(
     name := "akka-sample-distributed-data-scala",
     version := "2.4-SNAPSHOT",
     scalaVersion := "2.11.7",
@@ -21,12 +23,12 @@ val project = Project(
       "org.scalatest" %% "scalatest" % "2.2.1" % "test"),
     javaOptions in run ++= Seq(
       "-Xms128m", "-Xmx1024m"),
-    Keys.fork in run := true,  
+    Keys.fork in run := true,
     // make sure that MultiJvm test are compiled by the default test compilation
     compile in MultiJvm <<= (compile in MultiJvm) triggeredBy (compile in Test),
     // disable parallel tests
     parallelExecution in Test := false,
-    // make sure that MultiJvm tests are executed by the default test target, 
+    // make sure that MultiJvm tests are executed by the default test target,
     // and combine the results from ordinary test and multi-jvm tests
     executeTests in Test <<= (executeTests in Test, executeTests in MultiJvm) map {
       case (testResults, multiNodeResults)  =>
@@ -38,9 +40,10 @@ val project = Project(
         Tests.Output(overall,
           testResults.events ++ multiNodeResults.events,
           testResults.summaries ++ multiNodeResults.summaries)
-    }
+    },
+    licenses := Seq(("CC0", url("http://creativecommons.org/publicdomain/zero/1.0")))
   )
-) configs (MultiJvm)
+  .configs (MultiJvm)
 
 
 fork in run := true

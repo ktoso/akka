@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.routing
 
@@ -109,7 +109,7 @@ case object OptimalSizeExploringResizer {
  * The memory usage is O(n) where n is the number of sizes
  * you allow, i.e. upperBound - lowerBound.
  *
- * For documentation about the the parameters, see the reference.conf -
+ * For documentation about the parameters, see the reference.conf -
  * akka.actor.deployment.default.optimal-size-exploring-resizer
  *
  */

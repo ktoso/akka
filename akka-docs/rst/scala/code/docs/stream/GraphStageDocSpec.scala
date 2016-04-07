@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.stream
 
@@ -8,8 +8,8 @@ import akka.stream.scaladsl.{ Keep, Sink, Flow, Source }
 import akka.stream.stage._
 import akka.stream._
 
-import akka.stream.testkit.{ TestPublisher, TestSubscriber, AkkaSpec }
-import akka.testkit.TestLatch
+import akka.stream.testkit.{ TestPublisher, TestSubscriber }
+import akka.testkit.{ AkkaSpec, TestLatch }
 
 import scala.collection.mutable
 import scala.concurrent.{ Promise, Await, Future }
@@ -73,7 +73,7 @@ class GraphStageDocSpec extends AkkaSpec {
     val sourceGraph: Graph[SourceShape[Int], NotUsed] = new NumbersSource
 
     // Create a Source from the Graph to access the DSL
-    val mySource: Source[Int, NotUsed] = Source.fromGraph(new NumbersSource)
+    val mySource: Source[Int, NotUsed] = Source.fromGraph(sourceGraph)
 
     // Returns 55
     val result1: Future[Int] = mySource.take(10).runFold(0)(_ + _)
@@ -272,9 +272,9 @@ class GraphStageDocSpec extends AkkaSpec {
 
   "Demonstrate an asynchronous side channel" in {
     import system.dispatcher
-
     //#async-side-channel
-    // will close upstream when the future completes
+    // will close upstream in all materializations of the graph stage instance
+    // when the future completes
     class KillSwitch[A](switch: Future[Unit]) extends GraphStage[FlowShape[A, A]] {
 
       val in = Inlet[A]("KillSwitch.in")
@@ -517,6 +517,34 @@ class GraphStageDocSpec extends AkkaSpec {
     publisher.sendNext(2)
 
     sub.cancel()
+  }
+
+  "Demonstrate stream extension" when {
+
+    "targeting a Source" in {
+      //#extending-source
+      implicit class SourceDuplicator[Out, Mat](s: Source[Out, Mat]) {
+        def duplicateElements: Source[Out, Mat] = s.via(new Duplicator)
+      }
+
+      val s = Source(1 to 3).duplicateElements
+
+      s.runWith(Sink.seq).futureValue should ===(Seq(1, 1, 2, 2, 3, 3))
+      //#extending-source
+    }
+
+    "targeting a Flow" in {
+      //#extending-flow
+      implicit class FlowDuplicator[In, Out, Mat](s: Flow[In, Out, Mat]) {
+        def duplicateElements: Flow[In, Out, Mat] = s.via(new Duplicator)
+      }
+
+      val f = Flow[Int].duplicateElements
+
+      Source(1 to 3).via(f).runWith(Sink.seq).futureValue should ===(Seq(1, 1, 2, 2, 3, 3))
+      //#extending-flow
+    }
+
   }
 
 }

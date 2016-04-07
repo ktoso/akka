@@ -1,10 +1,9 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.camel
 
-import internal.ActorActivationException
 import language.postfixOps
 import language.existentials
 
@@ -12,7 +11,7 @@ import akka.actor._
 import org.scalatest.Matchers
 import org.scalatest.WordSpec
 import akka.camel.TestSupport._
-import org.apache.camel.model.{ ProcessorDefinition, RouteDefinition }
+import org.apache.camel.model.{ RouteDefinition }
 import org.apache.camel.builder.Builder
 import org.apache.camel.{ FailedToCreateRouteException, CamelExecutionException }
 import java.util.concurrent.{ ExecutionException, TimeUnit, TimeoutException }

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.client
@@ -12,7 +12,6 @@ import akka.stream.scaladsl._
 import akka.stream._
 import akka.http.scaladsl.util.FastFuture
 import akka.http.scaladsl.model.HttpMethod
-import akka.http.impl.util._
 import akka.stream.stage.GraphStage
 import akka.stream.stage.GraphStageLogic
 import akka.stream.stage.InHandler

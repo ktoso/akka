@@ -1,14 +1,12 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.util
 
 import java.io.DataInputStream
-import java.io.BufferedInputStream
-import scala.annotation.{ switch, tailrec }
+import scala.annotation.{ switch }
 import scala.util.control.NonFatal
 import java.io.InputStream
-import scala.util.Try
 
 /**
  * This is a minimized byte-code parser that concentrates exclusively on line

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.fusing
 
@@ -8,7 +8,7 @@ import akka.stream._
 import akka.stream.impl.fusing.GraphInterpreter.{ DownstreamBoundaryStageLogic, Failed, GraphAssembly, UpstreamBoundaryStageLogic }
 import akka.stream.stage.AbstractStage.PushPullGraphStage
 import akka.stream.stage.{ GraphStage, GraphStageLogic, InHandler, OutHandler, _ }
-import akka.stream.testkit.AkkaSpec
+import akka.testkit.AkkaSpec
 import akka.stream.testkit.Utils.TE
 import akka.stream.impl.fusing.GraphInterpreter.GraphAssembly
 
@@ -74,7 +74,7 @@ trait GraphInterpreterSpecKit extends AkkaSpec {
         val (inHandlers, outHandlers, logics) =
           assembly.materialize(Attributes.none, assembly.stages.map(_.module), new java.util.HashMap, _ ⇒ ())
         _interpreter = new GraphInterpreter(assembly, NoMaterializer, logger, inHandlers, outHandlers, logics,
-          (_, _, _) ⇒ (), fuzzingMode = false)
+          (_, _, _) ⇒ (), fuzzingMode = false, null)
 
         for ((upstream, i) ← upstreams.zipWithIndex) {
           _interpreter.attachUpstreamBoundary(i, upstream._1)
@@ -92,7 +92,7 @@ trait GraphInterpreterSpecKit extends AkkaSpec {
       val (inHandlers, outHandlers, logics) =
         assembly.materialize(Attributes.none, assembly.stages.map(_.module), new java.util.HashMap, _ ⇒ ())
       _interpreter = new GraphInterpreter(assembly, NoMaterializer, logger, inHandlers, outHandlers, logics,
-        (_, _, _) ⇒ (), fuzzingMode = false)
+        (_, _, _) ⇒ (), fuzzingMode = false, null)
     }
 
     def builder(stages: GraphStageWithMaterializedValue[_ <: Shape, _]*): AssemblyBuilder = new AssemblyBuilder(stages)

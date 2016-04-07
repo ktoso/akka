@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.cluster.metrics
@@ -73,7 +73,7 @@ object AdaptiveLoadBalancingRouterConfig extends MultiNodeConfig {
       # Enable metrics estension.
       akka.extensions=["akka.cluster.metrics.ClusterMetricsExtension"]
 
-      akka.failure-detector.acceptable-heartbeat-pause = 10s
+      akka.cluster.failure-detector.acceptable-heartbeat-pause = 10s
 
       # Use rapid metrics collection.
       akka.cluster.metrics {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package docs.http.scaladsl.server.directives
@@ -7,6 +7,7 @@ package docs.http.scaladsl.server.directives
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.MissingHeaderRejection
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.util.ClassMagnet
 import docs.http.scaladsl.server.RoutingSpec
 import headers._
 import StatusCodes._

@@ -1,10 +1,9 @@
 /**
- * Copyright (C) 2014-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2014-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.tck
 
 import akka.NotUsed
-import akka.stream.impl.Stages
 import akka.stream._
 import akka.stream.impl.fusing.GraphStages
 import akka.stream.scaladsl.Flow

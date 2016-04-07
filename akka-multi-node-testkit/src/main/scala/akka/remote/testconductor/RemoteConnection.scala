@@ -1,14 +1,12 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.remote.testconductor
 
-import org.jboss.netty.channel.{ Channel, ChannelPipeline, ChannelPipelineFactory, ChannelUpstreamHandler, SimpleChannelUpstreamHandler, DefaultChannelPipeline }
+import org.jboss.netty.channel.{ Channel, ChannelPipeline, ChannelPipelineFactory, ChannelUpstreamHandler, DefaultChannelPipeline }
 import org.jboss.netty.channel.socket.nio.{ NioClientSocketChannelFactory, NioServerSocketChannelFactory }
 import org.jboss.netty.bootstrap.{ ClientBootstrap, ServerBootstrap }
 import org.jboss.netty.handler.codec.frame.{ LengthFieldBasedFrameDecoder, LengthFieldPrepender }
-import org.jboss.netty.handler.codec.compression.{ ZlibDecoder, ZlibEncoder }
-import org.jboss.netty.handler.timeout.{ ReadTimeoutHandler, ReadTimeoutException }
 import java.net.InetSocketAddress
 import java.util.concurrent.Executors
 import akka.event.Logging

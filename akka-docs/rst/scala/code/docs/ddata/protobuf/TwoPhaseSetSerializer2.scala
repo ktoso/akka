@@ -1,10 +1,9 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.ddata.protobuf
 
 //#serializer
-import scala.collection.JavaConverters._
 import akka.actor.ExtendedActorSystem
 import akka.cluster.ddata.GSet
 import akka.cluster.ddata.protobuf.ReplicatedDataSerializer

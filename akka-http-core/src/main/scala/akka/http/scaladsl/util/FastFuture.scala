@@ -1,10 +1,10 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.scaladsl.util
 
-import scala.language.{ implicitConversions, higherKinds }
+import scala.language.{ higherKinds }
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success, Try }
 import scala.collection.generic.CanBuildFrom
@@ -12,8 +12,8 @@ import scala.concurrent.duration.Duration
 import scala.concurrent._
 
 /**
- * Provides alternative implementations of the basic transformation operations defined on [[Future]],
- * which try to avoid scheduling to an [[ExecutionContext]] if possible, i.e. if the given future
+ * Provides alternative implementations of the basic transformation operations defined on [[scala.concurrent.Future]],
+ * which try to avoid scheduling to an [[scala.concurrent.ExecutionContext]] if possible, i.e. if the given future
  * value is already present.
  */
 class FastFuture[A](val future: Future[A]) extends AnyVal {
@@ -80,6 +80,10 @@ object FastFuture {
     def isCompleted = true
     def result(atMost: Duration)(implicit permit: CanAwait) = a
     def ready(atMost: Duration)(implicit permit: CanAwait) = this
+    def transform[S](f: scala.util.Try[A] => scala.util.Try[S])(implicit executor: scala.concurrent.ExecutionContext): scala.concurrent.Future[S] =
+      FastFuture(f(Success(a)))
+    def transformWith[S](f: scala.util.Try[A] => scala.concurrent.Future[S])(implicit executor: scala.concurrent.ExecutionContext): scala.concurrent.Future[S] =
+      new FastFuture(this).transformWith(f)
   }
   private case class ErrorFuture(error: Throwable) extends Future[Nothing] {
     def value = Some(Failure(error))
@@ -87,6 +91,10 @@ object FastFuture {
     def isCompleted = true
     def result(atMost: Duration)(implicit permit: CanAwait) = throw error
     def ready(atMost: Duration)(implicit permit: CanAwait) = this
+    def transform[S](f: scala.util.Try[Nothing] => scala.util.Try[S])(implicit executor: scala.concurrent.ExecutionContext): scala.concurrent.Future[S] =
+      FastFuture(f(Failure(error)))
+    def transformWith[S](f: scala.util.Try[Nothing] => scala.concurrent.Future[S])(implicit executor: scala.concurrent.ExecutionContext): scala.concurrent.Future[S] =
+      new FastFuture(this).transformWith(f)
   }
 
   implicit class EnhancedFuture[T](val future: Future[T]) extends AnyVal {

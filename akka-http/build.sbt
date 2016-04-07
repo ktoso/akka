@@ -1,13 +1,12 @@
 import akka._
-import com.typesafe.tools.mima.plugin.MimaKeys
-import spray.boilerplate.BoilerplatePlugin._
 
 AkkaBuild.defaultSettings
 AkkaBuild.experimentalSettings
 Formatting.formatSettings
 OSGi.http
 Dependencies.http
-MimaKeys.previousArtifacts := akkaStreamAndHttpPreviousArtifacts("akka-http").value
-Boilerplate.settings
 
+disablePlugins(MimaPlugin) // still experimental
+enablePlugins(spray.boilerplate.BoilerplatePlugin)
+disablePlugins(MimaPlugin)
 scalacOptions in Compile += "-language:_"

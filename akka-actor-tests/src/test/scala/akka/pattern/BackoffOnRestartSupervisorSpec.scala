@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.pattern
@@ -8,7 +8,6 @@ import java.util.concurrent.{ TimeUnit, CountDownLatch }
 
 import akka.pattern.TestActor.NormalException
 import akka.testkit.{ ImplicitSender, AkkaSpec, TestProbe, filterException }
-import scala.concurrent.Future
 import scala.concurrent.duration._
 import akka.actor._
 import scala.language.postfixOps
@@ -21,7 +20,6 @@ object TestActor {
 }
 
 class TestActor(probe: ActorRef) extends Actor {
-  import context.dispatcher
 
   probe ! "STARTED"
 

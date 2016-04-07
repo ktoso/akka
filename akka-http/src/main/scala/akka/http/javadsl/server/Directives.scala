@@ -1,13 +1,11 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.javadsl.server
 
 import akka.http.javadsl.server.directives._
 import scala.collection.immutable
-import scala.annotation.varargs
-import akka.http.javadsl.model.HttpMethods
 
 abstract class AllDirectives extends WebSocketDirectives
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.server
@@ -22,6 +22,7 @@ import headers._
 import HttpEntity._
 import MediaTypes._
 import HttpMethods._
+import akka.testkit.AkkaSpec
 
 class HttpServerSpec extends AkkaSpec(
   """akka.loggers = []
@@ -354,7 +355,7 @@ class HttpServerSpec extends AkkaSpec(
       }
     }
 
-    "proceed to next request once previous request's entity has beed drained" in new TestSetup with ScalaFutures {
+    "proceed to next request once previous request's entity has beed drained" in new TestSetup {
       def twice(action: => Unit): Unit = { action; action }
 
       twice {
@@ -369,7 +370,7 @@ class HttpServerSpec extends AkkaSpec(
                |""")
 
         val whenComplete = expectRequest().entity.dataBytes.runWith(Sink.ignore)
-        whenComplete.futureValue should be (akka.Done)
+        whenComplete.futureValue should be(akka.Done)
       }
     }
 
@@ -810,7 +811,7 @@ class HttpServerSpec extends AkkaSpec(
         (System.nanoTime() - mark) should be < (40 * 1000000L)
       }
 
-      "have a programmatically set timeout handler" in new RequestTimeoutTestSetup(10.millis) {
+      "have a programmatically set timeout handler" in new RequestTimeoutTestSetup(400.millis) {
         send("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
         val timeoutResponse = HttpResponse(StatusCodes.InternalServerError, entity = "OOPS!")
         expectRequest().header[`Timeout-Access`].foreach(_.timeoutAccess.updateHandler(_ ⇒ timeoutResponse))
@@ -898,6 +899,7 @@ class HttpServerSpec extends AkkaSpec(
                   .thrownBy(entity.dataBytes.runFold(ByteString.empty)(_ ++ _).awaitResult(100.millis))
                   .getCause
                 error shouldEqual EntityStreamSizeException(limit, Some(actualSize))
+                error.getMessage should include ("exceeded content length limit")
 
                 responses.expectRequest()
                 responses.sendError(error.asInstanceOf[Exception])
@@ -920,6 +922,7 @@ class HttpServerSpec extends AkkaSpec(
                   .thrownBy(entity.dataBytes.runFold(ByteString.empty)(_ ++ _).awaitResult(100.millis))
                   .getCause
                 error shouldEqual EntityStreamSizeException(limit, None)
+                error.getMessage should include ("exceeded content length limit")
 
                 responses.expectRequest()
                 responses.sendError(error.asInstanceOf[Exception])

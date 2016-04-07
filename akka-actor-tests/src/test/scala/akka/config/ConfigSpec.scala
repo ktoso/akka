@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.config
@@ -12,7 +12,6 @@ import akka.testkit.AkkaSpec
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration._
-import scala.language.postfixOps
 import akka.event.DefaultLoggingFilter
 
 @org.junit.runner.RunWith(classOf[org.scalatest.junit.JUnitRunner])

@@ -1,11 +1,12 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.http.javadsl.model
 
 /**
  * Represents an Http media-type. A media-type consists of a main-type and a sub-type.
  *
+ * See [[MediaTypes]] for convenience access to often used values.
  */
 // Has to be defined in Scala even though it's JavaDSL because of:
 // https://issues.scala-lang.org/browse/SI-9621

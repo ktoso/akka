@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.routing
@@ -7,8 +7,6 @@ package akka.routing
 import akka.testkit.AkkaSpec
 import akka.actor.Props
 import akka.actor.Actor
-import akka.actor.ActorRef
-import akka.actor.LocalActorRef
 import scala.concurrent.duration._
 import akka.actor.Identify
 import akka.actor.ActorIdentity

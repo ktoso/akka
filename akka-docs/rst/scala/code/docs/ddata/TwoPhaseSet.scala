@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package docs.ddata
 
@@ -19,7 +19,7 @@ case class TwoPhaseSet(
   def remove(element: String): TwoPhaseSet =
     copy(removals = removals.add(element))
 
-  def elements: Set[String] = adds.elements -- removals.elements
+  def elements: Set[String] = adds.elements diff removals.elements
 
   override def merge(that: TwoPhaseSet): TwoPhaseSet =
     copy(

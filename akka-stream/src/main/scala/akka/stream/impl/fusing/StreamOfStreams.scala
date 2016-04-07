@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.impl.fusing
 
@@ -8,17 +8,12 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.impl.Stages.DefaultAttributes
 import akka.stream.impl.SubscriptionTimeoutException
-import akka.stream.impl.fusing.GraphStages.SimpleLinearGraphStage
 import akka.stream.stage._
 import akka.stream.scaladsl._
 import akka.stream.actor.ActorSubscriberMessage
-import akka.stream.actor.ActorPublisherMessage
-import java.{ util ⇒ ju }
 import scala.collection.immutable
-import scala.concurrent._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
-import akka.stream.impl.MultiStreamOutputProcessor.SubstreamSubscriptionTimeout
 import scala.annotation.tailrec
 import akka.stream.impl.PublisherSource
 import akka.stream.impl.CancellingSubscriber
@@ -82,9 +77,7 @@ final class FlattenMerge[T, M](breadth: Int) extends GraphStage[FlowShape[Graph[
             q.enqueue(sinkIn)
           }
         }
-        override def onUpstreamFinish(): Unit = {
-          if (!sinkIn.isAvailable) removeSource(sinkIn)
-        }
+        override def onUpstreamFinish(): Unit = if (!sinkIn.isAvailable) removeSource(sinkIn)
       })
       sinkIn.pull()
       sources += sinkIn
@@ -98,9 +91,8 @@ final class FlattenMerge[T, M](breadth: Int) extends GraphStage[FlowShape[Graph[
       if (activeSources == 0 && isClosed(in)) completeStage()
     }
 
-    override def postStop(): Unit = {
-      sources.foreach(_.cancel())
-    }
+    override def postStop(): Unit = sources.foreach(_.cancel())
+
   }
 
   override def toString: String = s"FlattenMerge($breadth)"
@@ -127,9 +119,19 @@ final class PrefixAndTail[T](n: Int) extends GraphStage[FlowShape[T, (immutable.
     private val SubscriptionTimer = "SubstreamSubscriptionTimer"
 
     override protected def onTimer(timerKey: Any): Unit = {
-      val timeout = ActorMaterializer.downcast(interpreter.materializer).settings.subscriptionTimeoutSettings.timeout
-      tailSource.timeout(timeout)
-      if (tailSource.isClosed) completeStage()
+      val materializer = ActorMaterializer.downcast(interpreter.materializer)
+      val timeoutSettings = materializer.settings.subscriptionTimeoutSettings
+      val timeout = timeoutSettings.timeout
+
+      timeoutSettings.mode match {
+        case StreamSubscriptionTimeoutTerminationMode.CancelTermination ⇒
+          tailSource.timeout(timeout)
+          if (tailSource.isClosed) completeStage()
+        case StreamSubscriptionTimeoutTerminationMode.NoopTermination ⇒
+        // do nothing
+        case StreamSubscriptionTimeoutTerminationMode.WarnTermination ⇒
+          materializer.logger.warning("Substream subscription timeout triggered after {} in prefixAndTail({}).", timeout, n)
+      }
     }
 
     private def prefixComplete = builder eq null
@@ -206,7 +208,7 @@ final class PrefixAndTail[T](n: Int) extends GraphStage[FlowShape[T, (immutable.
 }
 
 /**
- * INERNAL API
+ * INTERNAL API
  */
 object Split {
   sealed abstract class SplitDecision
@@ -225,7 +227,7 @@ object Split {
 }
 
 /**
- * INERNAL API
+ * INTERNAL API
  */
 final class Split[T](decision: Split.SplitDecision, p: T ⇒ Boolean, substreamCancelStrategy: SubstreamCancelStrategy) extends GraphStage[FlowShape[T, Source[T, NotUsed]]] {
   val in: Inlet[T] = Inlet("Split.in")

@@ -1,14 +1,13 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.remote.serialization
 
 import akka.serialization.{ BaseSerializer, SerializationExtension }
-import java.io.Serializable
 import akka.protobuf.ByteString
 import com.typesafe.config.{ Config, ConfigFactory }
-import akka.actor.{ Actor, ActorRef, Deploy, ExtendedActorSystem, NoScopeGiven, Props, Scope }
+import akka.actor.{ Deploy, ExtendedActorSystem, NoScopeGiven, Props, Scope }
 import akka.remote.DaemonMsgCreate
 import akka.remote.WireFormats.{ DaemonMsgCreateData, DeployData, PropsData }
 import akka.routing.{ NoRouter, RouterConfig }

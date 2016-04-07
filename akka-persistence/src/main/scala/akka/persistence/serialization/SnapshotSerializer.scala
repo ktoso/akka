@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  * Copyright (C) 2012-2016 Eligotech BV.
  */
 
@@ -9,8 +9,6 @@ import java.io._
 import akka.actor._
 import akka.serialization._
 import akka.util.ByteString.UTF_8
-import scala.util.Success
-import scala.util.Failure
 
 /**
  * Wrapper for snapshot `data`. Snapshot `data` are the actual snapshot objects captured by

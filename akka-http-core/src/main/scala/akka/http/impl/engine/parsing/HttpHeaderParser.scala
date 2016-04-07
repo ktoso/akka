@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.http.impl.engine.parsing
@@ -493,7 +493,7 @@ private[http] object HttpHeaderParser {
     }
   }
 
-  @tailrec private def scanHeaderNameAndReturnIndexOfColon(input: ByteString, start: Int, limit: Int)(ix: Int = start): Int =
+  @tailrec private def scanHeaderNameAndReturnIndexOfColon(input: ByteString, start: Int, limit: Int)(ix: Int): Int =
     if (ix < limit)
       byteChar(input, ix) match {
         case ':'           ⇒ ix

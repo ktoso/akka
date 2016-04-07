@@ -1,9 +1,10 @@
 /**
- * Copyright (C) 2009-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2009-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 
 package akka.remote
 
+import akka.Done
 import akka.actor._
 import akka.dispatch.sysmsg._
 import akka.event.{ Logging, LoggingAdapter, EventStream }
@@ -59,8 +60,13 @@ private[akka] object RemoteActorRefProvider {
     }
 
     when(WaitTransportShutdown) {
-      case Event((), _) ⇒
+      case Event(Done, _) ⇒
         log.info("Remoting shut down.")
+        systemGuardian ! TerminationHookDone
+        stop()
+
+      case Event(Status.Failure(ex), _) ⇒
+        log.error(ex, "Remoting shut down with error")
         systemGuardian ! TerminationHookDone
         stop()
     }
@@ -257,9 +263,9 @@ private[akka] class RemoteActorRefProvider(
       val lookup =
         if (lookupDeploy)
           elems.head match {
-            case "user"   ⇒ deployer.lookup(elems.drop(1))
-            case "remote" ⇒ lookupRemotes(elems)
-            case _        ⇒ None
+            case "user" | "system" ⇒ deployer.lookup(elems.drop(1))
+            case "remote"          ⇒ lookupRemotes(elems)
+            case _                 ⇒ None
           }
         else None
 

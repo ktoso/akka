@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015-2016 Typesafe Inc. <http://www.typesafe.com>
+ * Copyright (C) 2015-2016 Lightbend Inc. <http://www.lightbend.com>
  */
 package akka.stream.javadsl;
 
@@ -14,7 +14,7 @@ import org.junit.Test;
 
 import akka.stream.Attributes;
 import akka.stream.StreamTest;
-import akka.stream.testkit.AkkaSpec;
+import akka.testkit.AkkaSpec;
 
 public class AttributesTest extends StreamTest {
 
