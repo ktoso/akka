@@ -715,6 +715,10 @@ object MiMa extends AutoPlugin {
 
         // #19390 Add flow monitor
         ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.stream.scaladsl.FlowOpsMat.monitor")
+        // #20371, missing method and typo in another one making it impossible to use HTTPs via setting default HttpsConnectionContext
+        ProblemFilters.exclude[IncompatibleMethTypeProblem]("akka.http.scaladsl.HttpExt.setDefaultClientHttpsContext"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.http.scaladsl.DefaultSSLContextCreation.createServerHttpsContext"),
+        
       )
     )
   }
