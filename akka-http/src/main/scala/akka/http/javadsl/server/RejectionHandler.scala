@@ -173,6 +173,12 @@ abstract class RejectionHandler {
   def handleValidationRejection(ctx: RequestContext, message: String, cause: Throwable): RouteResult = passRejection()
 
   /**
+   * Callback called to handle rejection created by the onCompleteWithBreaker directive.
+   * Signals that the request was rejected because the supplied circuit breaker is open and requests are failing fast.
+   */
+  def handleCircuitBreakerOpenRejection(ctx: RequestContext): RouteResult = passRejection()
+
+  /**
    * Callback called to handle any custom rejection defined by the application.
    */
   def handleCustomRejection(ctx: RequestContext, rejection: CustomRejection): RouteResult = passRejection()

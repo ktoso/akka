@@ -202,6 +202,12 @@ case class ValidationRejection(message: String, cause: Option[Throwable] = None)
 case class TransformationRejection(transform: immutable.Seq[Rejection] ⇒ immutable.Seq[Rejection]) extends Rejection
 
 /**
+ * Rejection created by the onCompleteWithBreaker directive.
+ * Signals that the request was rejected because the supplied circuit breaker is open and requests are failing fast.
+ */
+case object CircuitBreakerOpenRejection extends Rejection
+
+/**
  * A Throwable wrapping a Rejection.
  * Can be used for marshalling `Future[T]` or `Try[T]` instances, whose failure side is supposed to trigger a route
  * rejection rather than an Exception that is handled by the nearest ExceptionHandler.
