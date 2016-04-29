@@ -62,7 +62,7 @@ class FutureDirectivesExamplesSpec extends RoutingSpec {
     val breaker = new CircuitBreaker(system.scheduler,
       maxFailures = 1,
       callTimeout = 10.seconds,
-      resetTimeout = 5.seconds
+      resetTimeout = 2.seconds
     )
 
     val route =
@@ -87,7 +87,7 @@ class FutureDirectivesExamplesSpec extends RoutingSpec {
       rejection shouldEqual CircuitBreakerOpenRejection
     }
 
-    Thread.sleep(5000)
+    Thread.sleep(3000)
 
     Get("/divide/10/2") ~> route ~> check {
       responseAs[String] shouldEqual "The result was 5"
