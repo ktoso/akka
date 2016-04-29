@@ -84,7 +84,7 @@ class FutureDirectivesExamplesSpec extends RoutingSpec {
     } // opens the circuit breaker
 
     Get("/divide/10/2") ~> route ~> check {
-      rejection shouldEqual CircuitBreakerOpenRejection
+      rejection shouldBe a[CircuitBreakerOpenRejection]
     }
 
     Thread.sleep(3000)

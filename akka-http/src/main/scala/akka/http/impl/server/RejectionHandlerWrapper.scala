@@ -67,7 +67,7 @@ private[http] class RejectionHandlerWrapper(javaHandler: server.RejectionHandler
           handleUnsupportedWebSocketSubprotocolRejection(ctx, supportedProtocol)
         case ValidationRejection(message, cause) ⇒
           handleValidationRejection(ctx, message, cause.orNull)
-        case CircuitBreakerOpenRejection ⇒
+        case CircuitBreakerOpenRejection(cause) ⇒
           handleCircuitBreakerOpenRejection(ctx)
 
         case CustomRejectionWrapper(custom) ⇒ handleCustomRejection(ctx, custom)

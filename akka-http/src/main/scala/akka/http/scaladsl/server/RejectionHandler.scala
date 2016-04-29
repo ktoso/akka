@@ -168,7 +168,7 @@ object RejectionHandler {
           complete((RequestedRangeNotSatisfiable, "Request contains too many ranges"))
       }
       .handle {
-        case CircuitBreakerOpenRejection ⇒
+        case CircuitBreakerOpenRejection(_) ⇒
           complete((EnhanceYourCalm, "Circuit Breaker is open; calls are failing fast"))
       }
       .handle {

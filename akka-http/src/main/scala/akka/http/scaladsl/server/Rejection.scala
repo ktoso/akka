@@ -205,7 +205,7 @@ case class TransformationRejection(transform: immutable.Seq[Rejection] ⇒ immut
  * Rejection created by the onCompleteWithBreaker directive.
  * Signals that the request was rejected because the supplied circuit breaker is open and requests are failing fast.
  */
-case object CircuitBreakerOpenRejection extends Rejection
+case class CircuitBreakerOpenRejection(cause: Throwable) extends Rejection
 
 /**
  * A Throwable wrapping a Rejection.

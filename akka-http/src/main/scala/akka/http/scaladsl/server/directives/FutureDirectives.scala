@@ -9,11 +9,11 @@ import akka.http.scaladsl.marshalling.ToResponseMarshaller
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.util.Tupler
 import akka.http.scaladsl.util.FastFuture._
-import akka.pattern.{CircuitBreaker, CircuitBreakerOpenException}
+import akka.pattern.{ CircuitBreaker, CircuitBreakerOpenException }
 import akka.stream.scaladsl.Sink
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 
 // format: OFF
 
@@ -51,7 +51,7 @@ trait FutureDirectives {
       case Failure(ex: CircuitBreakerOpenException) ⇒
         extractRequestContext.flatMap { ctx ⇒
           ctx.request.entity.dataBytes.runWith(Sink.ignore)(ctx.materializer)
-          reject(CircuitBreakerOpenRejection)
+          reject(CircuitBreakerOpenRejection(ex))
         }
       case x ⇒ provide(x)
     }

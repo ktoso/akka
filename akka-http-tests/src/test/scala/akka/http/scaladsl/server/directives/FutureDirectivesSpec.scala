@@ -6,13 +6,15 @@ package akka.http.scaladsl.server
 package directives
 
 import akka.http.scaladsl.model.StatusCodes
-import akka.pattern.CircuitBreaker
+import akka.pattern.{ CircuitBreaker, CircuitBreakerOpenException }
 
 import scala.concurrent.Future
 import akka.testkit.EventFilter
+import org.scalatest.Inside
+
 import scala.concurrent.duration._
 
-class FutureDirectivesSpec extends RoutingSpec {
+class FutureDirectivesSpec extends RoutingSpec with Inside {
 
   class TestException(msg: String) extends Exception(msg)
   object TestException extends Exception("XXX")
@@ -79,7 +81,9 @@ class FutureDirectivesSpec extends RoutingSpec {
     "fail fast if the circuit breaker is open" in new TestWithCircuitBreaker {
       openBreaker
       Get() ~> onCompleteWithBreaker(breaker)(Future.successful(1)) { echoComplete } ~> check {
-        rejection shouldEqual CircuitBreakerOpenRejection
+        inside(rejection) {
+          case CircuitBreakerOpenRejection(_: CircuitBreakerOpenException) ⇒
+        }
       }
     }
     "stop failing fast when the circuit breaker closes" in new TestWithCircuitBreaker {
