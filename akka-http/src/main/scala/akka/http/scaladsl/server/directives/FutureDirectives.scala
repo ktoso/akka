@@ -50,7 +50,7 @@ trait FutureDirectives {
     onComplete(breaker.withCircuitBreaker(future)).flatMap {
       case Failure(ex: CircuitBreakerOpenException) ⇒
         extractRequestContext.flatMap { ctx ⇒
-          ctx.request.entity.dataBytes.runWith(Sink.ignore)(ctx.materializer)
+          ctx.request.entity.dataBytes.runWith(Sink.cancelled)(ctx.materializer)
           reject(CircuitBreakerOpenRejection(ex))
         }
       case x ⇒ provide(x)
