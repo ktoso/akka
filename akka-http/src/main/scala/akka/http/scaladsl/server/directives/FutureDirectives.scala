@@ -40,7 +40,7 @@ trait FutureDirectives {
   /**
     * "Unwraps" a `Future[T]` and runs the inner route after future
     * completion with the future's value as an extraction of type `T` if
-    * the supplied `CircuitBreaker` is open.
+    * the supplied `CircuitBreaker` is closed.
     * If the supplied `CircuitBreaker` is open the request is rejected
     * with a `CircuitBreakerOpenRejection`.
     *

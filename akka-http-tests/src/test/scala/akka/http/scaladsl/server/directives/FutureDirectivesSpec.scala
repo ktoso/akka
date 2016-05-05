@@ -27,7 +27,7 @@ class FutureDirectivesSpec extends RoutingSpec with Inside {
   trait TestWithCircuitBreaker {
     val breakerResetTimeout = 500.millis
     val breaker = new CircuitBreaker(system.scheduler, maxFailures = 1, callTimeout = 10.seconds, breakerResetTimeout)
-    def openBreaker = breaker.withCircuitBreaker(Future.failed(new Exception("boom")))
+    def openBreaker() = breaker.withCircuitBreaker(Future.failed(new Exception("boom")))
   }
 
   "The `onComplete` directive" should {
@@ -79,15 +79,15 @@ class FutureDirectivesSpec extends RoutingSpec with Inside {
       }
     }
     "fail fast if the circuit breaker is open" in new TestWithCircuitBreaker {
-      openBreaker
+      openBreaker()
       Get() ~> onCompleteWithBreaker(breaker)(Future.successful(1)) { echoComplete } ~> check {
         inside(rejection) {
-          case CircuitBreakerOpenRejection(_: CircuitBreakerOpenException) ⇒
+          case CircuitBreakerOpenRejection(_) ⇒
         }
       }
     }
     "stop failing fast when the circuit breaker closes" in new TestWithCircuitBreaker {
-      openBreaker
+      openBreaker()
       Thread.sleep(breakerResetTimeout.toMillis + 200)
       Get() ~> onCompleteWithBreaker(breaker)(Future.successful(1)) { echoComplete } ~> check {
         responseAs[String] shouldEqual "Success(1)"
