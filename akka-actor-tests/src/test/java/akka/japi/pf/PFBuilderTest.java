@@ -21,4 +21,15 @@ public class PFBuilderTest {
     assertTrue(pf.isDefinedAt("42"));
     assertEquals(42, pf.apply("42").intValue());
   }
+  
+  @Test
+  public void typed_pfbuilder_can_match_with_only_predicate_argument() {
+    PartialFunction<String,Integer> pf = new PFBuilder<String,Integer>()
+      .match(String::isEmpty, emptyString -> 42)
+      .build();
+    
+    assertTrue(pf.isDefinedAt(""));
+    assertEquals(42, pf.apply("").intValue());
+    assertFalse(pf.isDefinedAt("42"));
+  }
 }
