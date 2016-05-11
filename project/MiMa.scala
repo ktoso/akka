@@ -757,7 +757,10 @@ object MiMa extends AutoPlugin {
 
         // #20028 Simplify TickSource cancellation
         ProblemFilters.exclude[MissingClassProblem]("akka.stream.impl.fusing.GraphStages$TickSource$TickSourceCancellable"),
-        ProblemFilters.exclude[MissingClassProblem]("akka.stream.impl.fusing.GraphStages$TickSource$")
+        ProblemFilters.exclude[MissingClassProblem]("akka.stream.impl.fusing.GraphStages$TickSource$"),
+
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.http.javadsl.model.DateTime.plus"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("akka.http.javadsl.model.DateTime.minus")
       )
     )
   }
