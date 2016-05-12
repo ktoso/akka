@@ -33,7 +33,13 @@ class RejectionHandlerBuilder(asScala: server.RejectionHandler.Builder) {
   def build = new RejectionHandler(asScala.result())
   
   /**
-   * Handles a single [[Rejection]] with the given partial function.
+   * Callback called to handle rejection created by the onCompleteWithBreaker directive.
+   * Signals that the request was rejected because the supplied circuit breaker is open and requests are failing fast.
+   */
+  def handleCircuitBreakerOpenRejection(ctx: RequestContext): RouteResult = passRejection()
+
+  /**
+   * Callback called to handle any custom rejection defined by the application.
    */
   def handle[T <: Rejection](t: Class[T], handler: function.Function[T, Route]): RejectionHandlerBuilder = {
     asScala.handle { case r if t.isInstance(r) => handler.apply(t.cast(r)).delegate }

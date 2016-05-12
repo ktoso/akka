@@ -165,7 +165,11 @@ object RejectionHandler {
       }
       .handle {
         case TooManyRangesRejection(_) ⇒
-          complete((RequestedRangeNotSatisfiable, "Request contains too many ranges."))
+          complete((RequestedRangeNotSatisfiable, "Request contains too many ranges"))
+      }
+      .handle {
+        case CircuitBreakerOpenRejection(_) ⇒
+          complete((EnhanceYourCalm, "Circuit Breaker is open; calls are failing fast"))
       }
       .handle {
         case UnsatisfiableRangeRejection(unsatisfiableRanges, actualEntityLength) ⇒
