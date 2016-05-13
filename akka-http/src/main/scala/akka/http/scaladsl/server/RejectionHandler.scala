@@ -75,6 +75,15 @@ object RejectionHandler {
       notFound = Some(route)
       this
     }
+    
+    /**
+     * Convenience method for handling rejections created by created by the onCompleteWithBreaker directive.
+     * Signals that the request was rejected because the supplied circuit breaker is open and requests are failing fast.
+     * 
+     * Use to customise the error response being written instead of the default [[ServiceUnavailable]] response.
+     */
+    def handleCircuitBreakerOpenRejection(handler: CircuitBreakerOpenRejection => Route): this.type = 
+      handle { case r: CircuitBreakerOpenRejection => handler(r) }
 
     def result(): RejectionHandler =
       new BuiltRejectionHandler(cases.result(), notFound, isDefault)
@@ -169,7 +178,7 @@ object RejectionHandler {
       }
       .handle {
         case CircuitBreakerOpenRejection(_) ⇒
-          complete((EnhanceYourCalm, "Circuit Breaker is open; calls are failing fast"))
+          complete((ServiceUnavailable, "Circuit Breaker is open; service is unavailable"))
       }
       .handle {
         case UnsatisfiableRangeRejection(unsatisfiableRanges, actualEntityLength) ⇒

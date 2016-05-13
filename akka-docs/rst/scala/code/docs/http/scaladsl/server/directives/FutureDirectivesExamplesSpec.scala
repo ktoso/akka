@@ -10,8 +10,8 @@ import docs.http.scaladsl.server.RoutingSpec
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
-import akka.http.scaladsl.server.{CircuitBreakerOpenRejection, ExceptionHandler, Route}
+import scala.util.{ Failure, Success }
+import akka.http.scaladsl.server.{ CircuitBreakerOpenRejection, ExceptionHandler, Route }
 import akka.util.Timeout
 import akka.http.scaladsl.model._
 import StatusCodes._
@@ -59,10 +59,11 @@ class FutureDirectivesExamplesSpec extends RoutingSpec {
       a / b
     }
 
+    val resetTimeout = 1.second
     val breaker = new CircuitBreaker(system.scheduler,
       maxFailures = 1,
-      callTimeout = 10.seconds,
-      resetTimeout = 2.seconds
+      callTimeout = 5.seconds,
+      resetTimeout = resetTimeout
     )
 
     val route =
@@ -87,7 +88,7 @@ class FutureDirectivesExamplesSpec extends RoutingSpec {
       rejection shouldBe a[CircuitBreakerOpenRejection]
     }
 
-    Thread.sleep(3000)
+    Thread.sleep(resetTimeout.toMillis)
 
     Get("/divide/10/2") ~> route ~> check {
       responseAs[String] shouldEqual "The result was 5"

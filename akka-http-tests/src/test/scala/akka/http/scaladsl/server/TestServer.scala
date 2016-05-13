@@ -4,16 +4,19 @@
 
 package akka.http.scaladsl.server
 
+import akka.Done
 import akka.http.scaladsl.marshallers.xml.ScalaXmlSupport
-import akka.http.scaladsl.model.{ StatusCodes, HttpResponse }
+import akka.http.scaladsl.model.{HttpRequest, StatusCodes, HttpResponse}
 import akka.http.scaladsl.server.directives.Credentials
 import com.typesafe.config.{ ConfigFactory, Config }
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.http.scaladsl.Http
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.io.StdIn
+import scala.util.{Failure, Success}
 
 object TestServer extends App {
   val testConf: Config = ConfigFactory.parseString("""

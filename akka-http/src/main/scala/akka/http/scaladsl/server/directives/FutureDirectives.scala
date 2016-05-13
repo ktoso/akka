@@ -33,17 +33,18 @@ trait FutureDirectives {
    */
   def onComplete[T](future: ⇒ Future[T]): Directive1[Try[T]] =
     Directive { inner ⇒ ctx ⇒
-        import ctx.executionContext
-        future.fast.transformWith(t ⇒ inner(Tuple1(t))(ctx))
+      import ctx.executionContext
+      future.fast.transformWith(t ⇒ inner(Tuple1(t))(ctx))
     }
 
   /**
-    * "Unwraps" a `Future[T]` and runs the inner route after future
-    * completion with the future's value as an extraction of type `T` if
-    * the supplied `CircuitBreaker` is closed.
-    * If the supplied `CircuitBreaker` is open the request is rejected
-    * with a `CircuitBreakerOpenRejection`.
-    *
+   * "Unwraps" a `Future[T]` and runs the inner route after future
+   * completion with the future's value as an extraction of type `T` if
+   * the supplied `CircuitBreaker` is closed.
+   * 
+   * If the supplied [[CircuitBreaker]] is open the request is rejected
+   * with a [[CircuitBreakerOpenRejection]].
+   *
    * @group future
    */
   def onCompleteWithBreaker[T](breaker: CircuitBreaker)(future: ⇒ Future[T]): Directive1[Try[T]] =

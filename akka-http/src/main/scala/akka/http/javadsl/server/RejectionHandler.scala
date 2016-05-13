@@ -33,12 +33,6 @@ class RejectionHandlerBuilder(asScala: server.RejectionHandler.Builder) {
   def build = new RejectionHandler(asScala.result())
   
   /**
-   * Callback called to handle rejection created by the onCompleteWithBreaker directive.
-   * Signals that the request was rejected because the supplied circuit breaker is open and requests are failing fast.
-   */
-  def handleCircuitBreakerOpenRejection(ctx: RequestContext): RouteResult = passRejection()
-
-  /**
    * Callback called to handle any custom rejection defined by the application.
    */
   def handle[T <: Rejection](t: Class[T], handler: function.Function[T, Route]): RejectionHandlerBuilder = {
@@ -62,4 +56,16 @@ class RejectionHandlerBuilder(asScala: server.RejectionHandler.Builder) {
     asScala.handleNotFound(route.delegate)
     this
   }
+  
+  /**
+   * Convenience method for handling rejections created by created by the onCompleteWithBreaker directive.
+   * Signals that the request was rejected because the supplied circuit breaker is open and requests are failing fast.
+   * 
+   * Use to customise the error response being written instead of the default [[akka.http.javadsl.model.StatusCodes.SERVICE_UNAVAILABLE]] response.
+   */
+  def handleCircuitBreakerOpenRejection(handler: function.Function[CircuitBreakerOpenRejection, Route]): RejectionHandlerBuilder = {
+    asScala.handleCircuitBreakerOpenRejection(t => handler.apply(t).delegate)
+    this
+  } 
+  
 }

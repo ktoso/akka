@@ -248,12 +248,18 @@ final case class ValidationRejection(message: String, cause: Option[Throwable] =
  * did indeed match eventually).
  */
 final case class TransformationRejection(transform: immutable.Seq[Rejection] ⇒ immutable.Seq[Rejection])
-
+  extends jserver.TransformationRejection with Rejection {
+  override def getTransform = new Function[Iterable[jserver.Rejection], Iterable[jserver.Rejection]] {
+    override def apply(t: Iterable[jserver.Rejection]): Iterable[jserver.Rejection] =
+      transform(Util.immutableSeq(t).map(x ⇒ x.asScala)).map(_.asJava).asJava // TODO "asJavaDeep" and optimise?
+  }
+}
 /**
- * Rejection created by the onCompleteWithBreaker directive.
+ * Rejection created by the `onCompleteWithBreaker` directive.
  * Signals that the request was rejected because the supplied circuit breaker is open and requests are failing fast.
  */
-final case class CircuitBreakerOpenRejection(cause: CircuitBreakerOpenException) extends Rejection
+final case class CircuitBreakerOpenRejection(cause: CircuitBreakerOpenException)
+  extends jserver.CircuitBreakerOpenRejection with Rejection
 
 /**
  * A Throwable wrapping a Rejection.

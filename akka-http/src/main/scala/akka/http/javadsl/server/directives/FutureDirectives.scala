@@ -9,6 +9,7 @@ import java.util.function.{ Function ⇒ JFunction }
 import java.util.function.Supplier
 
 import akka.http.javadsl.model.RequestEntity
+import akka.pattern.CircuitBreaker
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -24,6 +25,22 @@ abstract class FutureDirectives extends FormFieldDirectives {
    */
   def onComplete[T](f: Supplier[CompletionStage[T]], inner: JFunction[Try[T], Route]) = RouteAdapter {
     D.onComplete(f.get.toScala.recover(unwrapCompletionException)) { value ⇒
+      inner(value).delegate
+    }
+  }
+
+  /**
+   * "Unwraps" a `CompletionStage[T]` and runs the inner route after future
+   * completion with the future's value as an extraction of type `T` if
+   * the supplied `CircuitBreaker` is closed.
+   *
+   * If the supplied [[CircuitBreaker]] is open the request is rejected
+   * with a [[akka.http.javadsl.server.CircuitBreakerOpenRejection]].
+   *
+   * @group future
+   */
+  def onCompleteWithBreaker[T](breaker: CircuitBreaker, f: Supplier[CompletionStage[T]], inner: JFunction[Try[T], Route]) = RouteAdapter {
+    D.onCompleteWithBreaker(breaker)(f.get.toScala.recover(unwrapCompletionException)) { value ⇒
       inner(value).delegate
     }
   }
