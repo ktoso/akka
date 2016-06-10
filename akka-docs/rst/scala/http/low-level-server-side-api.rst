@@ -118,7 +118,7 @@ Streaming Request/Response Entities
 
 Streaming of HTTP message entities is supported through subclasses of ``HttpEntity``. The application needs to be able
 to deal with streamed entities when receiving a request as well as, in many cases, when constructing responses.
-See :ref:`HttpEntity` for a description of the alternatives.
+See :ref:`HttpEntity-scala` for a description of the alternatives.
 
 If you rely on the :ref:`http-marshalling-scala` and/or :ref:`http-unmarshalling-scala` facilities provided by
 Akka HTTP then the conversion of custom types to and from streamed entities can be quite convenient.
@@ -140,21 +140,6 @@ Configuring Server-side HTTPS
 -----------------------------
 
 For detailed documentation about configuring and using HTTPS on the server-side refer to :ref:`serverSideHTTPS-scala`.
-
-For detailed documentation for client-side HTTPS support refer to :ref:`clientSideHTTPS`.
-
-SSL-Config
-----------
-
-Akka HTTP heavily relies on, and delegates most configuration of any SSL/TLS related options to
-`Lightbend SSL-Config`_, which is a library specialized in providing an secure-by-default SSLContext
-and related options.
-
-Please refer to the `Lightbend SSL-Config`_ documentation for detailed documentation of all available settings.
-
-SSL Config settings used by Akka HTTP (as well as Streaming TCP) are located under the `akka.ssl-config` namespace.
-
-.. _Lightbend SSL-Config: http://typesafehub.github.io/ssl-config/
 
 .. _http-server-layer-scala:
 
@@ -225,7 +210,7 @@ Bind failures
 
 The first type of failure is when the server is unable to bind to the given port. For example when the port
 is already taken by another application, or if the port is privileged (i.e. only usable by ``root``).
-In this case the "binding future" will fail immediatly, and we can react to if by listeg on the Future's completion:
+In this case the "binding future" will fail immediatly, and we can react to if by listening on the Future's completion:
 
 .. includecode2:: ../code/docs/http/scaladsl/HttpServerExampleSpec.scala
   :snippet: binding-failure-handling

@@ -22,7 +22,6 @@ import akka.testkit.EventFilter
 import akka.testkit.AkkaSpec
 
 class TcpSpec extends AkkaSpec("akka.stream.materializer.subscription-timeout.timeout = 2s") with TcpHelper {
-  var demand = 0L
 
   "Outgoing TCP stream" must {
 
@@ -542,6 +541,8 @@ class TcpSpec extends AkkaSpec("akka.stream.materializer.subscription-timeout.ti
         val bindingFuture = Tcp().bindAndHandle(Flow[ByteString], address.getHostName, address.getPort)(mat2)
 
         // Ensure server is running
+        Await.ready(bindingFuture, 3.seconds)
+        // and is possible to communicate with
         Await.result(
           Source.single(ByteString(0)).via(Tcp().outgoingConnection(address)).runWith(Sink.ignore),
           3.seconds)
@@ -554,10 +555,11 @@ class TcpSpec extends AkkaSpec("akka.stream.materializer.subscription-timeout.ti
     }
   }
 
-  def validateServerClientCommunication(testData: ByteString,
-                                        serverConnection: ServerConnection,
-                                        readProbe: TcpReadProbe,
-                                        writeProbe: TcpWriteProbe): Unit = {
+  def validateServerClientCommunication(
+    testData:         ByteString,
+    serverConnection: ServerConnection,
+    readProbe:        TcpReadProbe,
+    writeProbe:       TcpWriteProbe): Unit = {
     serverConnection.write(testData)
     serverConnection.read(5)
     readProbe.read(5) should be(testData)

@@ -30,9 +30,8 @@ Other path matchers defined in ``PathMatchers`` match the end of the path (``Pat
 (``PathMatchers.SLASH``), or nothing at all (``PathMatchers.NEUTRAL``).
 
 Many path matchers are hybrids that can both match (by using them with one of the PathDirectives) and extract values,
-i.e. they are :ref:`request-vals-java`. Extracting a path matcher value (i.e. using it with ``handleWithX``) is only
-allowed if it nested inside a path directive that uses that path matcher and so specifies at which position the value
-should be extracted from the path.
+Extracting a path matcher value (i.e. using it with ``handleWithX``) is only allowed if it nested inside a path
+directive that uses that path matcher and so specifies at which position the value should be extracted from the path.
 
 Predefined path matchers allow extraction of various types of values:
 
@@ -57,9 +56,9 @@ Predefined path matchers allow extraction of various types of values:
   Matches if the unmatched path starts with a path segment (i.e. not a slash).
   If so the path segment is extracted as a ``String`` instance.
 
-``PathMatchers.Rest``
+``PathMatchers.Remaining``
   Matches and extracts the complete remaining unmatched part of the request's URI path as an (encoded!) String.
-  If you need access to the remaining *decoded* elements of the path use ``RestPath`` instead.
+  If you need access to the remaining *decoded* elements of the path use ``RemainingPath`` instead.
 
 ``PathMatchers.intValue``
   Efficiently matches a number of decimal digits (unsigned) and extracts their (non-negative) ``Int`` value. The matcher

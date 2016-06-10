@@ -83,13 +83,14 @@ object DistributedPubSubSettings {
  *   the registries. Next chunk will be transferred in next round of gossip.
  */
 final class DistributedPubSubSettings(
-  val role: Option[String],
-  val routingLogic: RoutingLogic,
-  val gossipInterval: FiniteDuration,
+  val role:              Option[String],
+  val routingLogic:      RoutingLogic,
+  val gossipInterval:    FiniteDuration,
   val removedTimeToLive: FiniteDuration,
-  val maxDeltaElements: Int) extends NoSerializationVerificationNeeded {
+  val maxDeltaElements:  Int) extends NoSerializationVerificationNeeded {
 
-  require(!routingLogic.isInstanceOf[ConsistentHashingRoutingLogic],
+  require(
+    !routingLogic.isInstanceOf[ConsistentHashingRoutingLogic],
     "'ConsistentHashingRoutingLogic' can't be used by the pub-sub mediator")
 
   def withRole(role: String): DistributedPubSubSettings = copy(role = DistributedPubSubSettings.roleOption(role))
@@ -108,11 +109,12 @@ final class DistributedPubSubSettings(
   def withMaxDeltaElements(maxDeltaElements: Int): DistributedPubSubSettings =
     copy(maxDeltaElements = maxDeltaElements)
 
-  private def copy(role: Option[String] = role,
-                   routingLogic: RoutingLogic = routingLogic,
-                   gossipInterval: FiniteDuration = gossipInterval,
-                   removedTimeToLive: FiniteDuration = removedTimeToLive,
-                   maxDeltaElements: Int = maxDeltaElements): DistributedPubSubSettings =
+  private def copy(
+    role:              Option[String] = role,
+    routingLogic:      RoutingLogic   = routingLogic,
+    gossipInterval:    FiniteDuration = gossipInterval,
+    removedTimeToLive: FiniteDuration = removedTimeToLive,
+    maxDeltaElements:  Int            = maxDeltaElements): DistributedPubSubSettings =
     new DistributedPubSubSettings(role, routingLogic, gossipInterval, removedTimeToLive, maxDeltaElements)
 }
 
@@ -209,7 +211,7 @@ object DistributedPubSubMediator {
 
     @SerialVersionUID(1L)
     final case class Bucket(
-      owner: Address,
+      owner:   Address,
       version: Long,
       content: TreeMap[String, ValueHolder])
 
@@ -477,13 +479,15 @@ class DistributedPubSubMediator(settings: DistributedPubSubSettings) extends Act
   import DistributedPubSubMediator.Internal._
   import settings._
 
-  require(!routingLogic.isInstanceOf[ConsistentHashingRoutingLogic],
+  require(
+    !routingLogic.isInstanceOf[ConsistentHashingRoutingLogic],
     "'consistent-hashing' routing logic can't be used by the pub-sub mediator")
 
   val cluster = Cluster(context.system)
   import cluster.selfAddress
 
-  require(role.forall(cluster.selfRoles.contains),
+  require(
+    role.forall(cluster.selfRoles.contains),
     s"This cluster member [${selfAddress}] doesn't have the role [$role]")
 
   val removedTimeToLiveMillis = removedTimeToLive.toMillis
@@ -540,6 +544,8 @@ class DistributedPubSubMediator(settings: DistributedPubSubSettings) extends Act
 
       if (routees.nonEmpty)
         Router(routingLogic, routees).route(wrapIfNeeded(msg), sender())
+      else
+        sendToDeadLetters(msg)
 
     case SendToAll(path, msg, skipSenderNode) ⇒
       publish(path, msg, skipSenderNode)
@@ -627,7 +633,7 @@ class DistributedPubSubMediator(settings: DistributedPubSubSettings) extends Act
           if (nodes(b.owner)) {
             val myBucket = registry(b.owner)
             if (b.version > myBucket.version) {
-              registry += (b.owner -> myBucket.copy(version = b.version, content = myBucket.content ++ b.content))
+              registry += (b.owner → myBucket.copy(version = b.version, content = myBucket.content ++ b.content))
             }
           }
         }
@@ -679,13 +685,17 @@ class DistributedPubSubMediator(settings: DistributedPubSubSettings) extends Act
       sender() ! count
   }
 
+  private def sendToDeadLetters(msg: Any) = context.system.deadLetters ! DeadLetter(msg, sender(), context.self)
+
   def publish(path: String, msg: Any, allButSelf: Boolean = false): Unit = {
-    for {
+    val refs = for {
       (address, bucket) ← registry
       if !(allButSelf && address == selfAddress) // if we should skip sender() node and current address == self address => skip
       valueHolder ← bucket.content.get(path)
       ref ← valueHolder.ref
-    } ref forward msg
+    } yield ref
+    if (refs.isEmpty) sendToDeadLetters(msg)
+    else refs.foreach(_.forward(msg))
   }
 
   def publishToEachGroup(path: String, msg: Any): Unit = {
@@ -698,20 +708,24 @@ class DistributedPubSubMediator(settings: DistributedPubSubSettings) extends Act
       ref ← valueHolder.routee
     } yield (key, ref)).groupBy(_._1).values
 
-    val wrappedMsg = SendToOneSubscriber(msg)
-    groups foreach {
-      group ⇒
-        val routees = group.map(_._2).toVector
-        if (routees.nonEmpty)
-          Router(routingLogic, routees).route(wrappedMsg, sender())
+    if (groups.isEmpty) sendToDeadLetters(msg)
+    else {
+      val wrappedMsg = SendToOneSubscriber(msg)
+      groups foreach {
+        group ⇒
+          val routees = group.map(_._2).toVector
+          if (routees.nonEmpty)
+            Router(routingLogic, routees).route(wrappedMsg, sender())
+      }
     }
   }
 
   def put(key: String, valueOption: Option[ActorRef]): Unit = {
     val bucket = registry(selfAddress)
     val v = nextVersion()
-    registry += (selfAddress -> bucket.copy(version = v,
-      content = bucket.content + (key -> ValueHolder(v, valueOption))))
+    registry += (selfAddress → bucket.copy(
+      version = v,
+      content = bucket.content + (key → ValueHolder(v, valueOption))))
   }
 
   def getCurrentTopics(): Set[String] = {
@@ -734,11 +748,11 @@ class DistributedPubSubMediator(settings: DistributedPubSubSettings) extends Act
 
   def mkKey(path: ActorPath): String = Internal.mkKey(path)
 
-  def myVersions: Map[Address, Long] = registry.map { case (owner, bucket) ⇒ (owner -> bucket.version) }
+  def myVersions: Map[Address, Long] = registry.map { case (owner, bucket) ⇒ (owner → bucket.version) }
 
   def collectDelta(otherVersions: Map[Address, Long]): immutable.Iterable[Bucket] = {
     // missing entries are represented by version 0
-    val filledOtherVersions = myVersions.map { case (k, _) ⇒ k -> 0L } ++ otherVersions
+    val filledOtherVersions = myVersions.map { case (k, _) ⇒ k → 0L } ++ otherVersions
     var count = 0
     filledOtherVersions.collect {
       case (owner, v) if registry(owner).version > v && count < maxDeltaElements ⇒
@@ -782,7 +796,7 @@ class DistributedPubSubMediator(settings: DistributedPubSubSettings) extends Act
           case (key, ValueHolder(version, None)) if (bucket.version - version > removedTimeToLiveMillis) ⇒ key
         }
         if (oldRemoved.nonEmpty)
-          registry += owner -> bucket.copy(content = bucket.content -- oldRemoved)
+          registry += owner → bucket.copy(content = bucket.content -- oldRemoved)
     }
   }
 

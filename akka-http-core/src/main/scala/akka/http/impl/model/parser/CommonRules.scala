@@ -61,6 +61,14 @@ private[parser] trait CommonRules { this: Parser with StringBuilding ⇒
   def `quoted-cpair` = `quoted-pair`
 
   // ******************************************************************************************
+  // http://tools.ietf.org/html/rfc7234#section-5.3
+  // ******************************************************************************************
+
+  def `expires-date`: Rule1[DateTime] = rule {
+    (`HTTP-date` | zeroOrMore(ANY) ~ push(DateTime.MinValue)) ~ OWS
+  }
+
+  // ******************************************************************************************
   // http://tools.ietf.org/html/rfc7231#section-7.1.1.1
   // but more lenient where we have already seen differing implementations in the field
   // ******************************************************************************************
@@ -172,8 +180,8 @@ private[parser] trait CommonRules { this: Parser with StringBuilding ⇒
 
   def `challenge-or-credentials`: Rule2[String, Seq[(String, String)]] = rule {
     `auth-scheme` ~ (
-      oneOrMore(`auth-param` ~> (_ -> _)).separatedBy(listSep)
-      | `token68` ~> (x ⇒ ("" -> x) :: Nil)
+      oneOrMore(`auth-param` ~> (_ → _)).separatedBy(listSep)
+      | `token68` ~> (x ⇒ ("" → x) :: Nil)
       | push(Nil))
   }
 
@@ -251,7 +259,7 @@ private[parser] trait CommonRules { this: Parser with StringBuilding ⇒
   }
 
   def `expires-av` = rule {
-    ignoreCase("expires=") ~ OWS ~ `HTTP-date` ~> { (c: HttpCookie, dt: DateTime) ⇒ c.copy(expires = Some(dt)) }
+    ignoreCase("expires=") ~ OWS ~ `expires-date` ~> { (c: HttpCookie, dt: DateTime) ⇒ c.copy(expires = Some(dt)) }
   }
 
   def `max-age-av` = rule {
@@ -389,7 +397,7 @@ private[parser] trait CommonRules { this: Parser with StringBuilding ⇒
     token ~ zeroOrMore(ws(';') ~ `transfer-parameter`) ~> (_.toMap) ~> (TransferEncodings.Extension(_, _))
   }
 
-  def `transfer-parameter` = rule { token ~ ws('=') ~ word ~> (_ -> _) }
+  def `transfer-parameter` = rule { token ~ ws('=') ~ word ~> (_ → _) }
 
   // ******************************************************************************************
   //                                    helpers

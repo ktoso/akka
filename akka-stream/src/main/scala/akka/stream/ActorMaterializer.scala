@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.{ AtomicBoolean }
 
 import akka.actor.{ ActorContext, ActorRef, ActorRefFactory, ActorSystem, ExtendedActorSystem, Props }
 import akka.event.LoggingAdapter
+import akka.util.Helpers.toRootLowerCase
 import akka.stream.ActorMaterializerSettings.defaultMaxFixedBufferSize
 import akka.stream.impl._
 import com.typesafe.config.Config
@@ -201,16 +202,16 @@ object ActorMaterializerSettings {
    * Create [[ActorMaterializerSettings]] from individual settings (Scala).
    */
   def apply(
-    initialInputBufferSize: Int,
-    maxInputBufferSize: Int,
-    dispatcher: String,
-    supervisionDecider: Supervision.Decider,
+    initialInputBufferSize:      Int,
+    maxInputBufferSize:          Int,
+    dispatcher:                  String,
+    supervisionDecider:          Supervision.Decider,
     subscriptionTimeoutSettings: StreamSubscriptionTimeoutSettings,
-    debugLogging: Boolean,
-    outputBurstLimit: Int,
-    fuzzingMode: Boolean,
-    autoFusing: Boolean,
-    maxFixedBufferSize: Int) =
+    debugLogging:                Boolean,
+    outputBurstLimit:            Int,
+    fuzzingMode:                 Boolean,
+    autoFusing:                  Boolean,
+    maxFixedBufferSize:          Int) =
     new ActorMaterializerSettings(
       initialInputBufferSize, maxInputBufferSize, dispatcher, supervisionDecider, subscriptionTimeoutSettings, debugLogging,
       outputBurstLimit, fuzzingMode, autoFusing, maxFixedBufferSize)
@@ -242,16 +243,16 @@ object ActorMaterializerSettings {
    * Create [[ActorMaterializerSettings]] from individual settings (Java).
    */
   def create(
-    initialInputBufferSize: Int,
-    maxInputBufferSize: Int,
-    dispatcher: String,
-    supervisionDecider: Supervision.Decider,
+    initialInputBufferSize:      Int,
+    maxInputBufferSize:          Int,
+    dispatcher:                  String,
+    supervisionDecider:          Supervision.Decider,
     subscriptionTimeoutSettings: StreamSubscriptionTimeoutSettings,
-    debugLogging: Boolean,
-    outputBurstLimit: Int,
-    fuzzingMode: Boolean,
-    autoFusing: Boolean,
-    maxFixedBufferSize: Int) =
+    debugLogging:                Boolean,
+    outputBurstLimit:            Int,
+    fuzzingMode:                 Boolean,
+    autoFusing:                  Boolean,
+    maxFixedBufferSize:          Int) =
     new ActorMaterializerSettings(
       initialInputBufferSize, maxInputBufferSize, dispatcher, supervisionDecider, subscriptionTimeoutSettings, debugLogging,
       outputBurstLimit, fuzzingMode, autoFusing, maxFixedBufferSize)
@@ -276,28 +277,29 @@ object ActorMaterializerSettings {
  * Please refer to the `withX` methods for descriptions of the individual settings.
  */
 final class ActorMaterializerSettings private (
-  val initialInputBufferSize: Int,
-  val maxInputBufferSize: Int,
-  val dispatcher: String,
-  val supervisionDecider: Supervision.Decider,
+  val initialInputBufferSize:      Int,
+  val maxInputBufferSize:          Int,
+  val dispatcher:                  String,
+  val supervisionDecider:          Supervision.Decider,
   val subscriptionTimeoutSettings: StreamSubscriptionTimeoutSettings,
-  val debugLogging: Boolean,
-  val outputBurstLimit: Int,
-  val fuzzingMode: Boolean,
-  val autoFusing: Boolean,
-  val maxFixedBufferSize: Int,
-  val syncProcessingLimit: Int) {
+  val debugLogging:                Boolean,
+  val outputBurstLimit:            Int,
+  val fuzzingMode:                 Boolean,
+  val autoFusing:                  Boolean,
+  val maxFixedBufferSize:          Int,
+  val syncProcessingLimit:         Int) {
 
-  def this(initialInputBufferSize: Int,
-           maxInputBufferSize: Int,
-           dispatcher: String,
-           supervisionDecider: Supervision.Decider,
-           subscriptionTimeoutSettings: StreamSubscriptionTimeoutSettings,
-           debugLogging: Boolean,
-           outputBurstLimit: Int,
-           fuzzingMode: Boolean,
-           autoFusing: Boolean,
-           maxFixedBufferSize: Int) {
+  def this(
+    initialInputBufferSize:      Int,
+    maxInputBufferSize:          Int,
+    dispatcher:                  String,
+    supervisionDecider:          Supervision.Decider,
+    subscriptionTimeoutSettings: StreamSubscriptionTimeoutSettings,
+    debugLogging:                Boolean,
+    outputBurstLimit:            Int,
+    fuzzingMode:                 Boolean,
+    autoFusing:                  Boolean,
+    maxFixedBufferSize:          Int) {
     this(initialInputBufferSize, maxInputBufferSize, dispatcher, supervisionDecider, subscriptionTimeoutSettings, debugLogging,
       outputBurstLimit, fuzzingMode, autoFusing, maxFixedBufferSize, defaultMaxFixedBufferSize)
   }
@@ -309,17 +311,17 @@ final class ActorMaterializerSettings private (
   require(initialInputBufferSize <= maxInputBufferSize, s"initialInputBufferSize($initialInputBufferSize) must be <= maxInputBufferSize($maxInputBufferSize)")
 
   private def copy(
-    initialInputBufferSize: Int = this.initialInputBufferSize,
-    maxInputBufferSize: Int = this.maxInputBufferSize,
-    dispatcher: String = this.dispatcher,
-    supervisionDecider: Supervision.Decider = this.supervisionDecider,
+    initialInputBufferSize:      Int                               = this.initialInputBufferSize,
+    maxInputBufferSize:          Int                               = this.maxInputBufferSize,
+    dispatcher:                  String                            = this.dispatcher,
+    supervisionDecider:          Supervision.Decider               = this.supervisionDecider,
     subscriptionTimeoutSettings: StreamSubscriptionTimeoutSettings = this.subscriptionTimeoutSettings,
-    debugLogging: Boolean = this.debugLogging,
-    outputBurstLimit: Int = this.outputBurstLimit,
-    fuzzingMode: Boolean = this.fuzzingMode,
-    autoFusing: Boolean = this.autoFusing,
-    maxFixedBufferSize: Int = this.maxFixedBufferSize,
-    syncProcessingLimit: Int = this.syncProcessingLimit) = {
+    debugLogging:                Boolean                           = this.debugLogging,
+    outputBurstLimit:            Int                               = this.outputBurstLimit,
+    fuzzingMode:                 Boolean                           = this.fuzzingMode,
+    autoFusing:                  Boolean                           = this.autoFusing,
+    maxFixedBufferSize:          Int                               = this.maxFixedBufferSize,
+    syncProcessingLimit:         Int                               = this.syncProcessingLimit) = {
     new ActorMaterializerSettings(
       initialInputBufferSize, maxInputBufferSize, dispatcher, supervisionDecider, subscriptionTimeoutSettings, debugLogging,
       outputBurstLimit, fuzzingMode, autoFusing, maxFixedBufferSize, syncProcessingLimit)
@@ -477,7 +479,7 @@ object StreamSubscriptionTimeoutSettings {
   def apply(config: Config): StreamSubscriptionTimeoutSettings = {
     val c = config.getConfig("subscription-timeout")
     StreamSubscriptionTimeoutSettings(
-      mode = c.getString("mode").toLowerCase(Locale.ROOT) match {
+      mode = toRootLowerCase(c.getString("mode")) match {
         case "no" | "off" | "false" | "noop" ⇒ NoopTermination
         case "warn"                          ⇒ WarnTermination
         case "cancel"                        ⇒ CancelTermination

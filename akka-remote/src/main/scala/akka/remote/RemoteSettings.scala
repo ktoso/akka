@@ -7,14 +7,12 @@ import com.typesafe.config.Config
 import scala.concurrent.duration._
 import akka.util.Timeout
 import scala.collection.immutable
-import akka.util.Helpers.ConfigOps
-import akka.util.Helpers.Requiring
+import akka.util.Helpers.{ ConfigOps, Requiring, toRootLowerCase }
 import akka.japi.Util._
 import akka.actor.Props
 import akka.event.Logging
 import akka.event.Logging.LogLevel
 import akka.ConfigurationException
-import java.util.Locale
 
 final class RemoteSettings(val config: Config) {
   import config._
@@ -29,7 +27,7 @@ final class RemoteSettings(val config: Config) {
   val TrustedSelectionPaths: Set[String] =
     immutableSeq(getStringList("akka.remote.trusted-selection-paths")).toSet
 
-  val RemoteLifecycleEventsLogLevel: LogLevel = getString("akka.remote.log-remote-lifecycle-events").toLowerCase(Locale.ROOT) match {
+  val RemoteLifecycleEventsLogLevel: LogLevel = toRootLowerCase(getString("akka.remote.log-remote-lifecycle-events")) match {
     case "on" ⇒ Logging.DebugLevel
     case other ⇒ Logging.levelFor(other) match {
       case Some(level) ⇒ level
@@ -96,7 +94,8 @@ final class RemoteSettings(val config: Config) {
   } requiring (_ > Duration.Zero, "quarantine-after-silence must be > 0")
 
   val QuarantineDuration: FiniteDuration = {
-    config.getMillisDuration("akka.remote.prune-quarantine-marker-after").requiring(_ > Duration.Zero,
+    config.getMillisDuration("akka.remote.prune-quarantine-marker-after").requiring(
+      _ > Duration.Zero,
       "prune-quarantine-marker-after must be > 0 ms")
   }
 
@@ -118,7 +117,8 @@ final class RemoteSettings(val config: Config) {
 
   val Transports: immutable.Seq[(String, immutable.Seq[String], Config)] = transportNames.map { name ⇒
     val transportConfig = transportConfigFor(name)
-    (transportConfig.getString("transport-class"),
+    (
+      transportConfig.getString("transport-class"),
       immutableSeq(transportConfig.getStringList("applied-adapters")).reverse,
       transportConfig)
   }

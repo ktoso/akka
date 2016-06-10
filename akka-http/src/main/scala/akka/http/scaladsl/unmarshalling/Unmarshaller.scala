@@ -4,6 +4,7 @@
 
 package akka.http.scaladsl.unmarshalling
 
+import akka.event.Logging
 import akka.stream.Materializer
 
 import scala.util.control.{ NoStackTrace, NonFatal }
@@ -12,7 +13,9 @@ import akka.http.scaladsl.util.FastFuture
 import akka.http.scaladsl.util.FastFuture._
 import akka.http.scaladsl.model._
 
-trait Unmarshaller[-A, B] {
+trait Unmarshaller[-A, B] extends akka.http.javadsl.server.Unmarshaller[A, B] {
+
+  implicit final def asScala: Unmarshaller[A, B] = this
 
   def apply(value: A)(implicit ec: ExecutionContext, materializer: Materializer): Future[B]
 
@@ -101,18 +104,16 @@ object Unmarshaller
      * an IllegalStateException will be thrown!
      */
     def forContentTypes(ranges: ContentTypeRange*): FromEntityUnmarshaller[A] =
-      Unmarshaller.withMaterializer { implicit ec ⇒
-        implicit mat ⇒
-          entity ⇒
-            if (entity.contentType == ContentTypes.NoContentType || ranges.exists(_ matches entity.contentType)) {
-              underlying(entity).fast.recover[A](barkAtUnsupportedContentTypeException(ranges, entity.contentType))
-            } else FastFuture.failed(UnsupportedContentTypeException(ranges: _*))
+      Unmarshaller.withMaterializer { implicit ec ⇒ implicit mat ⇒
+        entity ⇒
+          if (entity.contentType == ContentTypes.NoContentType || ranges.exists(_ matches entity.contentType)) {
+            underlying(entity).fast.recover[A](barkAtUnsupportedContentTypeException(ranges, entity.contentType))
+          } else FastFuture.failed(UnsupportedContentTypeException(ranges: _*))
       }
 
-    // TODO: move back into the [[EnhancedFromEntityUnmarshaller]] value class after the upgrade to Scala 2.11,
-    // Scala 2.10 suffers from this bug: https://issues.scala-lang.org/browse/SI-8018
-    private def barkAtUnsupportedContentTypeException(ranges: Seq[ContentTypeRange],
-                                                      newContentType: ContentType): PartialFunction[Throwable, Nothing] = {
+    private def barkAtUnsupportedContentTypeException(
+      ranges:         Seq[ContentTypeRange],
+      newContentType: ContentType): PartialFunction[Throwable, Nothing] = {
       case UnsupportedContentTypeException(supported) ⇒ throw new IllegalStateException(
         s"Illegal use of `unmarshaller.forContentTypes($ranges)`: $newContentType is not supported by underlying marshaller!")
     }
@@ -140,6 +141,15 @@ object Unmarshaller
    */
   final case class UnsupportedContentTypeException(supported: Set[ContentTypeRange])
     extends RuntimeException(supported.mkString("Unsupported Content-Type, supported: ", ", ", ""))
+
+  /** Order of parameters (`right` first, `left` second) is intentional, since that's the order we evaluate them in. */
+  final case class EitherUnmarshallingException(
+    rightClass: Class[_], right: Throwable,
+    leftClass: Class[_], left: Throwable)
+    extends RuntimeException(
+      s"Failed to unmarshal Either[${Logging.simpleName(leftClass)}, ${Logging.simpleName(rightClass)}] (attempted ${Logging.simpleName(rightClass)} first). " +
+        s"Right failure: ${right.getMessage}, " +
+        s"Left failure: ${left.getMessage}")
 
   object UnsupportedContentTypeException {
     def apply(supported: ContentTypeRange*): UnsupportedContentTypeException = UnsupportedContentTypeException(Set(supported: _*))

@@ -10,7 +10,7 @@ import scala.collection.immutable
 import scala.collection.immutable.VectorBuilder
 import akka.util.ByteString
 import akka.event.{ NoLogging, LoggingAdapter }
-import akka.stream.{ActorMaterializer, OverflowStrategy}
+import akka.stream.ActorMaterializer
 import akka.stream.impl.fusing.IteratorInterpreter
 import akka.stream.scaladsl._
 import akka.http.impl.engine.parsing.BodyPartParser
@@ -61,13 +61,13 @@ trait MultipartUnmarshallers {
       createStrict = (_, parts) ⇒ Multipart.ByteRanges.Strict(parts))
 
   def multipartUnmarshaller[T <: Multipart, BP <: Multipart.BodyPart, BPS <: Multipart.BodyPart.Strict](
-    mediaRange: MediaRange,
-    defaultContentType: ContentType,
-    createBodyPart: (BodyPartEntity, List[HttpHeader]) ⇒ BP,
-    createStreamed: (MediaType.Multipart, Source[BP, Any]) ⇒ T,
+    mediaRange:           MediaRange,
+    defaultContentType:   ContentType,
+    createBodyPart:       (BodyPartEntity, List[HttpHeader]) ⇒ BP,
+    createStreamed:       (MediaType.Multipart, Source[BP, Any]) ⇒ T,
     createStrictBodyPart: (HttpEntity.Strict, List[HttpHeader]) ⇒ BPS,
-    createStrict: (MediaType.Multipart, immutable.Seq[BPS]) ⇒ T)(implicit log: LoggingAdapter = NoLogging, parserSettings: ParserSettings = null): FromEntityUnmarshaller[T] =
-    Unmarshaller.withMaterializer { implicit ec ⇒ mat =>
+    createStrict:         (MediaType.Multipart, immutable.Seq[BPS]) ⇒ T)(implicit log: LoggingAdapter = NoLogging, parserSettings: ParserSettings = null): FromEntityUnmarshaller[T] =
+    Unmarshaller.withMaterializer { implicit ec ⇒ mat ⇒
       entity ⇒
         if (entity.contentType.mediaType.isMultipart && mediaRange.matches(entity.contentType.mediaType)) {
           entity.contentType.mediaType.params.get("boundary") match {
@@ -97,9 +97,8 @@ trait MultipartUnmarshallers {
                     createStrict(mediaType, builder.result())
                   case _ ⇒
                     val bodyParts = entity.dataBytes
-                      .transform(() ⇒ parser)
+                      .via(parser)
                       .splitWhen(_.isInstanceOf[PartStart])
-                      .buffer(100, OverflowStrategy.backpressure) // FIXME remove (#19240)
                       .prefixAndTail(1)
                       .collect {
                         case (Seq(BodyPartStart(headers, createEntity)), entityParts) ⇒

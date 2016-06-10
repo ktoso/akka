@@ -5,9 +5,9 @@
 package akka.http.javadsl.model;
 
 import java.io.File;
+import java.nio.file.Path;
 
 import akka.http.impl.util.JavaAccessors;
-import akka.http.scaladsl.model.HttpEntity;
 import akka.http.scaladsl.model.HttpEntity$;
 import akka.util.ByteString;
 import akka.stream.javadsl.Source;
@@ -42,33 +42,53 @@ public final class HttpEntities {
         return HttpEntity$.MODULE$.apply((akka.http.scaladsl.model.ContentType) contentType, bytes);
     }
 
+    /**
+     * @deprecated Will be removed in Akka 3.x, use {@link #create(ContentType, Path)} instead.
+     */
+    @Deprecated
     public static UniversalEntity create(ContentType contentType, File file) {
         return JavaAccessors.HttpEntity(contentType, file);
     }
 
+    public static UniversalEntity create(ContentType contentType, Path file) {
+        return JavaAccessors.HttpEntity(contentType, file);
+    }
+
+    /**
+     * @deprecated Will be removed in Akka 3.x, use {@link #create(ContentType, Path, int)} instead.
+     */
+    @Deprecated
     public static UniversalEntity create(ContentType contentType, File file, int chunkSize) {
         return HttpEntity$.MODULE$.apply((akka.http.scaladsl.model.ContentType) contentType, file, chunkSize);
     }
 
-    public static HttpEntity.Default create(ContentType contentType, long contentLength, Source<ByteString, Object> data) {
-        return new akka.http.scaladsl.model.HttpEntity.Default((akka.http.scaladsl.model.ContentType) contentType, contentLength, data.asScala());
+    public static UniversalEntity create(ContentType contentType, Path file, int chunkSize) {
+        return HttpEntity$.MODULE$.fromPath((akka.http.scaladsl.model.ContentType) contentType, file, chunkSize);
     }
 
-    public static HttpEntity.Chunked create(ContentType contentType, Source<ByteString, Object> data) {
-        return HttpEntity.Chunked$.MODULE$.fromData((akka.http.scaladsl.model.ContentType) contentType, data.asScala());
+    public static HttpEntity.Default create(ContentType contentType, long contentLength, Source<ByteString, ?> data) {
+        return new akka.http.scaladsl.model.HttpEntity.Default((akka.http.scaladsl.model.ContentType) contentType, contentLength, toScala(data));
     }
 
-    public static HttpEntity.CloseDelimited createCloseDelimited(ContentType contentType, Source<ByteString, Object> data) {
-        return new akka.http.scaladsl.model.HttpEntity.CloseDelimited((akka.http.scaladsl.model.ContentType) contentType, data.asScala());
+    public static HttpEntity.Chunked create(ContentType contentType, Source<ByteString, ?> data) {
+        return akka.http.scaladsl.model.HttpEntity.Chunked$.MODULE$.fromData((akka.http.scaladsl.model.ContentType) contentType, toScala(data));
     }
 
-    public static HttpEntity.IndefiniteLength createIndefiniteLength(ContentType contentType, Source<ByteString, Object> data) {
-        return new akka.http.scaladsl.model.HttpEntity.IndefiniteLength((akka.http.scaladsl.model.ContentType) contentType, data.asScala());
+    public static HttpEntity.CloseDelimited createCloseDelimited(ContentType contentType, Source<ByteString, ?> data) {
+        return new akka.http.scaladsl.model.HttpEntity.CloseDelimited((akka.http.scaladsl.model.ContentType) contentType, toScala(data));
     }
 
-    public static HttpEntity.Chunked createChunked(ContentType contentType, Source<ByteString, Object> data) {
+    public static HttpEntity.IndefiniteLength createIndefiniteLength(ContentType contentType, Source<ByteString, ?> data) {
+        return new akka.http.scaladsl.model.HttpEntity.IndefiniteLength((akka.http.scaladsl.model.ContentType) contentType, toScala(data));
+    }
+
+    public static HttpEntity.Chunked createChunked(ContentType contentType, Source<ByteString, ?> data) {
         return akka.http.scaladsl.model.HttpEntity.Chunked$.MODULE$.fromData(
                 (akka.http.scaladsl.model.ContentType) contentType,
-                data.asScala());
+                toScala(data));
+    }
+    
+    private static akka.stream.scaladsl.Source<ByteString,Object> toScala(Source<ByteString, ?> javaSource) {
+        return (akka.stream.scaladsl.Source<ByteString,Object>)javaSource.asScala();
     }
 }

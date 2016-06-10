@@ -80,13 +80,14 @@ private[akka] object Shard {
    * If `settings.rememberEntities` is enabled the `PersistentShard`
    * subclass is used, otherwise `Shard`.
    */
-  def props(typeName: String,
-            shardId: ShardRegion.ShardId,
-            entityProps: Props,
-            settings: ClusterShardingSettings,
-            extractEntityId: ShardRegion.ExtractEntityId,
-            extractShardId: ShardRegion.ExtractShardId,
-            handOffStopMessage: Any): Props = {
+  def props(
+    typeName:           String,
+    shardId:            ShardRegion.ShardId,
+    entityProps:        Props,
+    settings:           ClusterShardingSettings,
+    extractEntityId:    ShardRegion.ExtractEntityId,
+    extractShardId:     ShardRegion.ExtractShardId,
+    handOffStopMessage: Any): Props = {
     if (settings.rememberEntities)
       Props(new PersistentShard(typeName, shardId, entityProps, settings, extractEntityId, extractShardId, handOffStopMessage))
         .withDeploy(Deploy.local)
@@ -105,12 +106,12 @@ private[akka] object Shard {
  * @see [[ClusterSharding$ ClusterSharding extension]]
  */
 private[akka] class Shard(
-  typeName: String,
-  shardId: ShardRegion.ShardId,
-  entityProps: Props,
-  settings: ClusterShardingSettings,
-  extractEntityId: ShardRegion.ExtractEntityId,
-  extractShardId: ShardRegion.ExtractShardId,
+  typeName:           String,
+  shardId:            ShardRegion.ShardId,
+  entityProps:        Props,
+  settings:           ClusterShardingSettings,
+  extractEntityId:    ShardRegion.ExtractEntityId,
+  extractShardId:     ShardRegion.ExtractShardId,
   handOffStopMessage: Any) extends Actor with ActorLogging {
 
   import ShardRegion.{ handOffStopperProps, EntityId, Msg, Passivate, ShardInitialized }
@@ -301,12 +302,12 @@ private[akka] class Shard(
  * @see [[ClusterSharding$ ClusterSharding extension]]
  */
 private[akka] class PersistentShard(
-  typeName: String,
-  shardId: ShardRegion.ShardId,
-  entityProps: Props,
-  settings: ClusterShardingSettings,
-  extractEntityId: ShardRegion.ExtractEntityId,
-  extractShardId: ShardRegion.ExtractShardId,
+  typeName:           String,
+  shardId:            ShardRegion.ShardId,
+  entityProps:        Props,
+  settings:           ClusterShardingSettings,
+  extractEntityId:    ShardRegion.ExtractEntityId,
+  extractShardId:     ShardRegion.ExtractShardId,
   handOffStopMessage: Any) extends Shard(
   typeName, shardId, entityProps, settings, extractEntityId, extractShardId, handOffStopMessage)
   with PersistentActor with ActorLogging {
@@ -321,8 +322,6 @@ private[akka] class PersistentShard(
 
   override def snapshotPluginId: String = settings.snapshotPluginId
 
-  var persistCount = 0
-
   // would be initialized after recovery completed
   override def initialized(): Unit = {}
 
@@ -334,8 +333,7 @@ private[akka] class PersistentShard(
   }
 
   def saveSnapshotWhenNeeded(): Unit = {
-    persistCount += 1
-    if (persistCount % snapshotAfter == 0) {
+    if (lastSequenceNr % snapshotAfter == 0 && lastSequenceNr != 0) {
       log.debug("Saving snapshot, sequence number [{}]", snapshotSequenceNr)
       saveSnapshot(state)
     }

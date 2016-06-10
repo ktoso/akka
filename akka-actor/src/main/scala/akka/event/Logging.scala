@@ -11,6 +11,7 @@ import akka.actor.ActorSystem.Settings
 import akka.actor._
 import akka.dispatch.RequiresMessageQueue
 import akka.util.ReentrantGuard
+import akka.util.Helpers.toRootLowerCase
 import akka.{ AkkaException, ConfigurationException }
 
 import scala.annotation.implicitNotFound
@@ -442,7 +443,7 @@ object Logging {
    * valid inputs are upper or lowercase (not mixed) versions of:
    * "error", "warning", "info" and "debug"
    */
-  def levelFor(s: String): Option[LogLevel] = s.toLowerCase(Locale.ROOT) match {
+  def levelFor(s: String): Option[LogLevel] = toRootLowerCase(s) match {
     case "off"     ⇒ Some(OffLevel)
     case "error"   ⇒ Some(ErrorLevel)
     case "warning" ⇒ Some(WarningLevel)
@@ -569,6 +570,12 @@ object Logging {
     val (str, clazz) = LogSource.fromAnyRef(logSource)
     new BusLogging(bus, str, clazz)
   }
+
+  /**
+   * Obtain LoggingAdapter with MDC support for the given actor.
+   * Don't use it outside its specific Actor as it isn't thread safe
+   */
+  def getLogger(logSource: Actor): DiagnosticLoggingAdapter = apply(logSource)
 
   /**
    * Obtain LoggingAdapter with MDC support for the given actor.

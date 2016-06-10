@@ -39,17 +39,17 @@ trait GraphInterpreterSpecKit extends AkkaSpec {
       var connections = Vector.empty[(Outlet[_], Inlet[_])]
 
       def connect[T](upstream: UpstreamBoundaryStageLogic[T], in: Inlet[T]): AssemblyBuilder = {
-        upstreams :+= upstream -> in
+        upstreams :+= upstream → in
         this
       }
 
       def connect[T](out: Outlet[T], downstream: DownstreamBoundaryStageLogic[T]): AssemblyBuilder = {
-        downstreams :+= out -> downstream
+        downstreams :+= out → downstream
         this
       }
 
       def connect[T](out: Outlet[T], in: Inlet[T]): AssemblyBuilder = {
-        connections :+= out -> in
+        connections :+= out → in
         this
       }
 
@@ -310,9 +310,7 @@ trait GraphInterpreterSpecKit extends AkkaSpec {
   abstract class OneBoundedSetup[T](_ops: GraphStageWithMaterializedValue[Shape, Any]*) extends Builder {
     val ops = _ops.toArray
 
-    def this(op: Seq[Stage[_, _]], dummy: Int = 42) = {
-      this(op.map(_.toGS): _*)
-    }
+    def this(op: Seq[Stage[_, _]], dummy: Int = 42) = this(op.map(_.toGS): _*)
 
     val upstream = new UpstreamOneBoundedProbe[T]
     val downstream = new DownstreamOneBoundedPortProbe[T]

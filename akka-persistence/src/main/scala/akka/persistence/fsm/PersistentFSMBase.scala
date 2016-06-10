@@ -113,7 +113,7 @@ trait PersistentFSMBase[S, D, E] extends Actor with Listeners with ActorLogging 
    * This extractor is just convenience for matching a (S, S) pair, including a
    * reminder what the new state is.
    */
-  val -> = PersistentFSM.->
+  val `->` = PersistentFSM.`->`
 
   /**
    * This case object is received in case of a state timeout.
@@ -301,15 +301,15 @@ trait PersistentFSMBase[S, D, E] extends Actor with Listeners with ActorLogging 
     handleEvent = stateFunction orElse handleEventDefault
 
   /**
-   * Verify existence of initial state and setup timers. This should be the
-   * last call within the constructor, or [[akka.actor.Actor#preStart]] and
-   * [[akka.actor.Actor#postRestart]].
+   * Verify existence of initial state and setup timers. Used in [[akka.persistence.fsm.PersistentFSM]]
+   * on recovery.
    *
    * An initial `currentState -> currentState` notification will be triggered by calling this method.
    *
-   * @see [[#startWith]]
+   * @see [[akka.persistence.fsm.PersistentFSM#receiveRecover]]
    */
-  final def initialize(): Unit =
+  @deprecated("Removed from API, called internally", "2.4.5")
+  private[akka] final def initialize(): Unit =
     if (currentState != null) makeTransition(currentState)
     else throw new IllegalStateException("You must call `startWith` before calling `initialize`")
 
@@ -669,9 +669,10 @@ abstract class AbstractPersistentFSMBase[S, D, E] extends PersistentFSMBase[S, D
    * @param stateTimeout default state timeout for this state
    * @param stateFunctionBuilder partial function builder describing response to input
    */
-  final def when(stateName: S,
-                 stateTimeout: FiniteDuration,
-                 stateFunctionBuilder: FSMStateFunctionBuilder[S, D, E]): Unit =
+  final def when(
+    stateName:            S,
+    stateTimeout:         FiniteDuration,
+    stateFunctionBuilder: FSMStateFunctionBuilder[S, D, E]): Unit =
     when(stateName, stateTimeout)(stateFunctionBuilder.build())
 
   /**
