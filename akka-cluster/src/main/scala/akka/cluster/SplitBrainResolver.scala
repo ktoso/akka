@@ -15,7 +15,7 @@ import com.typesafe.config.Config
  */
 private[akka] final class SplitBrainResolverProvider(system: ActorSystem) extends DowningProvider {
 
-  override def downRemovalMargin: FiniteDuration = Cluster(system).settings.DowningStableAfter
+  override def downRemovalMargin: FiniteDuration = Cluster(system).settings.DownRemovalMargin
 
   override def downingActorProps: Option[Props] = {
     def strategyConfig(strategyName: String): Config =
