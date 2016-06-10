@@ -17,6 +17,7 @@ Java Documentation
    java/http/index
    java/howto
    experimental/index-java
+   java/index-rp
    dev/index
    project/index
    additional/index

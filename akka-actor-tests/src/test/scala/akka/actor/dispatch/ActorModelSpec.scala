@@ -583,6 +583,9 @@ object BalancingDispatcherModelSpec {
   // TODO check why throughput=1 here? (came from old test)
   val config = {
     """
+      akka.diagnostics.checker.disabled-checks += dispatcher-count
+      akka.diagnostics.checker.disabled-checks += dispatcher-total-size
+
       boss {
         executor = thread-pool-executor
         type = PinnedDispatcher
