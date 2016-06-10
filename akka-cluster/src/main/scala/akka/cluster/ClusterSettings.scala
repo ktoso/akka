@@ -7,12 +7,14 @@ import scala.concurrent.duration._
 import scala.collection.immutable
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigObject
+
 import scala.concurrent.duration.Duration
 import akka.actor.Address
 import akka.actor.AddressFromURIString
 import akka.dispatch.Dispatchers
 import akka.util.Helpers.Requiring
 import akka.util.Helpers.ConfigOps
+
 import scala.concurrent.duration.FiniteDuration
 import akka.japi.Util.immutableSeq
 import java.util.Locale
@@ -59,6 +61,7 @@ final class ClusterSettings(val config: Config, val systemName: String) {
     }
   }
 
+  // specific to the [[akka.cluster.DefaultDowningProvider]]
   val AutoDownUnreachableAfter: Duration = {
     val key = "auto-down-unreachable-after"
     cc.getString(key).toLowerCase(Locale.ROOT) match {
@@ -66,8 +69,6 @@ final class ClusterSettings(val config: Config, val systemName: String) {
       case _     ⇒ cc.getMillisDuration(key) requiring (_ >= Duration.Zero, key + " >= 0s, or off")
     }
   }
-
-  val AllowWeaklyUpMembers = cc.getBoolean("allow-weakly-up-members")
 
   val DowningStableAfter: FiniteDuration = {
     val key = "split-brain-resolver.stable-after"
@@ -84,6 +85,12 @@ final class ClusterSettings(val config: Config, val systemName: String) {
       }
     }
 
+  /**
+   * @deprecated Specific to [[akka.cluster.AutoDown]] should not be used anywhere else, instead
+   *   ``Cluster.downingProvider.downRemovalMargin`` should be used as it allows the downing provider to decide removal
+   *   margins
+   */
+  @deprecated("Use Cluster.downingProvider.downRemovalMargin", since = "2.4.5")
   val DownRemovalMargin: FiniteDuration = {
     val key = "down-removal-margin"
     val value = cc.getString(key).toLowerCase(Locale.ROOT) match {
@@ -95,6 +102,18 @@ final class ClusterSettings(val config: Config, val systemName: String) {
     else
       value
   }
+
+  val DowningProviderClassName: String =
+    if (DowningStrategy.isDefined) {
+      classOf[SplitBrainResolverProvider].getName
+    } else {
+      val name = cc.getString("downing-provider-class")
+      if (name.nonEmpty) name
+      else if (AutoDownUnreachableAfter.isFinite()) classOf[AutoDowning].getName
+      else classOf[NoDowning].getName
+    }
+
+  val AllowWeaklyUpMembers = cc.getBoolean("allow-weakly-up-members")
 
   val Roles: Set[String] = immutableSeq(cc.getStringList("roles")).toSet
   val MinNrOfMembers: Int = {

@@ -61,6 +61,7 @@ private[cluster] object InternalClusterAction {
 
   /**
    * Command to join the cluster. Sent when a node wants to join another node (the receiver).
+   *
    * @param node the node that wants to join the cluster
    */
   @SerialVersionUID(1L)
@@ -68,6 +69,7 @@ private[cluster] object InternalClusterAction {
 
   /**
    * Reply to Join
+   *
    * @param from the sender node in the cluster, i.e. the node that received the Join command
    */
   @SerialVersionUID(1L)
@@ -297,57 +299,12 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
   override def preStart(): Unit = {
     context.system.eventStream.subscribe(self, classOf[QuarantinedEvent])
 
-    def strategyConfig(strategyName: String): Config =
-      context.system.settings.config.getConfig("akka.cluster.split-brain-resolver." + strategyName)
+    cluster.downingProvider.downingActorProps.foreach { props ⇒
+      val propsWithDispatcher =
+        if (props.dispatcher == Deploy.NoDispatcherGiven) props.withDispatcher(context.props.dispatcher)
+        else props
 
-    def role(c: Config): Option[String] = c.getString("role") match {
-      case "" ⇒ None
-      case r  ⇒ Some(r)
-    }
-
-    val strategy = Try {
-      import SplitBrainResolver._
-      import akka.util.Helpers.Requiring
-      DowningStrategy match {
-        case Some(KeepMajorityName) ⇒
-          val c = strategyConfig(KeepMajorityName)
-          Some(new KeepMajority(role(c)))
-        case Some(StaticQuorumName) ⇒
-          val c = strategyConfig(StaticQuorumName)
-          val size = c.getInt("quorum-size").requiring(_ >= 1,
-            s"akka.cluster.split-brain-resolver.$StaticQuorumName.quorum-size must be >= 1")
-          Some(new StaticQuorum(size, role(c)))
-        case Some(KeepOldestName) ⇒
-          val c = strategyConfig(KeepOldestName)
-          val downIfAlone = c.getBoolean("down-if-alone")
-          Some(new KeepOldest(downIfAlone, role(c)))
-        case Some(KeepRefereeName) ⇒
-          val c = strategyConfig(KeepRefereeName)
-          val address = c.getString("address")
-          require(address != "", s"akka.cluster.split-brain-resolver.$KeepRefereeName.address must be defined")
-          val AddressFromURIString(a) = address
-          val downAllIfLessThanNodes = c.getInt("down-all-if-less-than-nodes").requiring(_ >= 0,
-            s"akka.cluster.split-brain-resolver.$KeepRefereeName.down-all-if-less-than-nodes must be >= 0")
-          Some(new KeepReferee(a, downAllIfLessThanNodes))
-        case Some(unknown) ⇒
-          throw new IllegalArgumentException(s"Unknown partition strategy: [$unknown]")
-        case None ⇒ None // partition strategy is disabled
-      }
-    }
-    strategy match {
-      case Success(None) ⇒
-        AutoDownUnreachableAfter match {
-          case d: FiniteDuration ⇒
-            context.actorOf(AutoDown.props(d) withDispatcher (context.props.dispatcher), name = "autoDown")
-          case _ ⇒
-          // auto-down is disabled
-        }
-      case Success(Some(s)) ⇒
-        context.actorOf(SplitBrainResolver.props(DowningStableAfter, s).withDispatcher(context.props.dispatcher),
-          name = "partitionStrategy")
-      case Failure(e) ⇒
-        log.error(e, "Could not initialize partition strategy")
-        cluster.shutdown()
+      context.actorOf(propsWithDispatcher, name = "downingProvider")
     }
 
     if (seedNodes.isEmpty)
