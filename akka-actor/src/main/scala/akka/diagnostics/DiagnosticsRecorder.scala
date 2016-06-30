@@ -316,7 +316,7 @@ private[akka] class DiagnosticsRecorder(system: ExtendedActorSystem) extends Ext
 
     val excludedSensitive = sensitiveConfigPaths.filter(result.hasPath)
     val result2 = excludedSensitive.foldLeft(result) { (acc, p) ⇒ acc.withoutPath(p) }
-    val result3 = ConfigFactory.parseMap(Map("excluded-sensitive-paths" -> excludedSensitive.toSeq.asJava).asJava)
+    val result3 = ConfigFactory.parseMap(Map("excluded-sensitive-paths" → excludedSensitive.toSeq.asJava).asJava)
       .withFallback(result2)
     result3
   }

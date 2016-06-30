@@ -3,6 +3,7 @@
  */
 package akka.cluster
 
+import java.util.Locale
 import scala.concurrent.duration._
 import scala.collection.immutable
 import com.typesafe.config.Config

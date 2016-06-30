@@ -778,12 +778,12 @@ private[akka] class ActorSystemImpl(
     def loadExtensions(key: String, throwOnLoadFail: Boolean): Unit = {
       immutableSeq(settings.config.getStringList(key)) foreach { fqcn ⇒
         dynamicAccess.getObjectFor[AnyRef](fqcn) recoverWith { case _ ⇒ dynamicAccess.createInstanceFor[AnyRef](fqcn, Nil) } match {
-          case Success(p: ExtensionIdProvider)  ⇒ registerExtension(p.lookup())
-          case Success(p: ExtensionId[_])       ⇒ registerExtension(p)
-          case Success(other)⇒
+          case Success(p: ExtensionIdProvider) ⇒ registerExtension(p.lookup())
+          case Success(p: ExtensionId[_])      ⇒ registerExtension(p)
+          case Success(other) ⇒
             if (!throwOnLoadFail) log.error("[{}] is not an 'ExtensionIdProvider' or 'ExtensionId', skipping...", fqcn)
             else throw new RuntimeException(s"[$fqcn] is not an 'ExtensionIdProvider' or 'ExtensionId'")
-          case Failure(problem)                 ⇒
+          case Failure(problem) ⇒
             if (!throwOnLoadFail) log.error(problem, "While trying to load extension [{}], skipping...", fqcn)
             else throw new RuntimeException(s"While trying to load extension [$fqcn]", problem)
         }

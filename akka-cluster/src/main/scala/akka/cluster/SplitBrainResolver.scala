@@ -39,7 +39,8 @@ private[akka] final class SplitBrainResolverProvider(system: ActorSystem) extend
           new KeepMajority(role(c))
         case Some(StaticQuorumName) ⇒
           val c = strategyConfig(StaticQuorumName)
-          val size = c.getInt("quorum-size").requiring(_ >= 1,
+          val size = c.getInt("quorum-size").requiring(
+            _ >= 1,
             s"akka.cluster.split-brain-resolver.$StaticQuorumName.quorum-size must be >= 1")
           new StaticQuorum(size, role(c))
         case Some(KeepOldestName) ⇒
@@ -51,7 +52,8 @@ private[akka] final class SplitBrainResolverProvider(system: ActorSystem) extend
           val address = c.getString("address")
           require(address != "", s"akka.cluster.split-brain-resolver.$KeepRefereeName.address must be defined")
           val AddressFromURIString(a) = address
-          val downAllIfLessThanNodes = c.getInt("down-all-if-less-than-nodes").requiring(_ >= 0,
+          val downAllIfLessThanNodes = c.getInt("down-all-if-less-than-nodes").requiring(
+            _ >= 0,
             s"akka.cluster.split-brain-resolver.$KeepRefereeName.down-all-if-less-than-nodes must be >= 0")
           new KeepReferee(a, downAllIfLessThanNodes)
         case Some(unknown) ⇒

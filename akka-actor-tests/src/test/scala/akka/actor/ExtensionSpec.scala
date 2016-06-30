@@ -13,7 +13,6 @@ import org.scalatest.junit.JUnitSuiteLike
 
 import scala.util.control.NoStackTrace
 
-
 class JavaExtensionSpec extends JavaExtension with JUnitSuiteLike
 
 object TestExtension extends ExtensionId[TestExtension] with ExtensionIdProvider {
@@ -51,7 +50,6 @@ class FailingTestExtension(val system: ExtendedActorSystem) extends Extension {
   // but we want to see the first exception every time
   throw new FailingTestExtension.TestException
 }
-
 
 class ExtensionSpec extends WordSpec with Matchers {
 
@@ -132,7 +130,6 @@ class ExtensionSpec extends WordSpec with Matchers {
           """).withFallback(ConfigFactory.load()))
       }
     }
-
 
   }
 
