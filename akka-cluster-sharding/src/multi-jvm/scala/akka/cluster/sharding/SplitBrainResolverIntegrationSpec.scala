@@ -93,7 +93,7 @@ object SplitBrainResolverIntegrationSpec extends MultiNodeConfig {
           unregisterTimestamp.get(key).foreach { t ⇒
             log.info("Unregister/register margin for [{}] was [{}] ms", key, (System.nanoTime() - t).nanos.toMillis)
           }
-          registry += key -> address
+          registry += key → address
           if (!onlyErrors) probe ! r
         }
 
@@ -105,7 +105,7 @@ object SplitBrainResolverIntegrationSpec extends MultiNodeConfig {
           probe ! s"${registry(key)} instead of $address was registered for $key"
         else {
           registry -= key
-          unregisterTimestamp += key -> System.nanoTime()
+          unregisterTimestamp += key → System.nanoTime()
           if (!onlyErrors) probe ! u
         }
     }
@@ -221,7 +221,8 @@ class SplitBrainResolverIntegrationSpec extends MultiNodeSpec(SplitBrainResolver
     c += 1
 
     val sys: ActorSystem = {
-      val sys = ActorSystem(system.name + "-" + c,
+      val sys = ActorSystem(
+        system.name + "-" + c,
         scenario.cfg.withFallback(system.settings.config))
       muteDeadLetters()(sys)
       val gremlinController = sys.actorOf(Props[GremlinController], "gremlinController")
@@ -297,7 +298,8 @@ class SplitBrainResolverIntegrationSpec extends MultiNodeSpec(SplitBrainResolver
       }
 
     def createSingleton(): ActorRef = {
-      sys.actorOf(ClusterSingletonManager.props(
+      sys.actorOf(
+        ClusterSingletonManager.props(
         singletonProps = Props(classOf[SingletonActor], singletonRegistry),
         terminationMessage = PoisonPill,
         settings = ClusterSingletonManagerSettings(system)),
@@ -471,10 +473,10 @@ class SplitBrainResolverIntegrationSpec extends MultiNodeSpec(SplitBrainResolver
   case object KeepLeader extends Expected
 
   case class Scenario(
-    cfg: Config,
+    cfg:       Config,
     side1Size: Int,
     side2Size: Int,
-    expected: Expected) {
+    expected:  Expected) {
 
     override def toString: String = {
       val activeStrategy = "akka.cluster.split-brain-resolver.active-strategy"
@@ -495,7 +497,7 @@ class SplitBrainResolverIntegrationSpec extends MultiNodeSpec(SplitBrainResolver
     Scenario(keepOldestConfig, 3, 3, KeepSide1),
     Scenario(keepOldestConfig, 1, 1, KeepSide1),
     Scenario(keepOldestConfig, 1, 2, KeepSide2) // because down-if-alone
-    )
+  )
 
   "Cluster SplitBrainResolver" must {
 

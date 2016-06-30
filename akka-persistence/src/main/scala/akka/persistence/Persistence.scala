@@ -6,15 +6,18 @@ package akka.persistence
 
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.Consumer
+
 import akka.actor._
 import akka.event.{ Logging, LoggingAdapter }
 import akka.persistence.journal.{ EventAdapters, IdentityEventAdapters }
 import akka.util.Collections.EmptyImmutableSeq
 import akka.util.Helpers.ConfigOps
 import com.typesafe.config.Config
+
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 import akka.util.Reflect
+
 import scala.util.control.NonFatal
 
 /**
@@ -305,7 +308,8 @@ class Persistence(val system: ExtendedActorSystem) extends Extension {
 
   private class PluginHolderExtensionId(configPath: String, fallbackPath: String) extends ExtensionId[PluginHolder] {
     override def createExtension(system: ExtendedActorSystem): PluginHolder = {
-      require(!isEmpty(configPath) && system.settings.config.hasPath(configPath),
+      require(
+        !isEmpty(configPath) && system.settings.config.hasPath(configPath),
         s"'reference.conf' is missing persistence plugin config path: '$configPath'")
       val config: Config = system.settings.config.getConfig(configPath)
         .withFallback(system.settings.config.getConfig(fallbackPath))

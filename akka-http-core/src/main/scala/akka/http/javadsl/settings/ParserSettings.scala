@@ -12,7 +12,7 @@ import akka.http.impl.util.JavaMapping.Implicits._
 import scala.annotation.varargs
 import scala.collection.JavaConverters._
 
-import akka.http.javadsl.model.{ HttpMethod, StatusCode, Uri }
+import akka.http.javadsl.model.{ MediaType, HttpMethod, StatusCode, Uri }
 import com.typesafe.config.Config
 
 /**
@@ -37,6 +37,7 @@ abstract class ParserSettings private[akka] () extends BodyPartParser.Settings {
   def headerValueCacheLimits: Map[String, Int]
   def getCustomMethods: java.util.function.Function[String, Optional[HttpMethod]]
   def getCustomStatusCodes: java.util.function.Function[Int, Optional[StatusCode]]
+  def getCustomMediaTypes: akka.japi.function.Function2[String, String, Optional[MediaType]]
 
   // ---
 
@@ -60,13 +61,18 @@ abstract class ParserSettings private[akka] () extends BodyPartParser.Settings {
 
   @varargs
   def withCustomMethods(methods: HttpMethod*): ParserSettings = {
-    val map = methods.map(m ⇒ m.name -> m.asScala).toMap
+    val map = methods.map(m ⇒ m.name → m.asScala).toMap
     self.copy(customMethods = map.get)
   }
   @varargs
   def withCustomStatusCodes(codes: StatusCode*): ParserSettings = {
-    val map = codes.map(c ⇒ c.intValue -> c.asScala).toMap
+    val map = codes.map(c ⇒ c.intValue → c.asScala).toMap
     self.copy(customStatusCodes = map.get)
+  }
+  @varargs
+  def withCustomMediaTypes(mediaTypes: MediaType*): ParserSettings = {
+    val map = mediaTypes.map(c ⇒ (c.mainType, c.subType) → c.asScala).toMap
+    self.copy(customMediaTypes = (main, sub) ⇒ map.get(main → sub))
   }
 
 }

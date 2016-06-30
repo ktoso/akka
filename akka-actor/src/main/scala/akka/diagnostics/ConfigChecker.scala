@@ -276,7 +276,8 @@ class ConfigChecker(system: ExtendedActorSystem, config: Config, reference: Conf
                   } else
                     !reference.hasPath(p)
                 if (isTypo) {
-                  w += new ConfigWarning(typoCheckKey,
+                  w += new ConfigWarning(
+                    typoCheckKey,
                     s"$p is not an Akka configuration setting. Is it a typo or is it placed in the wrong section? " +
                       """Application specific properties should be placed outside the "akka" config tree.""",
                     List(p), Nil)
@@ -329,7 +330,7 @@ class ConfigChecker(system: ExtendedActorSystem, config: Config, reference: Conf
               (c.hasPath("executor") && knownExecutorTypes(c.getString("executor")) ||
                 c.hasPath("fork-join-executor") || c.hasPath("thread-pool-executor") ||
                 c.hasPath("throughput"))) {
-              result += ConfigUtil.joinPath(pathList) -> c
+              result += ConfigUtil.joinPath(pathList) → c
               pathList.removeLast()
             } else
               find(o) // recursive
@@ -385,7 +386,8 @@ class ConfigChecker(system: ExtendedActorSystem, config: Config, reference: Conf
               val p = ConfigUtil.joinPath(pathList)
               val fullPath = path + "." + p
               if (!disabledTypoSections.exists(fullPath.startsWith) && !defaultDispatcherReference.hasPath(p)) {
-                w += new ConfigWarning("typo",
+                w += new ConfigWarning(
+                  "typo",
                   s"$fullPath is not an Akka dispatcher configuration setting. Is it a typo or is it placed in the wrong section? " +
                     s"If this is not a dispatcher setting you may disable this check by adding [$fullPath] to configuration string list " +
                     s"akka.diagnostics.checker.confirmed-typos.", List(fullPath), Nil)
@@ -530,7 +532,7 @@ class ConfigChecker(system: ExtendedActorSystem, config: Config, reference: Conf
       val sizes = dispatchers.collect {
         case (p, c) if !p.startsWith("akka.") ⇒
           val cfgWithFallback = c.withFallback(system.dispatchers.defaultDispatcherConfig)
-          p -> Try(dispatcherPoolSize(cfgWithFallback)).getOrElse(0)
+          p → Try(dispatcherPoolSize(cfgWithFallback)).getOrElse(0)
       }
       val total = sizes.foldLeft(0) { case (acc, (_, s)) ⇒ acc + s }
       val availableProcessors = Runtime.getRuntime.availableProcessors
@@ -658,7 +660,8 @@ class ConfigChecker(system: ExtendedActorSystem, config: Config, reference: Conf
         else Nil
 
       val w4 =
-        if (reaper < heartbeatInterval) warn(checkerKey,
+        if (reaper < heartbeatInterval) warn(
+          checkerKey,
           List(path + ".unreachable-nodes-reaper-interval", path + ".heartbeat-interval"),
           s"Remote watch failure detector unreachable-nodes-reaper-interval should be less than or equal to the " +
             "heartbeat-interval")
@@ -733,7 +736,8 @@ class ConfigChecker(system: ExtendedActorSystem, config: Config, reference: Conf
         else Nil
       }
 
-      List(checkFrameSizeAt("akka.remote.netty.tcp.maximum-frame-size"),
+      List(
+        checkFrameSizeAt("akka.remote.netty.tcp.maximum-frame-size"),
         checkFrameSizeAt("akka.remote.netty.ssl.maximum-frame-size")).flatten
     }
   }

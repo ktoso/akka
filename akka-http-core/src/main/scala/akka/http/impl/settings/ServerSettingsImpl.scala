@@ -25,20 +25,20 @@ import akka.http.scaladsl.model.headers.{ Host, Server }
 
 /** INTERNAL API */
 private[akka] final case class ServerSettingsImpl(
-  serverHeader: Option[Server],
-  timeouts: ServerSettings.Timeouts,
-  maxConnections: Int,
-  pipeliningLimit: Int,
-  remoteAddressHeader: Boolean,
-  rawRequestUriHeader: Boolean,
+  serverHeader:            Option[Server],
+  timeouts:                ServerSettings.Timeouts,
+  maxConnections:          Int,
+  pipeliningLimit:         Int,
+  remoteAddressHeader:     Boolean,
+  rawRequestUriHeader:     Boolean,
   transparentHeadRequests: Boolean,
-  verboseErrorMessages: Boolean,
-  responseHeaderSizeHint: Int,
-  backlog: Int,
-  socketOptions: immutable.Seq[SocketOption],
-  defaultHostHeader: Host,
-  websocketRandomFactory: () ⇒ Random,
-  parserSettings: ParserSettings) extends ServerSettings {
+  verboseErrorMessages:    Boolean,
+  responseHeaderSizeHint:  Int,
+  backlog:                 Int,
+  socketOptions:           immutable.Seq[SocketOption],
+  defaultHostHeader:       Host,
+  websocketRandomFactory:  () ⇒ Random,
+  parserSettings:          ParserSettings) extends ServerSettings {
 
   require(0 < maxConnections, "max-connections must be > 0")
   require(0 < pipeliningLimit && pipeliningLimit <= 1024, "pipelining-limit must be > 0 and <= 1024")
@@ -53,9 +53,9 @@ object ServerSettingsImpl extends SettingsCompanion[ServerSettingsImpl]("akka.ht
 
   /** INTERNAL API */
   final case class Timeouts(
-    idleTimeout: Duration,
+    idleTimeout:    Duration,
     requestTimeout: Duration,
-    bindTimeout: FiniteDuration) extends ServerSettings.Timeouts {
+    bindTimeout:    FiniteDuration) extends ServerSettings.Timeouts {
     require(idleTimeout > Duration.Zero, "idleTimeout must be infinite or > 0")
     require(requestTimeout > Duration.Zero, "requestTimeout must be infinite or > 0")
     require(bindTimeout > Duration.Zero, "bindTimeout must be > 0")
@@ -77,7 +77,7 @@ object ServerSettingsImpl extends SettingsCompanion[ServerSettingsImpl]("akka.ht
     c getInt "backlog",
     SocketOptionSettings.fromSubConfig(root, c.getConfig("socket-options")),
     defaultHostHeader =
-      HttpHeader.parse("Host", c getString "default-host-header") match {
+      HttpHeader.parse("Host", c getString "default-host-header", ParserSettings(root)) match {
         case HttpHeader.ParsingResult.Ok(x: Host, Nil) ⇒ x
         case result ⇒
           val info = result.errors.head.withSummary("Configured `default-host-header` is illegal")

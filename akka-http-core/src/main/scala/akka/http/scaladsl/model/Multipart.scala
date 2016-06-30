@@ -3,8 +3,8 @@
  */
 
 package akka.http.scaladsl.model
-
 import java.io.File
+import java.nio.file.Path
 import java.util.Optional
 import akka.http.impl.util.Util
 import scala.concurrent.duration.FiniteDuration
@@ -22,7 +22,7 @@ import akka.http.scaladsl.model.headers._
 import akka.http.impl.engine.rendering.BodyPartRenderer
 import akka.http.javadsl.{ model ⇒ jm }
 import FastFuture._
-import scala.compat.java8.OptionConverters._
+import akka.http.impl.util.JavaMapping.Implicits._
 import scala.compat.java8.FutureConverters._
 import java.util.concurrent.CompletionStage
 
@@ -56,8 +56,9 @@ sealed trait Multipart extends jm.Multipart {
   /**
    * Creates a [[akka.http.scaladsl.model.MessageEntity]] from this multipart object.
    */
-  def toEntity(charset: HttpCharset = HttpCharsets.`UTF-8`,
-               boundary: String = BodyPartRenderer.randomBoundary())(implicit log: LoggingAdapter = NoLogging): MessageEntity = {
+  def toEntity(
+    charset:  HttpCharset = HttpCharsets.`UTF-8`,
+    boundary: String      = BodyPartRenderer.randomBoundary())(implicit log: LoggingAdapter = NoLogging): MessageEntity = {
     val chunks =
       parts
         .transform(() ⇒ BodyPartRenderer.streamed(boundary, charset.nioCharset, partHeadersSizeHint = 128, log))
@@ -224,7 +225,7 @@ object Multipart {
       }
 
     def unapply(value: Multipart.General): Option[(MediaType.Multipart, Source[Multipart.General.BodyPart, Any])] =
-      Some(value.mediaType -> value.parts)
+      Some(value.mediaType → value.parts)
 
     /**
      * Strict [[General]] multipart content.
@@ -284,7 +285,7 @@ object Multipart {
           override def toString = s"General.BodyPart($entity, $headers)"
         }
 
-      def unapply(value: BodyPart): Option[(BodyPartEntity, immutable.Seq[HttpHeader])] = Some(value.entity -> value.headers)
+      def unapply(value: BodyPart): Option[(BodyPartEntity, immutable.Seq[HttpHeader])] = Some(value.entity → value.headers)
 
       /**
        * Strict [[General.BodyPart]].
@@ -344,8 +345,18 @@ object Multipart {
      * To create an instance with several parts or for multiple files, use
      * `FormData(BodyPart.fromFile("field1", ...), BodyPart.fromFile("field2", ...)`
      */
+    @deprecated("Use `fromPath` instead", "2.4.5")
     def fromFile(name: String, contentType: ContentType, file: File, chunkSize: Int = -1): Multipart.FormData =
-      Multipart.FormData(Source.single(Multipart.FormData.BodyPart.fromFile(name, contentType, file, chunkSize)))
+      fromPath(name, contentType, file.toPath, chunkSize)
+
+    /**
+     * Creates a FormData instance that contains a single part backed by the given file.
+     *
+     * To create an instance with several parts or for multiple files, use
+     * `FormData(BodyPart.fromPath("field1", ...), BodyPart.fromPath("field2", ...)`
+     */
+    def fromPath(name: String, contentType: ContentType, file: Path, chunkSize: Int = -1): Multipart.FormData =
+      Multipart.FormData(Source.single(Multipart.FormData.BodyPart.fromPath(name, contentType, file, chunkSize)))
 
     /**
      * Strict [[FormData]].
@@ -419,8 +430,8 @@ object Multipart {
     }
     object BodyPart {
       def apply(_name: String, _entity: BodyPartEntity,
-                _additionalDispositionParams: Map[String, String] = Map.empty,
-                _additionalHeaders: immutable.Seq[HttpHeader] = Nil): Multipart.FormData.BodyPart =
+                _additionalDispositionParams: Map[String, String]       = Map.empty,
+                _additionalHeaders:           immutable.Seq[HttpHeader] = Nil): Multipart.FormData.BodyPart =
         new Multipart.FormData.BodyPart {
           def name = _name
           def additionalDispositionParams = _additionalDispositionParams
@@ -432,8 +443,15 @@ object Multipart {
       /**
        * Creates a BodyPart backed by a File that will be streamed using a FileSource.
        */
+      @deprecated("Use `fromPath` instead", since = "2.4.5")
       def fromFile(name: String, contentType: ContentType, file: File, chunkSize: Int = -1): BodyPart =
-        BodyPart(name, HttpEntity(contentType, file, chunkSize), Map("filename" -> file.getName))
+        fromPath(name, contentType, file.toPath, chunkSize)
+
+      /**
+       * Creates a BodyPart backed by a file that will be streamed using a FileSource.
+       */
+      def fromPath(name: String, contentType: ContentType, file: Path, chunkSize: Int = -1): BodyPart =
+        BodyPart(name, HttpEntity.fromPath(contentType, file, chunkSize), Map("filename" → file.getFileName.toString))
 
       def unapply(value: BodyPart): Option[(String, BodyPartEntity, Map[String, String], immutable.Seq[HttpHeader])] =
         Some((value.name, value.entity, value.additionalDispositionParams, value.additionalHeaders))
@@ -442,8 +460,8 @@ object Multipart {
        * Strict [[FormData.BodyPart]].
        */
       case class Strict(name: String, entity: HttpEntity.Strict,
-                        additionalDispositionParams: Map[String, String] = Map.empty,
-                        additionalHeaders: immutable.Seq[HttpHeader] = Nil)
+                        additionalDispositionParams: Map[String, String]       = Map.empty,
+                        additionalHeaders:           immutable.Seq[HttpHeader] = Nil)
         extends Multipart.FormData.BodyPart with Multipart.BodyPart.Strict with jm.Multipart.FormData.BodyPart.Strict {
         override def toStrict(timeout: FiniteDuration)(implicit fm: Materializer): Future[Multipart.FormData.BodyPart.Strict] =
           FastFuture.successful(this)

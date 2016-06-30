@@ -4,7 +4,7 @@
 
 package docs.http.scaladsl.server.directives
 
-import java.io.File
+import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.event.Logging
@@ -190,7 +190,7 @@ class BasicDirectivesExamplesSpec extends RoutingSpec {
       path("sample") {
         complete {
           // internally uses the configured fileIODispatcher:
-          val source = FileIO.fromFile(new File("example.json"))
+          val source = FileIO.fromPath(Paths.get("example.json"))
           HttpResponse(entity = HttpEntity(ContentTypes.`application/json`, source))
         }
       }
@@ -267,14 +267,14 @@ class BasicDirectivesExamplesSpec extends RoutingSpec {
 
       private def nonSuccessToEmptyJsonEntity(response: HttpResponse): HttpResponse =
         response.status match {
-          case code if code.isSuccess ⇒ response
-          case code ⇒
+          case code if code.isSuccess => response
+          case code =>
             log.warning("Dropping response entity since response status code was: {}", code)
             response.copy(entity = NullJsonEntity)
         }
 
       /** Wrapper for all of our JSON API routes */
-      def apiRoute(innerRoutes: ⇒ Route): Route =
+      def apiRoute(innerRoutes: => Route): Route =
         mapResponse(nonSuccessToEmptyJsonEntity)(innerRoutes)
     }
     //#
@@ -303,13 +303,11 @@ class BasicDirectivesExamplesSpec extends RoutingSpec {
   "mapRouteResult" in {
     //#mapRouteResult
     // this directive is a joke, don't do that :-)
-    val makeEverythingOk = mapRouteResult { r =>
-      r match {
-        case Complete(response) =>
-          // "Everything is OK!"
-          Complete(response.copy(status = 200))
-        case _ => r
-      }
+    val makeEverythingOk = mapRouteResult {
+      case Complete(response) =>
+        // "Everything is OK!"
+        Complete(response.copy(status = 200))
+      case r => r
     }
 
     val route =
@@ -388,13 +386,12 @@ class BasicDirectivesExamplesSpec extends RoutingSpec {
   "mapInnerRoute" in {
     //#mapInnerRoute
     val completeWithInnerException =
-      mapInnerRoute { route =>
-        ctx =>
-          try {
-            route(ctx)
-          } catch {
-            case NonFatal(e) => ctx.complete(s"Got ${e.getClass.getSimpleName} '${e.getMessage}'")
-          }
+      mapInnerRoute { route => ctx =>
+        try {
+          route(ctx)
+        } catch {
+          case NonFatal(e) => ctx.complete(s"Got ${e.getClass.getSimpleName} '${e.getMessage}'")
+        }
       }
 
     val route =
@@ -592,11 +589,9 @@ class BasicDirectivesExamplesSpec extends RoutingSpec {
     //#mapRouteResultWith-0
     case object MyCustomRejection extends Rejection
     val rejectRejections = // not particularly useful directive
-      mapRouteResultWith { res =>
-        res match {
-          case Rejected(_) => Future(Rejected(List(AuthorizationFailedRejection)))
-          case _           => Future(res)
-        }
+      mapRouteResultWith {
+        case Rejected(_) => Future(Rejected(List(AuthorizationFailedRejection)))
+        case res         => Future(res)
       }
     val route =
       rejectRejections {
@@ -695,7 +690,7 @@ class BasicDirectivesExamplesSpec extends RoutingSpec {
 
     // tests:
     Get("/") ~> route ~> check {
-      responseAs[String] shouldEqual s"RoutingSettings.renderVanityFooter = true"
+      responseAs[String] shouldEqual "RoutingSettings.renderVanityFooter = true"
     }
     //#
   }
@@ -768,7 +763,7 @@ class BasicDirectivesExamplesSpec extends RoutingSpec {
       pathPrefix("123") {
         ignoring456 {
           path("abc") {
-            complete(s"Content")
+            complete("Content")
           }
         }
       }

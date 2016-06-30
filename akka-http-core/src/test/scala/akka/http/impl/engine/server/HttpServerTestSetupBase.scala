@@ -34,17 +34,16 @@ abstract class HttpServerTestSetupBase {
     val netIn = TestPublisher.probe[ByteString]()
     val netOut = ByteStringSinkProbe()
 
-    RunnableGraph.fromGraph(GraphDSL.create(HttpServerBluePrint(settings, remoteAddress = remoteAddress, log = NoLogging)) { implicit b ⇒
-      server ⇒
-        import GraphDSL.Implicits._
-        Source.fromPublisher(netIn) ~> Flow[ByteString].map(SessionBytes(null, _)) ~> server.in2
-        server.out1 ~> Flow[SslTlsOutbound].collect { case SendBytes(x) ⇒ x }.buffer(1, OverflowStrategy.backpressure) ~> netOut.sink
-        server.out2 ~> Sink.fromSubscriber(requests)
-        Source.fromPublisher(responses) ~> server.in1
-        ClosedShape
+    RunnableGraph.fromGraph(GraphDSL.create(HttpServerBluePrint(settings, remoteAddress = remoteAddress, log = NoLogging)) { implicit b ⇒ server ⇒
+      import GraphDSL.Implicits._
+      Source.fromPublisher(netIn) ~> Flow[ByteString].map(SessionBytes(null, _)) ~> server.in2
+      server.out1 ~> Flow[SslTlsOutbound].collect { case SendBytes(x) ⇒ x }.buffer(1, OverflowStrategy.backpressure) ~> netOut.sink
+      server.out2 ~> Sink.fromSubscriber(requests)
+      Source.fromPublisher(responses) ~> server.in1
+      ClosedShape
     }).run()
 
-    netIn -> netOut
+    netIn → netOut
   }
 
   def expectResponseWithWipedDate(expected: String): Unit = {
@@ -71,4 +70,13 @@ abstract class HttpServerTestSetupBase {
   def send(string: String): Unit = send(ByteString(string.stripMarginWithNewline("\r\n"), "UTF8"))
 
   def closeNetworkInput(): Unit = netIn.sendComplete()
+
+  def shutdownBlueprint(): Unit = {
+    netIn.sendComplete()
+    requests.expectComplete()
+
+    responses.sendComplete()
+    netOut.expectBytes(ByteString("HTT")) // ???
+    netOut.expectComplete()
+  }
 }

@@ -61,6 +61,7 @@ private[cluster] object InternalClusterAction {
 
   /**
    * Command to join the cluster. Sent when a node wants to join another node (the receiver).
+   *
    * @param node the node that wants to join the cluster
    */
   @SerialVersionUID(1L)
@@ -68,6 +69,7 @@ private[cluster] object InternalClusterAction {
 
   /**
    * Reply to Join
+   *
    * @param from the sender node in the cluster, i.e. the node that received the Join command
    */
   @SerialVersionUID(1L)
@@ -243,7 +245,7 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
   import InternalClusterAction._
 
   val cluster = Cluster(context.system)
-  import cluster.{ selfAddress, scheduler, failureDetector }
+  import cluster.{ selfAddress, selfRoles, scheduler, failureDetector }
   import cluster.settings._
   import cluster.InfoLogger._
 
@@ -276,15 +278,18 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
   import context.dispatcher
 
   // start periodic gossip to random nodes in cluster
-  val gossipTask = scheduler.schedule(PeriodicTasksInitialDelay.max(GossipInterval),
+  val gossipTask = scheduler.schedule(
+    PeriodicTasksInitialDelay.max(GossipInterval),
     GossipInterval, self, GossipTick)
 
   // start periodic cluster failure detector reaping (moving nodes condemned by the failure detector to unreachable list)
-  val failureDetectorReaperTask = scheduler.schedule(PeriodicTasksInitialDelay.max(UnreachableNodesReaperInterval),
+  val failureDetectorReaperTask = scheduler.schedule(
+    PeriodicTasksInitialDelay.max(UnreachableNodesReaperInterval),
     UnreachableNodesReaperInterval, self, ReapUnreachableTick)
 
   // start periodic leader action management (only applies for the current leader)
-  val leaderActionsTask = scheduler.schedule(PeriodicTasksInitialDelay.max(LeaderActionsInterval),
+  val leaderActionsTask = scheduler.schedule(
+    PeriodicTasksInitialDelay.max(LeaderActionsInterval),
     LeaderActionsInterval, self, LeaderActionsTick)
 
   // start periodic publish of current stats
@@ -297,57 +302,12 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
   override def preStart(): Unit = {
     context.system.eventStream.subscribe(self, classOf[QuarantinedEvent])
 
-    def strategyConfig(strategyName: String): Config =
-      context.system.settings.config.getConfig("akka.cluster.split-brain-resolver." + strategyName)
+    cluster.downingProvider.downingActorProps.foreach { props ⇒
+      val propsWithDispatcher =
+        if (props.dispatcher == Deploy.NoDispatcherGiven) props.withDispatcher(context.props.dispatcher)
+        else props
 
-    def role(c: Config): Option[String] = c.getString("role") match {
-      case "" ⇒ None
-      case r  ⇒ Some(r)
-    }
-
-    val strategy = Try {
-      import SplitBrainResolver._
-      import akka.util.Helpers.Requiring
-      DowningStrategy match {
-        case Some(KeepMajorityName) ⇒
-          val c = strategyConfig(KeepMajorityName)
-          Some(new KeepMajority(role(c)))
-        case Some(StaticQuorumName) ⇒
-          val c = strategyConfig(StaticQuorumName)
-          val size = c.getInt("quorum-size").requiring(_ >= 1,
-            s"akka.cluster.split-brain-resolver.$StaticQuorumName.quorum-size must be >= 1")
-          Some(new StaticQuorum(size, role(c)))
-        case Some(KeepOldestName) ⇒
-          val c = strategyConfig(KeepOldestName)
-          val downIfAlone = c.getBoolean("down-if-alone")
-          Some(new KeepOldest(downIfAlone, role(c)))
-        case Some(KeepRefereeName) ⇒
-          val c = strategyConfig(KeepRefereeName)
-          val address = c.getString("address")
-          require(address != "", s"akka.cluster.split-brain-resolver.$KeepRefereeName.address must be defined")
-          val AddressFromURIString(a) = address
-          val downAllIfLessThanNodes = c.getInt("down-all-if-less-than-nodes").requiring(_ >= 0,
-            s"akka.cluster.split-brain-resolver.$KeepRefereeName.down-all-if-less-than-nodes must be >= 0")
-          Some(new KeepReferee(a, downAllIfLessThanNodes))
-        case Some(unknown) ⇒
-          throw new IllegalArgumentException(s"Unknown partition strategy: [$unknown]")
-        case None ⇒ None // partition strategy is disabled
-      }
-    }
-    strategy match {
-      case Success(None) ⇒
-        AutoDownUnreachableAfter match {
-          case d: FiniteDuration ⇒
-            context.actorOf(AutoDown.props(d) withDispatcher (context.props.dispatcher), name = "autoDown")
-          case _ ⇒
-          // auto-down is disabled
-        }
-      case Success(Some(s)) ⇒
-        context.actorOf(SplitBrainResolver.props(DowningStableAfter, s).withDispatcher(context.props.dispatcher),
-          name = "partitionStrategy")
-      case Failure(e) ⇒
-        log.error(e, "Could not initialize partition strategy")
-        cluster.shutdown()
+      context.actorOf(propsWithDispatcher, name = "downingProvider")
     }
 
     if (seedNodes.isEmpty)
@@ -424,7 +384,8 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
     case ClusterUserAction.JoinTo(address) ⇒
       logInfo("Trying to join [{}] when already part of a cluster, ignoring", address)
     case JoinSeedNodes(seedNodes) ⇒
-      logInfo("Trying to join seed nodes [{}] when already part of a cluster, ignoring",
+      logInfo(
+        "Trying to join seed nodes [{}] when already part of a cluster, ignoring",
         seedNodes.mkString(", "))
   }
 
@@ -480,10 +441,12 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
    */
   def join(address: Address): Unit = {
     if (address.protocol != selfAddress.protocol)
-      log.warning("Trying to join member with wrong protocol, but was ignored, expected [{}] but was [{}]",
+      log.warning(
+        "Trying to join member with wrong protocol, but was ignored, expected [{}] but was [{}]",
         selfAddress.protocol, address.protocol)
     else if (address.system != selfAddress.system)
-      log.warning("Trying to join member with wrong ActorSystem name, but was ignored, expected [{}] but was [{}]",
+      log.warning(
+        "Trying to join member with wrong ActorSystem name, but was ignored, expected [{}] but was [{}]",
         selfAddress.system, address.system)
     else {
       require(latestGossip.members.isEmpty, "Join can only be done from empty state")
@@ -523,10 +486,12 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
   def joining(node: UniqueAddress, roles: Set[String]): Unit = {
     val selfStatus = latestGossip.member(selfUniqueAddress).status
     if (node.address.protocol != selfAddress.protocol)
-      log.warning("Member with wrong protocol tried to join, but was ignored, expected [{}] but was [{}]",
+      log.warning(
+        "Member with wrong protocol tried to join, but was ignored, expected [{}] but was [{}]",
         selfAddress.protocol, node.address.protocol)
     else if (node.address.system != selfAddress.system)
-      log.warning("Member with wrong ActorSystem name tried to join, but was ignored, expected [{}] but was [{}]",
+      log.warning(
+        "Member with wrong ActorSystem name tried to join, but was ignored, expected [{}] but was [{}]",
         selfAddress.system, node.address.system)
     else if (Gossip.removeUnreachableWithMemberStatus.contains(selfStatus))
       logInfo("Trying to join [{}] to [{}] member, ignoring. Use a member that is Up instead.", node, selfStatus)
@@ -660,8 +625,9 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
       val newOverview = localGossip.overview copy (reachability = newReachability)
       val newGossip = localGossip copy (overview = newOverview)
       updateLatestGossip(newGossip)
-      log.warning("Cluster Node [{}] - Marking node as TERMINATED [{}], due to quarantine",
-        selfAddress, node.address)
+      log.warning(
+        "Cluster Node [{}] - Marking node as TERMINATED [{}], due to quarantine. Node roles [{}]",
+        selfAddress, node.address, selfRoles.mkString(","))
       publish(latestGossip)
       downing(node.address)
     }
@@ -887,7 +853,8 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
 
         leaderActionCounter += 1
         if (leaderActionCounter == firstNotice || leaderActionCounter % periodicNotice == 0)
-          logInfo("Leader can currently not perform its duties, reachability status: [{}], member status: [{}]",
+          logInfo(
+            "Leader can currently not perform its duties, reachability status: [{}], member status: [{}]",
             latestGossip.reachabilityExcludingDownedObservers,
             latestGossip.members.map(m ⇒
               s"${m.address} ${m.status} seen=${latestGossip.seenByNode(m.uniqueAddress)}").mkString(", "))
@@ -1092,12 +1059,13 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
 
           val (exiting, nonExiting) = newlyDetectedUnreachableMembers.partition(_.status == Exiting)
           if (nonExiting.nonEmpty)
-            log.warning("Cluster Node [{}] - Marking node(s) as UNREACHABLE [{}]", selfAddress, nonExiting.mkString(", "))
+            log.warning("Cluster Node [{}] - Marking node(s) as UNREACHABLE [{}]. Node roles [{}]", selfAddress, nonExiting.mkString(", "), selfRoles.mkString(", "))
           if (exiting.nonEmpty)
-            logInfo("Marking exiting node(s) as UNREACHABLE [{}]. This is expected and they will be removed.",
+            logInfo(
+              "Marking exiting node(s) as UNREACHABLE [{}]. This is expected and they will be removed.",
               exiting.mkString(", "))
           if (newlyDetectedReachableMembers.nonEmpty)
-            logInfo("Marking node(s) as REACHABLE [{}]", newlyDetectedReachableMembers.mkString(", "))
+            logInfo("Marking node(s) as REACHABLE [{}]. Node roles [{}]", newlyDetectedReachableMembers.mkString(", "), selfRoles.mkString(","))
 
           publish(latestGossip)
         }
@@ -1341,10 +1309,10 @@ private[cluster] class OnMemberStatusChangedListener(callback: Runnable, status:
 @SerialVersionUID(1L)
 private[cluster] final case class GossipStats(
   receivedGossipCount: Long = 0L,
-  mergeCount: Long = 0L,
-  sameCount: Long = 0L,
-  newerCount: Long = 0L,
-  olderCount: Long = 0L) {
+  mergeCount:          Long = 0L,
+  sameCount:           Long = 0L,
+  newerCount:          Long = 0L,
+  olderCount:          Long = 0L) {
 
   def incrementMergeCount(): GossipStats =
     copy(mergeCount = mergeCount + 1, receivedGossipCount = receivedGossipCount + 1)
@@ -1384,5 +1352,5 @@ private[cluster] final case class GossipStats(
 @SerialVersionUID(1L)
 private[cluster] final case class VectorClockStats(
   versionSize: Int = 0,
-  seenLatest: Int = 0)
+  seenLatest:  Int = 0)
 

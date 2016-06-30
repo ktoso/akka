@@ -8,7 +8,7 @@ import akka.stream._
 import akka.stream.impl._
 import akka.stream.impl.fusing.GraphStages
 import akka.stream.impl.fusing.GraphStages.MaterializedValueSource
-import akka.stream.impl.Stages.{ DefaultAttributes, StageModule }
+import akka.stream.impl.Stages.DefaultAttributes
 import akka.stream.impl.StreamLayout._
 import akka.stream.scaladsl.Partition.PartitionOutOfBoundsException
 import akka.stream.stage.{ OutHandler, InHandler, GraphStageLogic, GraphStage }
@@ -732,6 +732,102 @@ final class Unzip[A, B]() extends UnzipWith2[(A, B), A, B](ConstantFun.scalaIden
  */
 object UnzipWith extends UnzipWithApply
 
+object ZipN {
+  /**
+   * Create a new `ZipN`.
+   */
+  def apply[A](n: Int) = new ZipN[A](n)
+}
+
+/**
+ * Combine the elements of multiple streams into a stream of sequences.
+ *
+ * A `ZipN` has a `n` input ports and one `out` port
+ *
+ * '''Emits when''' all of the inputs has an element available
+ *
+ * '''Backpressures when''' downstream backpressures
+ *
+ * '''Completes when''' any upstream completes
+ *
+ * '''Cancels when''' downstream cancels
+ */
+final class ZipN[A](n: Int) extends ZipWithN[A, immutable.Seq[A]](ConstantFun.scalaIdentityFunction)(n) {
+  override def initialAttributes = DefaultAttributes.zipN
+  override def toString = "ZipN"
+}
+
+object ZipWithN {
+  /**
+   * Create a new `ZipWithN`.
+   */
+  def apply[A, O](zipper: immutable.Seq[A] ⇒ O)(n: Int) = new ZipWithN[A, O](zipper)(n)
+}
+
+/**
+ * Combine the elements of multiple streams into a stream of sequences using a combiner function.
+ *
+ * A `ZipWithN` has a `n` input ports and one `out` port
+ *
+ * '''Emits when''' all of the inputs has an element available
+ *
+ * '''Backpressures when''' downstream backpressures
+ *
+ * '''Completes when''' any upstream completes
+ *
+ * '''Cancels when''' downstream cancels
+ */
+class ZipWithN[A, O](zipper: immutable.Seq[A] ⇒ O)(n: Int) extends GraphStage[UniformFanInShape[A, O]] {
+  override def initialAttributes = DefaultAttributes.zipWithN
+  override val shape = new UniformFanInShape[A, O](n)
+  def out = shape.out
+  val inSeq = shape.inSeq
+
+  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new GraphStageLogic(shape) {
+    var pending = 0
+    // Without this field the completion signalling would take one extra pull
+    var willShutDown = false
+
+    val grabInlet = grab[A] _
+    val pullInlet = pull[A] _
+
+    private def pushAll(): Unit = {
+      push(out, zipper(inSeq.map(grabInlet)))
+      if (willShutDown) completeStage()
+      else inSeq.foreach(pullInlet)
+    }
+
+    override def preStart(): Unit = {
+      inSeq.foreach(pullInlet)
+    }
+
+    inSeq.foreach(in ⇒ {
+      setHandler(in, new InHandler {
+        override def onPush(): Unit = {
+          pending -= 1
+          if (pending == 0) pushAll()
+        }
+
+        override def onUpstreamFinish(): Unit = {
+          if (!isAvailable(in)) completeStage()
+          willShutDown = true
+        }
+
+      })
+    })
+
+    setHandler(out, new OutHandler {
+      override def onPull(): Unit = {
+        pending += n
+        if (pending == 0) pushAll()
+      }
+    })
+  }
+
+  override def toString = "ZipWithN"
+
+}
+
 object Concat {
   /**
    * Create a new `Concat`.
@@ -817,7 +913,7 @@ object GraphDSL extends GraphApply {
     def add[S <: Shape](graph: Graph[S, _]): S = {
       if (StreamLayout.Debug) StreamLayout.validate(graph.module)
       val copy = graph.module.carbonCopy
-      moduleInProgress = moduleInProgress.compose(copy)
+      moduleInProgress = moduleInProgress.compose(copy, Keep.left)
       graph.shape.copyFromPorts(copy.shape.inlets, copy.shape.outlets).asInstanceOf[S]
     }
 
@@ -830,7 +926,7 @@ object GraphDSL extends GraphApply {
     private[stream] def add[S <: Shape, A](graph: Graph[S, _], transform: (A) ⇒ Any): S = {
       if (StreamLayout.Debug) StreamLayout.validate(graph.module)
       val copy = graph.module.carbonCopy
-      moduleInProgress = moduleInProgress.compose(copy.transformMaterializedValue(transform.asInstanceOf[Any ⇒ Any]))
+      moduleInProgress = moduleInProgress.compose(copy.transformMaterializedValue(transform.asInstanceOf[Any ⇒ Any]), Keep.right)
       graph.shape.copyFromPorts(copy.shape.inlets, copy.shape.outlets).asInstanceOf[S]
     }
 
@@ -879,13 +975,6 @@ object GraphDSL extends GraphApply {
       val source = new MaterializedValueSource[M](moduleInProgress.materializedValueComputation)
       moduleInProgress = moduleInProgress.composeNoMat(source.module)
       source.out
-    }
-
-    private[stream] def deprecatedAndThen(port: OutPort, op: StageModule): Unit = {
-      moduleInProgress =
-        moduleInProgress
-          .compose(op)
-          .wire(port, op.inPort)
     }
 
     private[stream] def module: Module = moduleInProgress
@@ -1007,7 +1096,7 @@ object GraphDSL extends GraphApply {
     }
 
     private class PortOpsImpl[+Out](override val outlet: Outlet[Out @uncheckedVariance], b: Builder[_])
-        extends PortOps[Out] {
+      extends PortOps[Out] {
 
       override def withAttributes(attr: Attributes): Repr[Out] = throw settingAttrNotSupported
       override def addAttributes(attr: Attributes): Repr[Out] = throw settingAttrNotSupported
@@ -1021,11 +1110,6 @@ object GraphDSL extends GraphApply {
 
       override def via[T, Mat2](flow: Graph[FlowShape[Out, T], Mat2]): Repr[T] =
         super.~>(flow)(b)
-
-      override private[scaladsl] def deprecatedAndThen[U](op: StageModule): Repr[U] = {
-        b.deprecatedAndThen(outlet, op)
-        new PortOpsImpl(op.shape.out.asInstanceOf[Outlet[U]], b)
-      }
 
       def to[Mat2](sink: Graph[SinkShape[Out], Mat2]): Closed = {
         super.~>(sink)(b)

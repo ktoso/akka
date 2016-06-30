@@ -178,7 +178,8 @@ class HttpServerExampleSpec extends WordSpec with Matchers
 
     val requestHandler: HttpRequest => HttpResponse = {
       case HttpRequest(GET, Uri.Path("/"), _, _, _) =>
-        HttpResponse(entity = HttpEntity(ContentTypes.`text/html(UTF-8)`,
+        HttpResponse(entity = HttpEntity(
+          ContentTypes.`text/html(UTF-8)`,
           "<html><body>Hello world!</body></html>"))
 
       case HttpRequest(GET, Uri.Path("/ping"), _, _, _) =>
@@ -218,7 +219,8 @@ class HttpServerExampleSpec extends WordSpec with Matchers
 
         val requestHandler: HttpRequest => HttpResponse = {
           case HttpRequest(GET, Uri.Path("/"), _, _, _) =>
-            HttpResponse(entity = HttpEntity(ContentTypes.`text/html(UTF-8)`,
+            HttpResponse(entity = HttpEntity(
+              ContentTypes.`text/html(UTF-8)`,
               "<html><body>Hello world!</body></html>"))
 
           case HttpRequest(GET, Uri.Path("/ping"), _, _, _) =>
@@ -236,7 +238,7 @@ class HttpServerExampleSpec extends WordSpec with Matchers
         StdIn.readLine() // let it run until user presses return
         bindingFuture
           .flatMap(_.unbind()) // trigger unbinding from the port
-          .onComplete(_ ⇒ system.terminate()) // and shutdown when done
+          .onComplete(_ => system.terminate()) // and shutdown when done
 
       }
     }
@@ -278,7 +280,7 @@ class HttpServerExampleSpec extends WordSpec with Matchers
         StdIn.readLine() // let it run until user presses return
         bindingFuture
           .flatMap(_.unbind()) // trigger unbinding from the port
-          .onComplete(_ ⇒ system.terminate()) // and shutdown when done
+          .onComplete(_ => system.terminate()) // and shutdown when done
       }
     }
   }
@@ -310,7 +312,7 @@ class HttpServerExampleSpec extends WordSpec with Matchers
         StdIn.readLine() // let it run until user presses return
         bindingFuture
           .flatMap(_.unbind()) // trigger unbinding from the port
-          .onComplete(_ ⇒ system.terminate()) // and shutdown when done
+          .onComplete(_ => system.terminate()) // and shutdown when done
       }
     }
   }
@@ -417,7 +419,7 @@ class HttpServerExampleSpec extends WordSpec with Matchers
           getFromResourceDirectory("docs")
         }
       } ~
-      path("oldApi" / Rest) { pathRest =>
+      path("oldApi" / Remaining) { pathRest =>
         redirect("http://oldapi.example.com/" + pathRest, MovedPermanently)
       }
     }
@@ -466,7 +468,7 @@ class HttpServerExampleSpec extends WordSpec with Matchers
         StdIn.readLine() // let it run until user presses return
         bindingFuture
           .flatMap(_.unbind()) // trigger unbinding from the port
-          .onComplete(_ ⇒ system.terminate()) // and shutdown when done
+          .onComplete(_ => system.terminate()) // and shutdown when done
       }
     }
     //#stream-random-numbers
@@ -516,7 +518,7 @@ class HttpServerExampleSpec extends WordSpec with Matchers
               parameter("bid".as[Int], "user") { (bid, user) =>
                 // place a bid, fire-and-forget
                 auction ! Bid(user, bid)
-                complete(StatusCodes.Accepted, "bid placed")
+                complete((StatusCodes.Accepted, "bid placed"))
               }
             }
             get {
@@ -533,7 +535,7 @@ class HttpServerExampleSpec extends WordSpec with Matchers
         StdIn.readLine() // let it run until user presses return
         bindingFuture
           .flatMap(_.unbind()) // trigger unbinding from the port
-          .onComplete(_ ⇒ system.terminate()) // and shutdown when done
+          .onComplete(_ => system.terminate()) // and shutdown when done
 
       }
     }

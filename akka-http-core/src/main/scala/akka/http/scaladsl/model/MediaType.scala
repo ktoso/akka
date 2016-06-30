@@ -126,8 +126,8 @@ object MediaType {
   }
 
   def customWithFixedCharset(mainType: String, subType: String, charset: HttpCharset, fileExtensions: List[String] = Nil,
-                             params: Map[String, String] = Map.empty,
-                             allowArbitrarySubtypes: Boolean = false): WithFixedCharset = {
+                             params:                 Map[String, String] = Map.empty,
+                             allowArbitrarySubtypes: Boolean             = false): WithFixedCharset = {
     require(mainType != "multipart", "Cannot create a MediaType.Multipart here, use `customMultipart` instead!")
     require(allowArbitrarySubtypes || subType != "*", "Cannot create a MediaRange here, use `MediaRange.custom` instead!")
     val _params = params
@@ -143,8 +143,8 @@ object MediaType {
   }
 
   def customWithOpenCharset(mainType: String, subType: String, fileExtensions: List[String] = Nil,
-                            params: Map[String, String] = Map.empty,
-                            allowArbitrarySubtypes: Boolean = false): WithOpenCharset = {
+                            params:                 Map[String, String] = Map.empty,
+                            allowArbitrarySubtypes: Boolean             = false): WithOpenCharset = {
     require(mainType != "multipart", "Cannot create a MediaType.Multipart here, use `customMultipart` instead!")
     require(allowArbitrarySubtypes || subType != "*", "Cannot create a MediaRange here, use `MediaRange.custom` instead!")
     val _params = params
@@ -251,13 +251,15 @@ object MediaType {
       withParams(if (boundary.isEmpty) params - "boundary" else params.updated("boundary", boundary))
   }
 
-  sealed abstract class Compressibility(val compressible: Boolean)
+  sealed class Compressibility(val compressible: Boolean) extends jm.MediaType.Compressibility
   case object Compressible extends Compressibility(compressible = true)
   case object NotCompressible extends Compressibility(compressible = false)
   case object Gzipped extends Compressibility(compressible = false)
 }
 
 object MediaTypes extends ObjectRegistry[(String, String), MediaType] {
+  type FindCustom = (String, String) ⇒ Option[MediaType]
+
   private[this] var extensionMap = Map.empty[String, MediaType]
 
   def forExtensionOption(ext: String): Option[MediaType] = extensionMap.get(ext.toLowerCase)
@@ -274,7 +276,7 @@ object MediaTypes extends ObjectRegistry[(String, String), MediaType] {
 
   private def register[T <: MediaType](mediaType: T): T = {
     registerFileExtensions(mediaType)
-    register(mediaType.mainType.toRootLowerCase -> mediaType.subType.toRootLowerCase, mediaType)
+    register(mediaType.mainType.toRootLowerCase → mediaType.subType.toRootLowerCase, mediaType)
   }
 
   import MediaType._  

@@ -28,9 +28,9 @@ object SplitBrainResolverSpec {
   def joining(m: Member): Member = Member(m.uniqueAddress, m.roles)
 
   class DowningTestActor(
-    stableAfter: FiniteDuration,
-    strategy: SplitBrainResolver.Strategy,
-    probe: ActorRef,
+    stableAfter:                    FiniteDuration,
+    strategy:                       SplitBrainResolver.Strategy,
+    probe:                          ActorRef,
     override val selfUniqueAddress: UniqueAddress)
     extends SplitBrainResolverBase(stableAfter, strategy) {
 

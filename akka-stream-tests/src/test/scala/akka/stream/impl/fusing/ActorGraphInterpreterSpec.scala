@@ -4,15 +4,19 @@
 package akka.stream.impl.fusing
 
 import java.util.concurrent.CountDownLatch
+
 import akka.stream._
+import akka.stream.impl.ReactiveStreamsCompliance.SpecViolation
 import akka.stream.scaladsl._
 import akka.stream.stage.{ GraphStage, GraphStageLogic, InHandler, OutHandler }
 import akka.stream.testkit.Utils._
 import akka.stream.testkit.{ TestPublisher, TestSubscriber }
 import akka.testkit.EventFilter
+
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import akka.testkit.AkkaSpec
+import org.reactivestreams.{ Publisher, Subscriber, Subscription }
 
 class ActorGraphInterpreterSpec extends AkkaSpec {
   implicit val materializer = ActorMaterializer()
@@ -216,17 +220,16 @@ class ActorGraphInterpreterSpec extends AkkaSpec {
 
       val takeAll = Flow[Int].grouped(200).toMat(Sink.head)(Keep.right)
 
-      val (f1, f2) = RunnableGraph.fromGraph(GraphDSL.create(takeAll, takeAll)(Keep.both) { implicit b ⇒
-        (out1, out2) ⇒
-          import GraphDSL.Implicits._
-          val bidi = b.add(rotatedBidi)
+      val (f1, f2) = RunnableGraph.fromGraph(GraphDSL.create(takeAll, takeAll)(Keep.both) { implicit b ⇒ (out1, out2) ⇒
+        import GraphDSL.Implicits._
+        val bidi = b.add(rotatedBidi)
 
-          Source(1 to 10) ~> bidi.in1
-          out2 <~ bidi.out2
+        Source(1 to 10) ~> bidi.in1
+        out2 <~ bidi.out2
 
-          bidi.in2 <~ Source(1 to 100)
-          bidi.out1 ~> out1
-          ClosedShape
+        bidi.in2 <~ Source(1 to 100)
+        bidi.out1 ~> out1
+        ClosedShape
       }).run()
 
       Await.result(f1, 3.seconds) should ===(1 to 100)
@@ -329,6 +332,63 @@ class ActorGraphInterpreterSpec extends AkkaSpec {
       upstream.sendComplete()
       downstream1.expectComplete()
 
+    }
+
+    "be able to handle Publisher spec violations without leaking" in assertAllStagesStopped {
+      val filthyPublisher = new Publisher[Int] {
+        override def subscribe(s: Subscriber[_ >: Int]): Unit = {
+          s.onSubscribe(new Subscription {
+            override def cancel(): Unit = ()
+            override def request(n: Long): Unit = throw TE("violating your spec")
+          })
+        }
+      }
+
+      val upstream = TestPublisher.probe[Int]()
+      val downstream = TestSubscriber.probe[Int]()
+
+      Source.combine(
+        Source.fromPublisher(filthyPublisher),
+        Source.fromPublisher(upstream))(count ⇒ Merge(count))
+        .runWith(Sink.fromSubscriber(downstream))
+
+      upstream.ensureSubscription()
+      upstream.expectCancellation()
+
+      downstream.ensureSubscription()
+
+      val ise = downstream.expectError()
+      ise shouldBe an[IllegalStateException]
+      ise.getCause shouldBe a[SpecViolation]
+      ise.getCause.getCause shouldBe a[TE]
+      ise.getCause.getCause should (have message ("violating your spec"))
+    }
+
+    "be able to handle Subscriber spec violations without leaking" in assertAllStagesStopped {
+      val filthySubscriber = new Subscriber[Int] {
+        override def onSubscribe(s: Subscription): Unit = s.request(1)
+        override def onError(t: Throwable): Unit = ()
+        override def onComplete(): Unit = ()
+        override def onNext(t: Int): Unit = throw TE("violating your spec")
+      }
+
+      val upstream = TestPublisher.probe[Int]()
+      val downstream = TestSubscriber.probe[Int]()
+
+      Source.fromPublisher(upstream)
+        .alsoTo(Sink.fromSubscriber(downstream))
+        .runWith(Sink.fromSubscriber(filthySubscriber))
+
+      upstream.sendNext(0)
+
+      downstream.requestNext(0)
+      val ise = downstream.expectError()
+      ise shouldBe an[IllegalStateException]
+      ise.getCause shouldBe a[SpecViolation]
+      ise.getCause.getCause shouldBe a[TE]
+      ise.getCause.getCause should (have message ("violating your spec"))
+
+      upstream.expectCancellation()
     }
 
   }

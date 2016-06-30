@@ -61,6 +61,15 @@ private[stream] object Stages {
     val processor = name("processor")
     val processorWithKey = name("processorWithKey")
     val identityOp = name("identityOp")
+    val delimiterFraming = name("delimiterFraming")
+
+    val initial = name("initial")
+    val completion = name("completion")
+    val idle = name("idle")
+    val idleTimeoutBidi = name("idleTimeoutBidi")
+    val delayInitial = name("delayInitial")
+    val idleInject = name("idleInject")
+    val backpressureTimeout = name("backpressureTimeout")
 
     val merge = name("merge")
     val mergePreferred = name("mergePreferred")
@@ -69,17 +78,20 @@ private[stream] object Stages {
     val broadcast = name("broadcast")
     val balance = name("balance")
     val zip = name("zip")
+    val zipN = name("zipN")
+    val zipWithN = name("zipWithN")
     val unzip = name("unzip")
     val concat = name("concat")
     val repeat = name("repeat")
     val unfold = name("unfold")
     val unfoldAsync = name("unfoldAsync")
-    val delay = name("delay") and inputBuffer(16, 16)
+    val delay = name("delay")
 
     val terminationWatcher = name("terminationWatcher")
 
     val publisherSource = name("publisherSource")
     val iterableSource = name("iterableSource")
+    val cycledSource = name("cycledSource")
     val futureSource = name("futureSource")
     val tickSource = name("tickSource")
     val singleSource = name("singleSource")
@@ -97,6 +109,9 @@ private[stream] object Stages {
     val fileSource = name("fileSource") and IODispatcher
     val unfoldResourceSource = name("unfoldResourceSource") and IODispatcher
     val unfoldResourceSourceAsync = name("unfoldResourceSourceAsync") and IODispatcher
+    val asJavaStream = name("asJavaStream") and IODispatcher
+    val javaCollectorParallelUnordered = name("javaCollectorParallelUnordered")
+    val javaCollector = name("javaCollector")
 
     val subscriberSink = name("subscriberSink")
     val cancelledSink = name("cancelledSink")
@@ -114,16 +129,11 @@ private[stream] object Stages {
     val queueSink = name("queueSink")
     val outputStreamSink = name("outputStreamSink") and IODispatcher
     val inputStreamSink = name("inputStreamSink") and IODispatcher
-    val fileSink = name("fileSource") and IODispatcher
+    val fileSink = name("fileSink") and IODispatcher
+    val fromJavaStream = name("fromJavaStream")
   }
 
   import DefaultAttributes._
-
-  // FIXME: To be deprecated as soon as stream-of-stream operations are stages
-  sealed trait StageModule extends FlowModule[Any, Any, Any] {
-    def withAttributes(attributes: Attributes): StageModule
-    override def carbonCopy: Module = withAttributes(attributes)
-  }
 
   /*
    * Stage that is backed by a GraphStage but can be symbolically introspected
@@ -153,14 +163,6 @@ private[stream] object Stages {
     override def create(attr: Attributes): Stage[T, T] = fusing.Log(name, extract, loggingAdapter, supervision(attr))
   }
 
-  final case class Filter[T](p: T ⇒ Boolean, attributes: Attributes = filter) extends SymbolicStage[T, T] {
-    override def create(attr: Attributes): Stage[T, T] = fusing.Filter(p, supervision(attr))
-  }
-
-  final case class Recover[In, Out >: In](pf: PartialFunction[Throwable, Out], attributes: Attributes = recover) extends SymbolicStage[In, Out] {
-    override def create(attr: Attributes): Stage[In, Out] = fusing.Recover(pf)
-  }
-
   final case class Grouped[T](n: Int, attributes: Attributes = grouped) extends SymbolicStage[T, immutable.Seq[T]] {
     require(n > 0, "n must be greater than 0")
     override def create(attr: Attributes): Stage[T, immutable.Seq[T]] = fusing.Grouped(n)
@@ -173,10 +175,6 @@ private[stream] object Stages {
     override def create(attr: Attributes): Stage[T, immutable.Seq[T]] = fusing.Sliding(n, step)
   }
 
-  final case class Scan[In, Out](zero: Out, f: (Out, In) ⇒ Out, attributes: Attributes = scan) extends SymbolicStage[In, Out] {
-    override def create(attr: Attributes): Stage[In, Out] = fusing.Scan(zero, f, supervision(attr))
-  }
-
   final case class Fold[In, Out](zero: Out, f: (Out, In) ⇒ Out, attributes: Attributes = fold) extends SymbolicStage[In, Out] {
     override def create(attr: Attributes): Stage[In, Out] = fusing.Fold(zero, f, supervision(attr))
   }
@@ -186,14 +184,4 @@ private[stream] object Stages {
     override def create(attr: Attributes): Stage[T, T] = fusing.Buffer(size, overflowStrategy)
   }
 
-  // FIXME: These are not yet proper stages, therefore they use the deprecated StageModule infrastructure
-
-  final case class GroupBy(maxSubstreams: Int, f: Any ⇒ Any, attributes: Attributes = groupBy) extends StageModule {
-    override def withAttributes(attributes: Attributes) = copy(attributes = attributes)
-    override protected def label: String = s"GroupBy($maxSubstreams)"
-  }
-
-  final case class DirectProcessor(p: () ⇒ (Processor[Any, Any], Any), attributes: Attributes = processor) extends StageModule {
-    override def withAttributes(attributes: Attributes) = copy(attributes = attributes)
-  }
 }

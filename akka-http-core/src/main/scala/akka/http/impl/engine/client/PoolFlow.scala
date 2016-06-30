@@ -4,7 +4,6 @@
 
 package akka.http.impl.engine.client
 
-import java.net.InetSocketAddress
 import akka.NotUsed
 import akka.http.scaladsl.settings.ConnectionPoolSettings
 
@@ -27,28 +26,28 @@ private object PoolFlow {
   /*
     Pool Flow Stream Setup
     ======================
-                                               +-------------------+                             
-                                               |                   |                             
-                                        +----> | Connection Slot 1 +---->                        
-                                        |      |                   |    |                        
-                                        |      +---+---------------+    |                        
-                                        |          |                    |                        
-                       +-----------+    |      +-------------------+    |      +---------------+
-      RequestContext   |           +----+      |                   |    +----> |               |  ResponseContext
-    +----------------> | Conductor |---------> | Connection Slot 2 +---------> | responseMerge +------------------>
-                       |           +----+      |                   |    +----> |               |
-                       +-----------+    |      +---------+---------+    |      +---------------+
-                             ^          |          |     |              |                        
-                             |          |      +-------------------+    |                        
-                             |          |      |                   |    |                        
-                RawSlotEvent |          +----> | Connection Slot 3 +---->                        
-                             |                 |                   |                             
-                             |                 +---------------+---+                             
-                             |                     |     |     |                                    
-                       +-----------+  RawSlotEvent |     |     | 
-                       | slotEvent | <-------------+     |     |
-                       |   Merge   | <-------------------+     |                                  
-                       |           | <-------------------------+                                  
+                                               +-------------------+                             
+                                               |                   |                             
+                                        +----> | Connection Slot 1 +---->                        
+                                        |      |                   |    |                        
+                                        |      +---+---------------+    |                        
+                                        |          |                    |                        
+                       +-----------+    |      +-------------------+    |      +---------------+
+      RequestContext   |           +----+      |                   |    +----> |               |  ResponseContext
+    +----------------> | Conductor |---------> | Connection Slot 2 +---------> | responseMerge +------------------>
+                       |           +----+      |                   |    +----> |               |
+                       +-----------+    |      +---------+---------+    |      +---------------+
+                             ^          |          |     |              |                        
+                             |          |      +-------------------+    |                        
+                             |          |      |                   |    |                        
+                RawSlotEvent |          +----> | Connection Slot 3 +---->                        
+                             |                 |                   |                             
+                             |                 +---------------+---+                             
+                             |                     |     |     |                                    
+                       +-----------+  RawSlotEvent |     |     | 
+                       | slotEvent | <-------------+     |     |
+                       |   Merge   | <-------------------+     |                                  
+                       |           | <-------------------------+                                  
                        +-----------+
 
     Conductor:
@@ -68,17 +67,19 @@ private object PoolFlow {
     - Simple merge of the Connection Slots' outputs
 
   */
-  def apply(connectionFlow: Flow[HttpRequest, HttpResponse, Future[Http.OutgoingConnection]],
-            remoteAddress: InetSocketAddress, settings: ConnectionPoolSettings, log: LoggingAdapter)(
-              implicit system: ActorSystem, fm: Materializer): Flow[RequestContext, ResponseContext, NotUsed] =
+  def apply(
+    connectionFlow: Flow[HttpRequest, HttpResponse, Future[Http.OutgoingConnection]],
+    settings:       ConnectionPoolSettings, log: LoggingAdapter)(
+    implicit
+    system: ActorSystem, fm: Materializer): Flow[RequestContext, ResponseContext, NotUsed] =
     Flow.fromGraph(GraphDSL.create[FlowShape[RequestContext, ResponseContext]]() { implicit b ⇒
       import settings._
       import GraphDSL.Implicits._
 
       val conductor = b.add(PoolConductor(maxConnections, pipeliningLimit, log))
       val slots = Vector
-        .tabulate(maxConnections)(PoolSlot(_, connectionFlow, remoteAddress, settings))
-        .map(b.add(_))
+        .tabulate(maxConnections)(PoolSlot(_, connectionFlow, settings))
+        .map(b.add)
       val responseMerge = b.add(Merge[ResponseContext](maxConnections))
       val slotEventMerge = b.add(Merge[PoolSlot.RawSlotEvent](maxConnections))
 

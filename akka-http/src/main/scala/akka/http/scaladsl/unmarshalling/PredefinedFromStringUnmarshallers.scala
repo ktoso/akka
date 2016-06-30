@@ -30,19 +30,18 @@ trait PredefinedFromStringUnmarshallers {
   implicit val booleanFromStringUnmarshaller: Unmarshaller[String, Boolean] =
     Unmarshaller.strict[String, Boolean] { string ⇒
       string.toLowerCase match {
-        case "true" | "yes" | "on"  ⇒ true
-        case "false" | "no" | "off" ⇒ false
-        case ""                     ⇒ throw Unmarshaller.NoContentException
-        case x                      ⇒ throw new IllegalArgumentException(s"'$x' is not a valid Boolean value")
+        case "true" | "yes" | "on" | "1"  ⇒ true
+        case "false" | "no" | "off" | "0" ⇒ false
+        case ""                           ⇒ throw Unmarshaller.NoContentException
+        case x                            ⇒ throw new IllegalArgumentException(s"'$x' is not a valid Boolean value")
       }
     }
 
   implicit def CsvSeq[T](implicit unmarshaller: Unmarshaller[String, T]): Unmarshaller[String, immutable.Seq[T]] =
     Unmarshaller.strict[String, immutable.Seq[String]] { string ⇒
       string.split(",").toList
-    } flatMap { implicit ec ⇒
-      implicit mat ⇒ strings ⇒
-        FastFuture.sequence(strings.map(unmarshaller(_)))
+    } flatMap { implicit ec ⇒ implicit mat ⇒ strings ⇒
+      FastFuture.sequence(strings.map(unmarshaller(_)))
     }
 
   val HexByte: Unmarshaller[String, Byte] =
