@@ -74,7 +74,7 @@ private[akka] object DiagnosticsRecorder extends ExtensionId[DiagnosticsRecorder
    * The MBean interface of the Diagnostics Recorder
    */
   @Description("Akka Dignostics Recorder writes configuration and system information to a " +
-    "file that can be attached to your Typesafe support cases.")
+    "file that can be attached to your Lightbend support cases.")
   trait DiagnosticsRecorderMBean {
     @Description("The location of the diagnostics file.")
     def getReportFileLocation: String
@@ -92,8 +92,8 @@ private[akka] object DiagnosticsRecorder extends ExtensionId[DiagnosticsRecorder
 
 /**
  * INTERNAL API: Akka Diagnostics Recorder writes configuration and system information
- * to a file that customers can attach to Typesafe support cases.
- * The information will help us at Typesafe to give you the best possible support.
+ * to a file that customers can attach to Lightbend support cases.
+ * The information will help us at Lightbend to give you the best possible support.
  *
  * It will register a MBean in the "akka" name space, which can be accessed
  * from a JMX console such as JConsole. From JMX you can trigger thread dumps
@@ -199,8 +199,8 @@ private[akka] class DiagnosticsRecorder(system: ExtendedActorSystem) extends Ext
     try {
       writer.print("Please attach the ")
       writer.print(infoFileName)
-      writer.println(" file to your Typesafe support cases at http://support.typesafe.com/")
-      writer.println("The information will help us at Typesafe to give you the best possible support.")
+      writer.println(" file to your Lightbend support cases at http://support.lightbend.com/")
+      writer.println("The information will help us at Lightbend to give you the best possible support.")
     } finally {
       Try(writer.close())
     }

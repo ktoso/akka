@@ -1,10 +1,9 @@
-Typesafe Reactive Platform
+Lightbend Reactive Platform
 ==========================
 
 The following are provided as commercial features in the
-`Typesafe Reactive Platform <http://www.typesafe.com/products/typesafe-reactive-platform>`_.
-These features are exclusively available for `Typesafe Project Success Subscription <http://www.typesafe.com/subscription>`_ 
-customers.
+`Lightbend Reactive Platform <http://www.lightbend.com/products/lightbend-reactive-platform>`_.
+These features are exclusively available for Lightbend customers.
 
 .. toctree::
    :maxdepth: 2

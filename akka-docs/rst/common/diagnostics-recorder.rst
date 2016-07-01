@@ -5,16 +5,15 @@
 ######################
 
 The Akka Diagnostics Recorder writes configuration and system information
-to a file that can be attached to your `Typesafe support cases <http://support.typesafe.com/>`_.
-The information will help us at Typesafe to give you the best possible support.
+to a file that can be attached to your `Lightbend support cases <http://support.lightbend.com/>`_.
+The information will help us at Lightbend to give you the best possible support.
 
 It will also register a MBean in the "akka" name space, which can be accessed
 from a JMX console such as JConsole. From JMX you can trigger thread dumps
 that will also be appended to the file.
 
-.. note:: The Diagnostics Recorder is a feature of the `Typesafe Reactive Platform <http://www.typesafe.com/products/typesafe-reactive-platform>`_
-          that is exclusively available for 
-          `Typesafe Project Success Subscription <http://www.typesafe.com/subscription>`_ customers.
+.. note:: The Diagnostics Recorder is a feature of the `Lightbend Reactive Platform <http://www.lightbend.com/products/lightbend-reactive-platform>`_
+          that is exclusively available for Lightbend customers.
 
 File Location
 =============
@@ -51,7 +50,7 @@ Sensitive configuration
 -----------------------
 
 The diagnostics report file is in human readable JSON format so you can inspect it
-before sending it to Typesafe.
+before sending it to Lightbend.
 
 Some configuration properties might not be appropriate to share with others
 and such properties can be excluded from the diagnostics report by adding

@@ -9,12 +9,11 @@ When operating an Akka cluster you must consider how to handle
 and machine crashes (including JVM and hardware failures). This is crucial for correct behavior if 
 you use Cluster Singleton or Cluster Sharding, especially together with Akka Persistence.
 
-.. note:: This is a feature of the `Typesafe Reactive Platform <http://www.typesafe.com/products/typesafe-reactive-platform>`_
-          that is exclusively available for 
-          `Typesafe Project Success Subscription <http://www.typesafe.com/subscription>`_ customers.
+.. note:: This is a feature of the `Lightbend Reactive Platform <http://www.lightbend.com/products/lightbend-reactive-platform>`_
+          that is exclusively available for Lightbend customers.
 
 To use the Split Brain Resolver feature you must  
-`install Typesafe Reactive Platform <https://together.typesafe.com/products/reactivePlatform>`_.
+`install Lightbend Reactive Platform <https://together.typesafe.com/products/reactivePlatform>`_.
 
 The Problem
 ===========

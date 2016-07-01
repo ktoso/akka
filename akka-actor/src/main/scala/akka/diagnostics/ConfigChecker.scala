@@ -88,7 +88,7 @@ object ConfigChecker {
 
     def logWarnings(result: ValidationResults): Unit =
       if (result.warnings.nonEmpty) {
-        val formatted = result.warnings.map(w ⇒ typesafeRecommendation(format(w)))
+        val formatted = result.warnings.map(w ⇒ lightbendRecommendation(format(w)))
         val log = Logging.getLogger(system, classOf[ConfigChecker].getName)
         formatted.foreach(log.warning)
       }
@@ -106,7 +106,7 @@ object ConfigChecker {
       case FailOnWarnings ⇒
         val result = runChecks()
         if (result.warnings.nonEmpty)
-          throw new IllegalArgumentException(typesafeRecommendation(
+          throw new IllegalArgumentException(lightbendRecommendation(
             result.warnings.map(format).mkString("\n* ", "\n* ", "\n")))
     }
   }
@@ -122,8 +122,8 @@ object ConfigChecker {
       s"akka.diagnostics.checker.disabled-checks."
   }
 
-  private def typesafeRecommendation(msg: String): String =
-    s"Typesafe recommendation: $msg Please use http://support.typesafe.com/ if you " +
+  private def lightbendRecommendation(msg: String): String =
+    s"Lightbend recommendation: $msg Please use http://support.lightbend.com/ if you " +
       "need more advice around this warning."
 
   /**

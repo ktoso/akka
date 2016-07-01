@@ -16,25 +16,24 @@ seen in mailing lists and customer consulting.
 
 The advice the tool can give is of course of general character and there will always be
 cases where it is wrong and the given configuration is appropriate for the specific
-system. Do not hesitate to use `Typesafe Support <http://support.typesafe.com/>`_ if
+system. Do not hesitate to use `Lightbend Support <http://support.lightbend.com/>`_ if
 you need more advice or discussion.
 
 As a general rule; use default values until you have a problem or are sure that the
 adjustment is needed.
 
-.. note:: This is a feature of the `Typesafe Reactive Platform <http://www.typesafe.com/products/typesafe-reactive-platform>`_
-          that is exclusively available for 
-          `Typesafe Project Success Subscription <http://www.typesafe.com/subscription>`_ customers.
+.. note:: This is a feature of the `Lightbend Reactive Platform <http://www.lightbend.com/products/lightbend-reactive-platform>`_
+          that is exclusively available for Lightbend customers.
 
 What is the output?
 ===================
 
 By default the checker will be run when the actor system is started and it will log 
-recommendations at warning log level. Those log messages start with "Typesafe recommendation: ",
+recommendations at warning log level. Those log messages start with "Lightbend recommendation: ",
 so it should be easy to find them. Such a recommendation log message may look like:
 
 +------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| [WARN] [10/01/2015 18:25:03.107] [main] [akka.diagnostics.ConfigChecker] Typesafe recommendation: Use throughput-deadline-time when dispatcher is configured with high throughput [200] batching to avoid unfair processing. Related config properties: [my-dispatcher.throughput = 200, my-dispatcher.throughput-deadline-time]. You may disable this check by adding [dispatcher-throughput] to configuration string list akka.diagnostics.checker.disabled-checks. Please use http://support.typesafe.com/ if you need more advice around this warning. |
+| [WARN] [10/01/2015 18:25:03.107] [main] [akka.diagnostics.ConfigChecker] Lightbend recommendation: Use throughput-deadline-time when dispatcher is configured with high throughput [200] batching to avoid unfair processing. Related config properties: [my-dispatcher.throughput = 200, my-dispatcher.throughput-deadline-time]. You may disable this check by adding [dispatcher-throughput] to configuration string list akka.diagnostics.checker.disabled-checks. Please use http://support.lightbend.com/ if you need more advice around this warning. |
 +------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 The log messages are emitted by the ``akka.diagnostics.ConfigChecker`` logger, which is good to
