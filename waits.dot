@@ -1,0 +1,26 @@
+digraph waits {
+N0 [label="Filter"]
+N1 [label="akka.stream.scaladsl.MergePreferred@37d07d8b"]
+N2 [label="akka.http.impl.engine.client.PoolConductor$Route@36e69569"]
+N3 [label="Merge"]
+N4 [label="Broadcast"]
+N5 [label="MapAsyncUnordered(1,<function1>)"]
+N6 [label="akka.http.impl.engine.client.PoolSlot$SlotProcessor@10800d42"]
+N7 [label="akka.http.impl.engine.client.PoolConductor$SlotSelector@18e9c97a"]
+N8 [label="Merge"]
+N9 [label="Collect"]
+  In0 -> N1 [label=shouldPush; color=red];
+  N4 -> N0 [label=shouldPush; color=red];
+  N9 -> N1 [label=shouldPush; color=red];
+  N7 -> N2 [label=shouldPush; color=red];
+  N6 -> N3 [label=shouldPush; color=red];
+  N3 -> N4 [label=shouldPush; color=red];
+  N0 -> N5 [label=shouldPush; color=red];
+  N6 -> N2 [label=shouldPull; color=blue]
+  N7 -> N1 [label=shouldPull; color=blue]
+  N5 -> N7 [label=shouldPush; color=red];
+  N6 -> N8 [label=shouldPush; color=red];
+  N4 -> N9 [label=shouldPush; color=red];
+  N8 -> Out12 [label=shouldPush; color=red];
+}
+// (16, 85, 85)() (running=10, shutdown=2,3,2,2,3,2,3,3,2,2)

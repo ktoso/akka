@@ -11,7 +11,7 @@ import akka.http.scaladsl.model.{ HttpEntity, HttpRequest, HttpResponse }
 import akka.stream.impl.{ ActorMaterializerImpl, ConstantFun }
 import akka.stream._
 import akka.stream.scaladsl._
-import akka.stream.stage.{ GraphStage, GraphStageLogic, InHandler, OutHandler }
+import akka.stream.stage._
 import akka.stream.{ Graph, Materializer }
 
 import scala.collection.immutable
@@ -38,21 +38,9 @@ private object PoolSlot {
     final case class ConnectedEagerly(slotIx: Int) extends SlotEvent
   }
 
-  /*
-    Stream Setup
-    ============
-
-    Request-   +-----------+              +-------------+              +------------+
-    Context    | Slot-     |  List[       |   flatten   |  Processor-  | SlotEvent- |  Response-
-    +--------->| Processor +------------->| (MapConcat) +------------->| Split      +------------->
-               |           |  Processor-  |             |  Out         |            |  Context
-               +-----------+  Out]        +-------------+              +-----+------+
-                                                                             | RawSlotEvent
-                                                                             | (to Conductor
-                                                                             |  via slotEventMerge)
-                                                                             v
-   */
-  def apply(slotIx: Int, connectionFlow: Flow[HttpRequest, HttpResponse, Any])(implicit m: Materializer): Graph[FanOutShape2[SlotCommand, ResponseContext, RawSlotEvent], Any] = {
+  def apply(slotIx: Int, connectionFlow: Flow[HttpRequest, HttpResponse, Any])(
+    implicit
+    m: Materializer): Graph[FanOutShape2[SlotCommand, ResponseContext, RawSlotEvent], Any] = {
     val log = ActorMaterializerHelper.downcast(m).logger
     new SlotProcessor(slotIx, connectionFlow, log)
   }
@@ -73,65 +61,83 @@ private object PoolSlot {
     val responsesOut: Outlet[ResponseContext] = Outlet("SlotProcessor.responseOut")
     val eventsOut: Outlet[RawSlotEvent] = Outlet("SlotProcessor.eventOut")
 
-    override def shape: FanOutShape2[SlotCommand, ResponseContext, RawSlotEvent] = new FanOutShape2(commandsIn, responsesOut, eventsOut)
+    override val shape = new FanOutShape2(commandsIn, responsesOut, eventsOut)
 
     override def createLogic(commandsInheritedAttributes: Attributes): GraphStageLogic =
-      new GraphStageLogic(shape) with InHandler /* with OutHandler */ { self ⇒
-        private var inflightRequests = immutable.Queue.empty[RequestContext]
+      new TimerGraphStageLogic(shape) with InHandler /* with OutHandler */ { unconnected ⇒
+        private val inflightRequests = new java.util.ArrayDeque[RequestContext](4)
 
-        private var connectionFlowSource: SubSourceOutlet[HttpRequest] = _
-        private var connectionFlowSink: SubSinkInlet[HttpResponse] = _
+        private var connectionOutlet: SubSourceOutlet[HttpRequest] = _
+        private var connectionInlet: SubSinkInlet[HttpResponse] = _
 
         private var firstRequest: RequestContext = _
 
-        private lazy val connectionOutFlowHandler = new OutHandler {
-          // connectionFlowSource is ready for an element, we can send a HttpRequest to the subflow
+        // unconnected
+        override def onPush(): Unit = grab(commandsIn) match {
+          case ConnectEagerlyCommand ⇒
+            log.debug("BERN-{}: PoolSlot: onPush when unconnected", slotIx)
+            runConnect()
+
+          case DispatchCommand(rc: RequestContext) ⇒
+            log.debug("BERN-{}: PoolSlot: onPush({}) when unconnected", slotIx, rc)
+            firstRequest = rc
+
+            runConnect()
+        }
+
+        private def connectionOutFlowHandler = new OutHandler {
+          // connectionOutlet is ready for an element, we can send a HttpRequest to the subflow
           override def onPull(): Unit = {
             log.debug("BERN-{}: connectionFlow: onPull, first {} inflight {}", slotIx, firstRequest, inflightRequests)
 
             // give the connectionFlow a HttpRequest
             if (firstRequest ne null) {
-              inflightRequests = inflightRequests.enqueue(firstRequest)
-              connectionFlowSource.push(firstRequest.request)
-
+              inflightRequests.add(firstRequest)
+              connectionOutlet.push(firstRequest.request)
               firstRequest = null
-            } else if (isAvailable(commandsIn)) grab(commandsIn) match {
-              case DispatchCommand(rc) ⇒
-                inflightRequests = inflightRequests.enqueue(rc)
-                connectionFlowSource.push(rc.request)
-              case x ⇒
-                log.error("invalid command {}", x)
-            }
+            } else if (isAvailable(commandsIn))
+              grab(commandsIn) match {
+                case DispatchCommand(rc) ⇒
+                  inflightRequests.add(rc)
+                  connectionOutlet.push(rc.request)
+                case x ⇒
+                  log.error("invalid command {}", x)
+              }
             if (!hasBeenPulled(commandsIn)) pull(commandsIn)
           }
 
-          // connectionFlowSource has been closed (IgnoreTerminateOutput)
+          // connectionOutlet has been closed (IgnoreTerminateOutput)
           override def onDownstreamFinish(): Unit = {
             log.debug("BERN-{}: onDownstreamFinish first {} inflight {}!!", slotIx, firstRequest, inflightRequests)
-
-            connectionFlowSource.complete()
 
             if (firstRequest == null && inflightRequests.isEmpty) {
               push(eventsOut, SlotEvent.Disconnected(slotIx, 0))
 
-              connectionFlowSource.complete()
-              setHandler(commandsIn, self)
+              connectionOutlet.complete()
+              setHandler(commandsIn, unconnected)
+
+              if (!hasBeenPulled(commandsIn)) pull(commandsIn)
             }
+
+            //            if (!inflightRequests.isEmpty) {
+            //              import scala.collection.JavaConverters._
+            //              log.info("BERN-{}: onDownstreamFinish RECONNECTING since pending requests {}...", slotIx, inflightRequests.asScala.map(_.request.uri))
+            //              runConnect()
+            //            }
           }
         }
 
-        private lazy val connectionInFlowHandler = new InHandler {
+        private def connectionInFlowHandler = new InHandler {
 
-          // a new element is available on connectionFlowSink Inlet - that is a HttpResponse is being returned
+          // a new element is available on connectionInlet Inlet - that is a HttpResponse is being returned
           override def onPush(): Unit = {
             log.debug("BERN-{}: connectionFlow: onPush", slotIx)
             // consume a HttpResponse from the connectonFlow
 
-            val response: HttpResponse = connectionFlowSink.grab()
+            val response: HttpResponse = connectionInlet.grab()
 
             log.debug("BERN-{}: connectionFlow: onPush {} {}", slotIx, response)
-            val requestContext = inflightRequests.head
-            inflightRequests = inflightRequests.tail
+            val requestContext = inflightRequests.pop()
 
             val (entity, whenCompleted) = HttpEntity.captureTermination(response.entity)
             val delivery = ResponseDelivery(ResponseContext(requestContext, Success(response withEntity entity)))
@@ -140,13 +146,15 @@ private object PoolSlot {
             push(responsesOut, delivery.response)
             push(eventsOut, requestCompleted)
 
-            connectionFlowSink.pull()
+            connectionInlet.pull()
           }
 
-          // this would happen if we closed the source (so won't happen)
+          // this happens if we closed the source 
           override def onUpstreamFinish(): Unit = {
             log.debug("BERN-{}: onUpstreamFinish", slotIx)
-            //          connectionFlowSource.complete()
+            // TODO WHAT THEN?
+
+            runConnect()
           }
 
           // a Failure[HttpResponse] is coming back instead
@@ -156,84 +164,80 @@ private object PoolSlot {
               val ctx = ResponseContext(firstRequest, Failure(new UnexpectedDisconnectException("Unexpected (early) disconnect", ex)))
               emit(responsesOut, ctx, () ⇒ log.debug("Early disconnect failure"))
             } else {
-              inflightRequests.foreach { rc ⇒
+              import scala.collection.JavaConverters._
+              inflightRequests.iterator().asScala.foreach { rc ⇒
                 if (rc.retriesLeft == 0) emit(responsesOut, ResponseContext(rc, Failure(ex)), () ⇒ log.debug("Failure sent"))
                 else emit(eventsOut, SlotEvent.RetryRequest(rc.copy(retriesLeft = rc.retriesLeft - 1)), () ⇒ log.debug("Retry sent"))
               }
             }
             emit(eventsOut, SlotEvent.Disconnected(slotIx, inflightRequests.size), () ⇒ log.debug("Disconnected sent"))
             firstRequest = null
-            inflightRequests = immutable.Queue.empty
+            inflightRequests.clear()
 
-            connectionFlowSource.complete()
-            setHandler(commandsIn, self)
+            connectionOutlet.complete()
+            setHandler(commandsIn, unconnected)
           }
         }
 
-        private lazy val connected = new InHandler {
+        private def connected = new InHandler {
           override def onPush(): Unit = {
             log.debug("BERN-{}: PoolSlot: onPush when connected", slotIx)
-            if (connectionFlowSource.isAvailable) {
+            if (connectionOutlet.isAvailable) {
               grab(commandsIn) match {
                 case DispatchCommand(rc: RequestContext) ⇒
-                  inflightRequests = inflightRequests.enqueue(rc)
-                  connectionFlowSource.push(rc.request)
+                  inflightRequests.add(rc)
+                  connectionOutlet.push(rc.request)
                 case x ⇒
                   log.error("invalid command {}", x)
               }
               pull(commandsIn)
-            } else if (!connectionFlowSink.hasBeenPulled && !connectionFlowSink.isClosed) {
-              connectionFlowSink.pull()
+            } else if (!connectionInlet.hasBeenPulled) {
+              log.warning("connectionInlet.isClosed = " + connectionInlet.isClosed)
+              if (connectionInlet.isClosed) runConnect()
+              else connectionInlet.pull()
             }
           }
         }
 
-        // unconnected
-        override def onPush(): Unit = grab(commandsIn) match {
-          case ConnectEagerlyCommand ⇒
-            log.debug("BERN-{}: PoolSlot: onPush when unconnected", slotIx)
-            connectionFlowSource = new SubSourceOutlet[HttpRequest]("RequestSource")
-            connectionFlowSource.setHandler(connectionOutFlowHandler)
+        override def preStart(): Unit = {
+          // request first request/command
+          pull(commandsIn)
 
-            connectionFlowSink = new SubSinkInlet[HttpResponse]("ResponseSink")
-            connectionFlowSink.setHandler(connectionInFlowHandler)
-
-            setHandler(commandsIn, connected)
-
-            Source.fromGraph(connectionFlowSource.source).via(connectionFlow).runWith(Sink.fromGraph(connectionFlowSink.sink))(subFusingMaterializer)
-
-            connectionFlowSink.pull()
-
-          case DispatchCommand(rc: RequestContext) ⇒
-            log.debug("BERN-{}: PoolSlot: onPush({}) when unconnected", slotIx, rc)
-            connectionFlowSource = new SubSourceOutlet[HttpRequest]("RequestSource")
-            connectionFlowSource.setHandler(connectionOutFlowHandler)
-
-            connectionFlowSink = new SubSinkInlet[HttpResponse]("ResponseSink")
-            connectionFlowSink.setHandler(connectionInFlowHandler)
-
-            firstRequest = rc
-
-            setHandler(commandsIn, connected)
-
-            Source.fromGraph(connectionFlowSource.source).via(connectionFlow).runWith(Sink.fromGraph(connectionFlowSink.sink))(subFusingMaterializer)
-
-            connectionFlowSink.pull()
+          //          import scala.concurrent.duration._
+          //          scheduleOnce("DUMP", 15.seconds)
         }
-
-        // request first request/command
-        override def preStart(): Unit = pull(commandsIn)
 
         setHandler(commandsIn, this)
 
         setHandler(responsesOut, new OutHandler {
-          @scala.throws[Exception](classOf[Exception])
-          override def onPull(): Unit = log.debug("BERN-{}: PoolSlot: onPull(responsesOut)", slotIx)
+          override def onPull(): Unit = {
+            log.debug("BERN-{}: PoolSlot: onPull(responsesOut)", slotIx)
+          }
         })
         setHandler(eventsOut, new OutHandler {
-          @scala.throws[Exception](classOf[Exception])
           override def onPull(): Unit = log.debug("BERN-{}: PoolSlot: onPull(eventsOut)", slotIx)
         })
+
+        override protected def onTimer(timerKey: Any): Unit = {
+          interpreter.dumpWaits()
+        }
+
+        /** Materialize new connection and set up the apropriate SubSink/Sources */
+        private def runConnect(): Unit = {
+          log.info("RECONNECTING...")
+          connectionOutlet = new SubSourceOutlet[HttpRequest]("RequestSubSource")
+          connectionOutlet.setHandler(connectionOutFlowHandler)
+
+          connectionInlet = new SubSinkInlet[HttpResponse]("ResponseSubSink")
+          connectionInlet.setHandler(connectionInFlowHandler)
+
+          setHandler(commandsIn, connected)
+
+          Source.fromGraph(connectionOutlet.source).via(connectionFlow).runWith(Sink.fromGraph(connectionInlet.sink))(subFusingMaterializer)
+
+          connectionInlet.pull()
+        }
+
       }
 
   }
