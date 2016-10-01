@@ -106,6 +106,14 @@ object AkkaBuild extends Build {
     aggregate = aggregatedProjects diff List(agent, docs, samples)
   ).disablePlugins(ValidatePullRequest, MimaPlugin)
 
+  // an aggregate that only builds the parts that are relevant to cinnamon
+  lazy val akkaCinnamon = Project(
+    id = "akka-cinnamon",
+    base = file("akka-cinnamon"),
+    settings = parentSettings,
+    aggregate = Seq(actor, testkit, actorTests, remote, remoteTests, multiNodeTestkit)
+  ).disablePlugins(ValidatePullRequest)
+
   lazy val actor = Project(
     id = "akka-actor",
     base = file("akka-actor")
