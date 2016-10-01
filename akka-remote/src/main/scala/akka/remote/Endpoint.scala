@@ -9,6 +9,7 @@ import akka.actor.Terminated
 import akka.actor._
 import akka.dispatch.sysmsg.SystemMessage
 import akka.event.{ Logging, LoggingAdapter }
+import akka.instrument.RemoteInstrumentation
 import akka.pattern.pipe
 import akka.remote.EndpointManager.{ ResendState, Link, Send }
 import akka.remote.EndpointWriter.{ StoppedReading, FlushAndStop }
@@ -64,6 +65,19 @@ private[remote] class DefaultMessageDispatcher(
 
     def msgLog = s"RemoteMessage: [$payload] to [$recipient]<+[$originalReceiver] from [$sender()]"
 
+    system.instrumentation match {
+      case instrumentation: RemoteInstrumentation ⇒
+        val size = serializedMessage.getMessage.size
+        val id =
+          if (serializedMessage.hasInstrumentationId) serializedMessage.getInstrumentationId
+          else RemoteInstrumentation.NoIdentifier
+        val context =
+          if (serializedMessage.hasContext && (id == instrumentation.remoteIdentifier)) serializedMessage.getContext.toByteArray
+          else RemoteInstrumentation.EmptySerializedContext
+        instrumentation.remoteMessageReceived(recipient, payload, sender, size, context)
+      case _ ⇒ // ignore non-remote instrumentation
+    }
+
     recipient match {
 
       case `remoteDaemon` ⇒
@@ -107,6 +121,8 @@ private[remote] class DefaultMessageDispatcher(
         payloadClass, r, recipientAddress, provider.transport.addresses.mkString(", "))
 
     }
+
+    system.instrumentation.clearContext()
   }
 
 }
@@ -774,10 +790,19 @@ private[remote] class EndpointWriter(
           log.debug("sending message {}", msgLog)
         }
 
+        val serializedMessage = serializeMessage(s.message)
+        val messageToSend = extendedSystem.instrumentation match {
+          case instrumentation: RemoteInstrumentation ⇒
+            val sender = s.senderOption.getOrElse(extendedSystem.deadLetters)
+            val context = instrumentation.remoteMessageSent(s.recipient, s.message, sender, serializedMessage.getMessage.size, Send.getContext(s))
+            attachContext(serializedMessage, instrumentation.remoteIdentifier, context)
+          case _ ⇒ serializedMessage
+        }
+
         val pdu = codec.constructMessage(
           s.recipient.localAddressToUse,
           s.recipient,
-          serializeMessage(s.message),
+          messageToSend,
           s.senderOption,
           seqOption = s.seqOpt,
           ackOption = lastAck)
@@ -887,6 +912,15 @@ private[remote] class EndpointWriter(
       }
     case None ⇒
       throw new EndpointException("Internal error: No handle was present during serialization of outbound message.")
+  }
+
+  private def attachContext(serializedMessage: SerializedMessage, identifier: Int, context: Array[Byte]): SerializedMessage = {
+    if (context ne RemoteInstrumentation.EmptySerializedContext) {
+      val builder = serializedMessage.toBuilder
+      builder.setInstrumentationId(identifier)
+      builder.setContext(akka.protobuf.ByteString.copyFrom(context))
+      builder.build
+    } else serializedMessage
   }
 
 }
