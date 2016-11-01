@@ -92,6 +92,16 @@ object AkkaBuild extends Build {
       persistence, stream, mailboxes, kernel, osgi, contrib, multiNodeTestkit)
   )
 
+  // an aggregate that only builds the parts that are relevant to cinnamon
+  lazy val akkaCinnamon = Project(
+    id = "akka-cinnamon",
+    base = file("akka-cinnamon"),
+    settings = parentSettings ++ mimaSettings ++ Seq(
+      validatePullRequest := () // Do no extra validation apart from the validation in the aggragated projects
+    ),
+    aggregate = Seq(actor, testkit, actorTests, remote, remoteTests, multiNodeTestkit)
+  )
+
   // this detached pseudo-project is used for running the tests against a different Scala version than the one used for compilation
   // usage:
   //   all-tests/test (or test-only)
@@ -1019,6 +1029,16 @@ object AkkaBuild extends Build {
   lazy val mimaIgnoredProblems = {
     import com.typesafe.tools.mima.core._
     Seq(
+      // ExtendedActorSystem has grown two new methods for instrumentation
+      ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ExtendedActorSystem.instrumentation"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.actor.ExtendedActorSystem.hasInstrumentation"),
+
+      // Instrumentation context added to remote messages
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.getContext"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.hasContext"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.getInstrumentationId"),
+      ProblemFilters.exclude[MissingMethodProblem]("akka.remote.WireFormats#SerializedMessageOrBuilder.hasInstrumentationId"),
+
        // add filters here, see release-2.2 branch
       FilterAnyProblem("akka.remote.testconductor.Terminate"),
       FilterAnyProblem("akka.remote.testconductor.TerminateMsg"),
