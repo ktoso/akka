@@ -577,7 +577,7 @@ abstract class ActorSystem extends ActorRefFactory {
    * future completes.
    */
   def whenTerminated: Future[Terminated]
-
+  
   /**
    * Registers the provided extension and creates its payload, if this extension isn't already registered
    * This method has putIfAbsent-semantics, this method can potentially block, waiting for the initialization
