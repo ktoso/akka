@@ -44,7 +44,7 @@ private[remote] final class TopHeavyHitters[T >: Null](val max: Int)(implicit cl
   private[this] val weights: Array[Long] = Array.ofDim(capacity)
 
   // Heap structure containing indices to slots in the hashmap
-  private[this] val heap: Array[Int] = Array.fill(max)(-1)
+  private[this] val hea p: Array[Int] = Array.fill(max)(-1)
 
   /*
    * Invariants (apart from heap and hashmap invariants):

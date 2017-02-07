@@ -297,7 +297,7 @@ private[remote] class ArteryTransport(_system: ExtendedActorSystem, _provider: R
   import FlightRecorderEvents._
 
   // these vars are initialized once in the start method
-  @volatile private[this] var _localAddress: UniqueAddress = _
+  @volatile var _localAddress: UniqueAddress = _
   @volatile private[this] var _bindAddress: UniqueAddress = _
   @volatile private[this] var _addresses: Set[Address] = _
   @volatile private[this] var materializer: Materializer = _
