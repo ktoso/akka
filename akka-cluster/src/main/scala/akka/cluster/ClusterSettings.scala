@@ -117,6 +117,24 @@ final class ClusterSettings(val config: Config, val systemName: String) {
   val AllowWeaklyUpMembers = cc.getBoolean("allow-weakly-up-members")
 
   val DataCenter: DataCenter = cc.getString("data-center")
+
+  trait CrossDcFailureDetectorSettings {
+    protected def multiDcConfig: Config
+    lazy val ImplementationClass: String = multiDcConfig.getString("implementation-class")
+    lazy val HeartbeatInterval: FiniteDuration = {
+      multiDcConfig.getMillisDuration("heartbeat-interval")
+    } requiring (_ > Duration.Zero, "failure-detector.heartbeat-interval must be > 0")
+    lazy val HeartbeatExpectedResponseAfter: FiniteDuration = {
+      multiDcConfig.getMillisDuration("expected-response-after")
+    } requiring (_ > Duration.Zero, "failure-detector.expected-response-after > 0")
+    lazy val NrOfMonitoringActors: Int = {
+      multiDcConfig.getInt("nr-of-monitoring-actors")
+    } requiring (_ > 0, "failure-detector.nr-of-monitoring-actors must be > 0")
+  }
+  object CrossDcFailureDetectorSettings extends CrossDcFailureDetectorSettings {
+    val multiDcConfig: Config = cc.getConfig("multi-data-center")
+  }
+
   val Roles: Set[String] = {
     val configuredRoles = (immutableSeq(cc.getStringList("roles")).toSet) requiring (
       _.forall(!_.startsWith(DcRolePrefix)),
@@ -124,6 +142,7 @@ final class ClusterSettings(val config: Config, val systemName: String) {
 
     configuredRoles + s"$DcRolePrefix$DataCenter"
   }
+
   val MinNrOfMembers: Int = {
     cc.getInt("min-nr-of-members")
   } requiring (_ > 0, "min-nr-of-members must be > 0")

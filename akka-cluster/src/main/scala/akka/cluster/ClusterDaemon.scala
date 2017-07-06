@@ -334,8 +334,6 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
   }
   var exitingConfirmed = Set.empty[UniqueAddress]
 
-  def selfDc = cluster.settings.DataCenter
-
   /**
    * Looks up and returns the remote cluster command connection for the specific address.
    */
@@ -431,8 +429,12 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
   def becomeInitialized(): Unit = {
     // start heartbeatSender here, and not in constructor to make sure that
     // heartbeating doesn't start before Welcome is received
-    context.actorOf(Props[ClusterHeartbeatSender].
-      withDispatcher(UseDispatcher), name = "heartbeatSender")
+    val internalHeartbeatSenderProps = Props(new ClusterHeartbeatSender()).withDispatcher(UseDispatcher)
+    context.actorOf(internalHeartbeatSenderProps, name = "heartbeatSender")
+
+    val externalHeartbeatProps = Props(new CrossDcHeartbeatSender()).withDispatcher(UseDispatcher)
+    context.actorOf(externalHeartbeatProps, name = "crossDcHeartbeatSender")
+
     // make sure that join process is stopped
     stopSeedNodeProcess()
     context.become(initialized)
@@ -1027,7 +1029,7 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
             "Leader can currently not perform its duties, reachability status: [{}], member status: [{}]",
             membershipState.dcReachabilityExcludingDownedObservers,
             latestGossip.members.collect {
-              case m if m.dataCenter == selfDc ⇒
+              case m if m.dataCenter == cluster.selfDataCenter ⇒
                 s"${m.address} ${m.status} seen=${latestGossip.seenByNode(m.uniqueAddress)}"
             }.mkString(", "))
       }
@@ -1078,12 +1080,12 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
     val removedUnreachable = for {
       node ← membershipState.dcReachability.allUnreachableOrTerminated
       m = latestGossip.member(node)
-      if m.dataCenter == selfDc && removeUnreachableWithMemberStatus(m.status)
+      if m.dataCenter == cluster.selfDataCenter && removeUnreachableWithMemberStatus(m.status)
     } yield m
 
     val removedExitingConfirmed = exitingConfirmed.filter { n ⇒
       val member = latestGossip.member(n)
-      member.dataCenter == selfDc && member.status == Exiting
+      member.dataCenter == cluster.selfDataCenter && member.status == Exiting
     }
 
     val changedMembers = {
@@ -1094,7 +1096,7 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
         var upNumber = 0
 
         {
-          case m if m.dataCenter == selfDc && isJoiningToUp(m) ⇒
+          case m if m.dataCenter == cluster.selfDataCenter && isJoiningToUp(m) ⇒
             // Move JOINING => UP (once all nodes have seen that this node is JOINING, i.e. we have a convergence)
             // and minimum number of nodes have joined the cluster
             if (upNumber == 0) {
@@ -1107,7 +1109,7 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
             }
             m.copyUp(upNumber)
 
-          case m if m.dataCenter == selfDc && m.status == Leaving ⇒
+          case m if m.dataCenter == cluster.selfDataCenter && m.status == Leaving ⇒
             // Move LEAVING => EXITING (once we have a convergence on LEAVING)
             m copy (status = Exiting)
         }
@@ -1162,7 +1164,7 @@ private[cluster] class ClusterCoreDaemon(publisher: ActorRef) extends Actor with
 
     val enoughMembers: Boolean = isMinNrOfMembersFulfilled
     def isJoiningToWeaklyUp(m: Member): Boolean =
-      m.dataCenter == selfDc &&
+      m.dataCenter == cluster.selfDataCenter &&
         m.status == Joining &&
         enoughMembers &&
         membershipState.dcReachabilityExcludingDownedObservers.isReachable(m.uniqueAddress)
