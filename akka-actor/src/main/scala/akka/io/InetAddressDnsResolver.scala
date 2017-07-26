@@ -27,8 +27,8 @@ class InetAddressDnsResolver(cache: SimpleDnsCache, config: Config) extends Acto
       case _ ⇒ config.getDuration(path, TimeUnit.MILLISECONDS)
         .requiring(_ > 0, s"akka.io.dns.$path must be 'default', 'forever', 'never' or positive duration")
     }
-  val positiveTtl = getTtl("positive-ttl", true)
-  val negativeTtl = getTtl("negative-ttl", false)
+  private val positiveTtl = getTtl("positive-ttl", true)
+  private val negativeTtl = getTtl("negative-ttl", false)
 
   override def receive = {
     case Dns.Resolve(name) ⇒
