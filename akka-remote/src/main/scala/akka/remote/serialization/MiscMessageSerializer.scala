@@ -294,8 +294,7 @@ class MiscMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
     RoundRobinPoolManifest → deserializeRoundRobinPool,
     ScatterGatherPoolManifest → deserializeScatterGatherPool,
     TailChoppingPoolManifest → deserializeTailChoppingPool,
-    RemoteRouterConfigManifest → deserializeRemoteRouterConfig
-  )
+    RemoteRouterConfigManifest → deserializeRemoteRouterConfig)
 
   override def manifest(o: AnyRef): String =
     o match {
@@ -405,8 +404,7 @@ class MiscMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
   private def deserializeRemoteScope(bytes: Array[Byte]): RemoteScope = {
     val rs = WireFormats.RemoteScope.parseFrom(bytes)
     RemoteScope(
-      deserializeAddressData(rs.getNode)
-    )
+      deserializeAddressData(rs.getNode))
   }
 
   private def deserializeConfig(bytes: Array[Byte]): Config = {
@@ -420,8 +418,7 @@ class MiscMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
       val fc = WireFormats.FromConfig.parseFrom(bytes)
       FromConfig(
         resizer = if (fc.hasResizer) Some(payloadSupport.deserializePayload(fc.getResizer).asInstanceOf[Resizer]) else None,
-        routerDispatcher = if (fc.hasRouterDispatcher) fc.getRouterDispatcher else Dispatchers.DefaultDispatcherId
-      )
+        routerDispatcher = if (fc.hasRouterDispatcher) fc.getRouterDispatcher else Dispatchers.DefaultDispatcherId)
     }
 
   private def deserializeBalancingPool(bytes: Array[Byte]): BalancingPool = {
@@ -436,11 +433,10 @@ class MiscMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
     BroadcastPool(
       nrOfInstances = bp.getNrOfInstances,
       resizer =
-      if (bp.hasResizer) Some(payloadSupport.deserializePayload(bp.getResizer).asInstanceOf[Resizer])
-      else None,
+        if (bp.hasResizer) Some(payloadSupport.deserializePayload(bp.getResizer).asInstanceOf[Resizer])
+        else None,
       routerDispatcher = if (bp.hasRouterDispatcher) bp.getRouterDispatcher else Dispatchers.DefaultDispatcherId,
-      usePoolDispatcher = bp.getUsePoolDispatcher
-    )
+      usePoolDispatcher = bp.getUsePoolDispatcher)
   }
 
   private def deserializeRandomPool(bytes: Array[Byte]): RandomPool = {
@@ -448,11 +444,10 @@ class MiscMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
     RandomPool(
       nrOfInstances = rp.getNrOfInstances,
       resizer =
-      if (rp.hasResizer) Some(payloadSupport.deserializePayload(rp.getResizer).asInstanceOf[Resizer])
-      else None,
+        if (rp.hasResizer) Some(payloadSupport.deserializePayload(rp.getResizer).asInstanceOf[Resizer])
+        else None,
       routerDispatcher = if (rp.hasRouterDispatcher) rp.getRouterDispatcher else Dispatchers.DefaultDispatcherId,
-      usePoolDispatcher = rp.getUsePoolDispatcher
-    )
+      usePoolDispatcher = rp.getUsePoolDispatcher)
   }
 
   private def deserializeRoundRobinPool(bytes: Array[Byte]): RoundRobinPool = {
@@ -460,11 +455,10 @@ class MiscMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
     RoundRobinPool(
       nrOfInstances = rp.getNrOfInstances,
       resizer =
-      if (rp.hasResizer) Some(payloadSupport.deserializePayload(rp.getResizer).asInstanceOf[Resizer])
-      else None,
+        if (rp.hasResizer) Some(payloadSupport.deserializePayload(rp.getResizer).asInstanceOf[Resizer])
+        else None,
       routerDispatcher = if (rp.hasRouterDispatcher) rp.getRouterDispatcher else Dispatchers.DefaultDispatcherId,
-      usePoolDispatcher = rp.getUsePoolDispatcher
-    )
+      usePoolDispatcher = rp.getUsePoolDispatcher)
   }
 
   private def deserializeScatterGatherPool(bytes: Array[Byte]): ScatterGatherFirstCompletedPool = {
@@ -472,13 +466,12 @@ class MiscMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
     ScatterGatherFirstCompletedPool(
       nrOfInstances = sgp.getGeneric.getNrOfInstances,
       resizer =
-      if (sgp.getGeneric.hasResizer) Some(payloadSupport.deserializePayload(sgp.getGeneric.getResizer).asInstanceOf[Resizer])
-      else None,
+        if (sgp.getGeneric.hasResizer) Some(payloadSupport.deserializePayload(sgp.getGeneric.getResizer).asInstanceOf[Resizer])
+        else None,
       within = deserializeFiniteDuration(sgp.getWithin),
       routerDispatcher =
         if (sgp.getGeneric.hasRouterDispatcher) sgp.getGeneric.getRouterDispatcher
-        else Dispatchers.DefaultDispatcherId
-    )
+        else Dispatchers.DefaultDispatcherId)
   }
 
   private def deserializeTailChoppingPool(bytes: Array[Byte]): TailChoppingPool = {
@@ -486,21 +479,19 @@ class MiscMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
     TailChoppingPool(
       nrOfInstances = tcp.getGeneric.getNrOfInstances,
       resizer =
-      if (tcp.getGeneric.hasResizer) Some(payloadSupport.deserializePayload(tcp.getGeneric.getResizer).asInstanceOf[Resizer])
-      else None,
+        if (tcp.getGeneric.hasResizer) Some(payloadSupport.deserializePayload(tcp.getGeneric.getResizer).asInstanceOf[Resizer])
+        else None,
       routerDispatcher = if (tcp.getGeneric.hasRouterDispatcher) tcp.getGeneric.getRouterDispatcher else Dispatchers.DefaultDispatcherId,
       usePoolDispatcher = tcp.getGeneric.getUsePoolDispatcher,
       within = deserializeFiniteDuration(tcp.getWithin),
-      interval = deserializeFiniteDuration(tcp.getInterval)
-    )
+      interval = deserializeFiniteDuration(tcp.getInterval))
   }
 
   private def deserializeRemoteRouterConfig(bytes: Array[Byte]): RemoteRouterConfig = {
     val rrc = WireFormats.RemoteRouterConfig.parseFrom(bytes)
     RemoteRouterConfig(
       local = payloadSupport.deserializePayload(rrc.getLocal).asInstanceOf[Pool],
-      nodes = rrc.getNodesList.asScala.map(deserializeAddressData)
-    )
+      nodes = rrc.getNodesList.asScala.map(deserializeAddressData))
   }
 
   private def deserializeDefaultResizer(bytes: Array[Byte]): DefaultResizer = {
@@ -512,8 +503,7 @@ class MiscMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
       rampupRate = dr.getRampupRate,
       backoffThreshold = dr.getBackoffThreshold,
       backoffRate = dr.getBackoffRate,
-      messagesPerResize = dr.getMessagesPerResize
-    )
+      messagesPerResize = dr.getMessagesPerResize)
   }
 
   private def deserializeTimeUnit(unit: WireFormats.TimeUnit): TimeUnit = unit match {
@@ -529,15 +519,13 @@ class MiscMessageSerializer(val system: ExtendedActorSystem) extends SerializerW
   private def deserializeFiniteDuration(duration: WireFormats.FiniteDuration): FiniteDuration =
     FiniteDuration(
       duration.getValue,
-      deserializeTimeUnit(duration.getUnit)
-    )
+      deserializeTimeUnit(duration.getUnit))
 
   private def deserializeAddressData(address: WireFormats.AddressData): Address = {
     Address(
       address.getProtocol,
       address.getSystem,
       address.getHostname,
-      address.getPort
-    )
+      address.getPort)
   }
 }

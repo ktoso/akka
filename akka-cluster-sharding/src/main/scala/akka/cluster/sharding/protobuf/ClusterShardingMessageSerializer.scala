@@ -95,8 +95,7 @@ private[akka] class ClusterShardingMessageSerializer(val system: ExtendedActorSy
     ShardStatsManifest → { bytes ⇒ shardStatsFromBinary(bytes) },
 
     StartEntityManifest → { startEntityFromBinary(_) },
-    StartEntityAckManifest → { startEntityAckFromBinary(_) }
-  )
+    StartEntityAckManifest → { startEntityAckFromBinary(_) })
 
   override def manifest(obj: AnyRef): String = obj match {
     case _: EntityState                ⇒ EntityStateManifest

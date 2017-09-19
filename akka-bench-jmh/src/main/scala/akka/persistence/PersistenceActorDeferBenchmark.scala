@@ -32,8 +32,7 @@ class PersistentActorDeferBenchmark {
   lazy val storageLocations = List(
     "akka.persistence.journal.leveldb.dir",
     "akka.persistence.journal.leveldb-shared.store.dir",
-    "akka.persistence.snapshot-store.local.dir"
-  ).map(s ⇒ new File(system.settings.config.getString(s)))
+    "akka.persistence.snapshot-store.local.dir").map(s ⇒ new File(system.settings.config.getString(s)))
 
   var system: ActorSystem = _
 
@@ -65,7 +64,7 @@ class PersistentActorDeferBenchmark {
   @Benchmark
   @OperationsPerInvocation(10000)
   def tell_persistAsync_defer_persistAsync_reply(): Unit = {
-    for (i <- data10k) persistAsync_defer.tell(i, probe.ref)
+    for (i ← data10k) persistAsync_defer.tell(i, probe.ref)
 
     probe.expectMsg(data10k.last)
   }
@@ -73,7 +72,7 @@ class PersistentActorDeferBenchmark {
   @Benchmark
   @OperationsPerInvocation(10000)
   def tell_persistAsync_defer_persistAsync_replyASAP(): Unit = {
-    for (i <- data10k) persistAsync_defer_replyASAP.tell(i, probe.ref)
+    for (i ← data10k) persistAsync_defer_replyASAP.tell(i, probe.ref)
 
     probe.expectMsg(data10k.last)
   }
@@ -85,12 +84,12 @@ class `persistAsync, defer`(respondAfter: Int) extends PersistentActor {
   override def persistenceId: String = self.path.name
 
   override def receiveCommand = {
-    case n: Int =>
-      persistAsync(Evt(n)) { e => }
-      deferAsync(Evt(n)) { e => if (e.i == respondAfter) sender() ! e.i }
+    case n: Int ⇒
+      persistAsync(Evt(n)) { e ⇒ }
+      deferAsync(Evt(n)) { e ⇒ if (e.i == respondAfter) sender() ! e.i }
   }
   override def receiveRecover = {
-    case _ => // do nothing
+    case _ ⇒ // do nothing
   }
 }
 class `persistAsync, defer, respond ASAP`(respondAfter: Int) extends PersistentActor {
@@ -98,12 +97,12 @@ class `persistAsync, defer, respond ASAP`(respondAfter: Int) extends PersistentA
   override def persistenceId: String = self.path.name
 
   override def receiveCommand = {
-    case n: Int =>
-      persistAsync(Evt(n)) { e => }
-      deferAsync(Evt(n)) { e => }
+    case n: Int ⇒
+      persistAsync(Evt(n)) { e ⇒ }
+      deferAsync(Evt(n)) { e ⇒ }
       if (n == respondAfter) sender() ! n
   }
   override def receiveRecover = {
-    case _ => // do nothing
+    case _ ⇒ // do nothing
   }
 }

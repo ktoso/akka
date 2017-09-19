@@ -64,8 +64,7 @@ object UntrustedSpec {
       akka.remote.artery.untrusted-mode = on
       akka.remote.artery.trusted-selection-paths = ["/user/receptionist", ]
       akka.loglevel = DEBUG # the test is verifying some Debug logging
-    """
-  ).withFallback(ArterySpecSupport.defaultConfig)
+    """).withFallback(ArterySpecSupport.defaultConfig)
 
 }
 

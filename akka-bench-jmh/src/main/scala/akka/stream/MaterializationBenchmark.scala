@@ -17,21 +17,21 @@ import akka.Done
 
 object MaterializationBenchmark {
 
-  val flowWithMapBuilder = (numOfCombinators: Int) => {
+  val flowWithMapBuilder = (numOfCombinators: Int) ⇒ {
     var source = Source.single(())
-    for (_ <- 1 to numOfCombinators) {
+    for (_ ← 1 to numOfCombinators) {
       source = source.map(identity)
     }
     source.to(Sink.ignore)
   }
 
-  val graphWithJunctionsBuilder = (numOfJunctions: Int) =>
-    RunnableGraph.fromGraph(GraphDSL.create() { implicit b =>
+  val graphWithJunctionsBuilder = (numOfJunctions: Int) ⇒
+    RunnableGraph.fromGraph(GraphDSL.create() { implicit b ⇒
       import GraphDSL.Implicits._
 
       val broadcast = b.add(Broadcast[Unit](numOfJunctions))
       var outlet = broadcast.out(0)
-      for (i <- 1 until numOfJunctions) {
+      for (i ← 1 until numOfJunctions) {
         val merge = b.add(Merge[Unit](2))
         outlet ~> merge
         broadcast.out(i) ~> merge
@@ -43,12 +43,12 @@ object MaterializationBenchmark {
       ClosedShape
     })
 
-  val graphWithImportedFlowBuilder = (numOfFlows: Int) =>
+  val graphWithImportedFlowBuilder = (numOfFlows: Int) ⇒
     RunnableGraph.fromGraph(GraphDSL.create(Source.single(())) { implicit b ⇒ source ⇒
       import GraphDSL.Implicits._
       val flow = Flow[Unit].map(identity)
       var out: Outlet[Unit] = source.out
-      for (i <- 0 until numOfFlows) {
+      for (i ← 0 until numOfFlows) {
         val flowShape = b.add(flow)
         out ~> flowShape
         out = flowShape.outlet
@@ -59,11 +59,11 @@ object MaterializationBenchmark {
 
   final val subStreamCount = 10000
 
-  val subStreamBuilder: Int => RunnableGraph[Future[Unit]] = numOfCombinators => {
+  val subStreamBuilder: Int ⇒ RunnableGraph[Future[Unit]] = numOfCombinators ⇒ {
 
     val subFlow = {
       var flow = Flow[Unit]
-      for (_ <- 1 to numOfCombinators) {
+      for (_ ← 1 to numOfCombinators) {
         flow = flow.map(identity)
       }
       flow

@@ -42,11 +42,11 @@ private[remote] object Encoder {
  * INTERNAL API
  */
 private[remote] class Encoder(
-  uniqueLocalAddress:   UniqueAddress,
-  system:               ExtendedActorSystem,
+  uniqueLocalAddress: UniqueAddress,
+  system: ExtendedActorSystem,
   outboundEnvelopePool: ObjectPool[ReusableOutboundEnvelope],
-  bufferPool:           EnvelopeBufferPool,
-  debugLogSend:         Boolean)
+  bufferPool: EnvelopeBufferPool,
+  debugLogSend: Boolean)
   extends GraphStageWithMaterializedValue[FlowShape[OutboundEnvelope, EnvelopeBuffer], Encoder.OutboundCompressionAccess] {
   import Encoder._
 
@@ -104,7 +104,7 @@ private[remote] class Encoder(
         // internally compression is applied by the builder:
         outboundEnvelope.recipient match {
           case OptionVal.Some(r) ⇒ headerBuilder setRecipientActorRef r
-          case OptionVal.None    ⇒ headerBuilder.setNoRecipient()
+          case OptionVal.None ⇒ headerBuilder.setNoRecipient()
         }
 
         try {
@@ -114,7 +114,7 @@ private[remote] class Encoder(
             Serialization.currentTransportInformation.value = serializationInfo
 
             outboundEnvelope.sender match {
-              case OptionVal.None    ⇒ headerBuilder.setNoSender()
+              case OptionVal.None ⇒ headerBuilder.setNoSender()
               case OptionVal.Some(s) ⇒ headerBuilder setSenderActorRef s
             }
 
@@ -162,7 +162,7 @@ private[remote] class Encoder(
         } finally {
           outboundEnvelope match {
             case r: ReusableOutboundEnvelope ⇒ outboundEnvelopePool.release(r)
-            case _                           ⇒ // no need to release it
+            case _ ⇒ // no need to release it
           }
         }
       }
@@ -219,8 +219,8 @@ private[remote] class Encoder(
  */
 private[remote] object Decoder {
   private final case class RetryResolveRemoteDeployedRecipient(
-    attemptsLeft:    Int,
-    recipientPath:   String,
+    attemptsLeft: Int,
+    recipientPath: String,
     inboundEnvelope: InboundEnvelope)
 
   private object Tick
@@ -337,13 +337,13 @@ private[remote] final class ActorRefResolveCacheWithAddress(provider: RemoteActo
  * INTERNAL API
  */
 private[remote] class Decoder(
-  inboundContext:      InboundContext,
-  system:              ExtendedActorSystem,
-  uniqueLocalAddress:  UniqueAddress,
-  settings:            ArterySettings,
-  bufferPool:          EnvelopeBufferPool,
+  inboundContext: InboundContext,
+  system: ExtendedActorSystem,
+  uniqueLocalAddress: UniqueAddress,
+  settings: ArterySettings,
+  bufferPool: EnvelopeBufferPool,
   inboundCompressions: InboundCompressions,
-  inEnvelopePool:      ObjectPool[ReusableInboundEnvelope])
+  inEnvelopePool: ObjectPool[ReusableInboundEnvelope])
   extends GraphStageWithMaterializedValue[FlowShape[EnvelopeBuffer, InboundEnvelope], InboundCompressionAccess] {
 
   import Decoder.Tick
@@ -381,11 +381,11 @@ private[remote] class Decoder(
         if (settings.Advanced.Compression.Enabled) {
           settings.Advanced.Compression.ActorRefs.AdvertisementInterval match {
             case d: FiniteDuration ⇒ schedulePeriodicallyWithInitialDelay(AdvertiseActorRefsCompressionTable, d, d)
-            case _                 ⇒ // not advertising actor ref compressions
+            case _ ⇒ // not advertising actor ref compressions
           }
           settings.Advanced.Compression.Manifests.AdvertisementInterval match {
             case d: FiniteDuration ⇒ schedulePeriodicallyWithInitialDelay(AdvertiseClassManifestsCompressionTable, d, d)
-            case _                 ⇒ // not advertising class manifest compressions
+            case _ ⇒ // not advertising class manifest compressions
           }
         }
       }
@@ -597,8 +597,8 @@ private[remote] class Decoder(
  */
 private[remote] class Deserializer(
   inboundContext: InboundContext,
-  system:         ExtendedActorSystem,
-  bufferPool:     EnvelopeBufferPool) extends GraphStage[FlowShape[InboundEnvelope, InboundEnvelope]] {
+  system: ExtendedActorSystem,
+  bufferPool: EnvelopeBufferPool) extends GraphStage[FlowShape[InboundEnvelope, InboundEnvelope]] {
 
   val in: Inlet[InboundEnvelope] = Inlet("Artery.Deserializer.in")
   val out: Outlet[InboundEnvelope] = Outlet("Artery.Deserializer.out")
@@ -632,7 +632,7 @@ private[remote] class Deserializer(
           case NonFatal(e) ⇒
             val from = envelope.association match {
               case OptionVal.Some(a) ⇒ a.remoteAddress
-              case OptionVal.None    ⇒ "unknown"
+              case OptionVal.None ⇒ "unknown"
             }
             log.warning(
               "Failed to deserialize message from [{}] with serializer id [{}] and manifest [{}]. {}",

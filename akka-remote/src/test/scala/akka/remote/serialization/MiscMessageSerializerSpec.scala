@@ -101,8 +101,7 @@ class MiscMessageSerializerSpec extends AkkaSpec(MiscMessageSerializerSpec.testC
       "RoundRobinPool" → RoundRobinPool(25),
       "ScatterGatherFirstCompletedPool" → ScatterGatherFirstCompletedPool(25, within = 3.seconds),
       "TailChoppingPool" → TailChoppingPool(25, within = 3.seconds, interval = 1.second),
-      "RemoteRouterConfig" → RemoteRouterConfig(local = RandomPool(25), nodes = List(Address("akka", "system", "localhost", 2525)))
-    ).foreach {
+      "RemoteRouterConfig" → RemoteRouterConfig(local = RandomPool(25), nodes = List(Address("akka", "system", "localhost", 2525)))).foreach {
         case (scenario, item) ⇒
           s"resolve serializer for $scenario" in {
             val serializer = SerializationExtension(system)

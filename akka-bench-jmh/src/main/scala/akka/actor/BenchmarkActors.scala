@@ -19,7 +19,7 @@ object BenchmarkActors {
   class PingPong(val messages: Int, latch: CountDownLatch) extends Actor {
     var left = messages / 2
     def receive = {
-      case Message =>
+      case Message ⇒
 
         if (left == 0) {
           latch.countDown()
@@ -37,9 +37,9 @@ object BenchmarkActors {
 
   class Pipe(next: Option[ActorRef]) extends Actor {
     def receive = {
-      case Message =>
+      case Message ⇒
         if (next.isDefined) next.get forward Message
-      case Stop =>
+      case Stop ⇒
         context stop self
         if (next.isDefined) next.get forward Stop
     }
@@ -53,7 +53,7 @@ object BenchmarkActors {
     val fullPathToDispatcher = "akka.actor." + dispatcher
     val latch = new CountDownLatch(numPairs * 2)
     val actors = for {
-      i <- (1 to numPairs).toVector
+      i ← (1 to numPairs).toVector
     } yield {
       val ping = system.actorOf(PingPong.props(messagesPerPair, latch).withDispatcher(fullPathToDispatcher))
       val pong = system.actorOf(PingPong.props(messagesPerPair, latch).withDispatcher(fullPathToDispatcher))
@@ -64,8 +64,8 @@ object BenchmarkActors {
 
   private def initiatePingPongForPairs(refs: Vector[(ActorRef, ActorRef)], inFlight: Int) = {
     for {
-      (ping, pong) <- refs
-      _ <- 1 to inFlight
+      (ping, pong) ← refs
+      _ ← 1 to inFlight
     } {
       ping.tell(Message, pong)
     }
@@ -80,8 +80,7 @@ object BenchmarkActors {
   def requireRightNumberOfCores(numCores: Int) =
     require(
       Runtime.getRuntime.availableProcessors == numCores,
-      s"Update the cores constant to ${Runtime.getRuntime.availableProcessors}"
-    )
+      s"Update the cores constant to ${Runtime.getRuntime.availableProcessors}")
 
   def benchmarkPingPongActors(numMessagesPerActorPair: Int, numActors: Int, dispatcher: String, throughPut: Int, shutdownTimeout: Duration)(implicit system: ActorSystem): Unit = {
     val numPairs = numActors / 2

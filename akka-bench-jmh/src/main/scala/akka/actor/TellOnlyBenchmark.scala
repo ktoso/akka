@@ -46,8 +46,7 @@ class TellOnlyBenchmark {
           |   type = "akka.actor.TellOnlyBenchmark$$DroppingDispatcherConfigurator"
           |   mailbox-type = "akka.actor.TellOnlyBenchmark$$UnboundedDroppingMailbox"
           | }
-          | """.stripMargin
-    ))
+          | """.stripMargin))
   }
 
   @TearDown(Level.Trial)
@@ -121,27 +120,26 @@ object TellOnlyBenchmark {
   }
 
   class DroppingDispatcher(
-    _configurator: MessageDispatcherConfigurator,
-    _id: String,
-    _throughput: Int,
-    _throughputDeadlineTime: Duration,
+    _configurator:                   MessageDispatcherConfigurator,
+    _id:                             String,
+    _throughput:                     Int,
+    _throughputDeadlineTime:         Duration,
     _executorServiceFactoryProvider: ExecutorServiceFactoryProvider,
-    _shutdownTimeout: FiniteDuration
-  )
-      extends Dispatcher(_configurator, _id, _throughput, _throughputDeadlineTime, _executorServiceFactoryProvider, _shutdownTimeout) {
+    _shutdownTimeout:                FiniteDuration)
+    extends Dispatcher(_configurator, _id, _throughput, _throughputDeadlineTime, _executorServiceFactoryProvider, _shutdownTimeout) {
 
     override protected[akka] def dispatch(receiver: ActorCell, invocation: Envelope): Unit = {
       val mbox = receiver.mailbox
       mbox.enqueue(receiver.self, invocation)
       mbox.messageQueue match {
         case mb: DroppingMessageQueue if mb.dropping ⇒ // do nothing
-        case _ ⇒ registerForExecution(mbox, true, false)
+        case _                                       ⇒ registerForExecution(mbox, true, false)
       }
     }
   }
 
   class DroppingDispatcherConfigurator(config: Config, prerequisites: DispatcherPrerequisites)
-      extends MessageDispatcherConfigurator(config, prerequisites) {
+    extends MessageDispatcherConfigurator(config, prerequisites) {
 
     override def dispatcher(): MessageDispatcher = new DroppingDispatcher(
       this,
@@ -149,7 +147,6 @@ object TellOnlyBenchmark {
       config.getInt("throughput"),
       config.getNanosDuration("throughput-deadline-time"),
       configureExecutor(),
-      config.getMillisDuration("shutdown-timeout")
-    )
+      config.getMillisDuration("shutdown-timeout"))
   }
 }
