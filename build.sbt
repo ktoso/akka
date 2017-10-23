@@ -30,6 +30,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] = Seq(
   remote, remoteTests,
   slf4j,
   stream, streamTestkit, streamTests, streamTestsTck,
+  streamRemote,
   testkit,
   typed, typedTests, typedTestkit
 )
@@ -147,6 +148,9 @@ lazy val slf4j = akkaModule("akka-slf4j")
 
 lazy val stream = akkaModule("akka-stream")
   .dependsOn(actor)
+
+lazy val streamRemote = akkaModule("akka-stream-remote")
+  .dependsOn(stream,  remote)
 
 lazy val streamTestkit = akkaModule("akka-stream-testkit")
   .dependsOn(stream, testkit % "compile->compile;test->test")

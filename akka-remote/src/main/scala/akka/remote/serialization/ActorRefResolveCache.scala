@@ -40,6 +40,7 @@ private[akka] class ActorRefResolveThreadLocalCache(val system: ExtendedActorSys
         s"not with ${system.provider.getClass}")
   }
 
+  // TODO can we improve this with var handles?
   private val current = new ThreadLocal[ActorRefResolveCache] {
     override def initialValue: ActorRefResolveCache = new ActorRefResolveCache(provider)
   }
