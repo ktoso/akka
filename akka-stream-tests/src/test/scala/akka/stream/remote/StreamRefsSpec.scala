@@ -1,0 +1,231 @@
+/**
+ * Copyright (C) 2014-2017 Lightbend Inc. <http://www.lightbend.com>
+ */
+package akka.stream.remote
+
+import java.nio.file.Paths
+
+import akka.NotUsed
+import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, ExtendedActorSystem, Identify, Props }
+import akka.event.Logging
+import akka.serialization._
+import akka.stream.{ ActorAttributes, ActorMaterializer, remote }
+import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
+import akka.stream.scaladsl.{ FileIO, Sink, Source }
+import akka.testkit.{ AkkaSpec, ImplicitSender, SocketUtil, TestKit, TestProbe }
+import akka.util.{ ByteString, Timeout }
+import com.typesafe.config._
+import akka.pattern.ask
+
+import scala.concurrent.duration._
+import scala.concurrent.{ Await, Future }
+
+object StreamRefsSpec {
+
+  object DatasourceActor {
+    def props(probe: ActorRef): Props =
+      Props(new DatasourceActor(probe))
+        .withDispatcher("akka.test.stream-dispatcher")
+  }
+
+  class DatasourceActor(probe: ActorRef) extends Actor with ActorLogging {
+    implicit val mat = ActorMaterializer()
+
+    def receive = {
+      //      case "send" ⇒
+      //        /*
+      //         * Here we're able to send a source to a remote recipient
+      //         *
+      //         * For them it's a Source; for us it is a Sink we run data "into"
+      //         */
+      //        val source: Source[String, NotUsed] = Source.single("huge-file-")
+      //        val ref: SourceRef[String] = source.runWith(SourceRef())
+      //
+      //        sender() ! SourceMsg(ref)
+      //
+      //      case "send-bulk" ⇒
+      //        /*
+      //         * Here we're able to send a source to a remote recipient
+      //         * The source is a "bulk transfer one, in which we're ready to send a lot of data"
+      //         *
+      //         * For them it's a Source; for us it is a Sink we run data "into"
+      //         */
+      //        val source: Source[ByteString, NotUsed] = Source.single(ByteString("huge-file-"))
+      //        val ref: SourceRef[ByteString] = source.runWith(SourceRef.bulkTransfer())
+      //        sender() ! BulkSourceMsg(ref)
+
+      case "receive" ⇒
+        /*
+         * We write out code, knowing that the other side will stream the data into it.
+         *
+         * For them it's a Sink; for us it's a Source.
+         */
+        val sink: Future[SinkRef[String]] =
+          SinkRef.source[String]
+            .to(Sink.actorRef(probe, "<COMPLETE>"))
+            .run()
+
+        // FIXME we want to avoid forcing people to do the Future here
+        sender() ! Await.result(sink, 10.seconds)
+
+      //      case "receive-bulk" ⇒
+      //        /*
+      //         * We write out code, knowing that the other side will stream the data into it.
+      //         * This will open a dedicated connection per transfer.
+      //         *
+      //         * For them it's a Sink; for us it's a Source.
+      //         */
+      //        val sink: SinkRef[ByteString] =
+      //          SinkRef.bulkTransferSource()
+      //            .to(Sink.actorRef(probe, "<COMPLETE>"))
+      //            .run()
+      //
+      //
+      //        sender() ! BulkSinkMsg(sink)
+    }
+
+  }
+
+  // -------------------------
+
+  final case class SourceMsg(dataSource: SourceRef[String])
+  final case class BulkSourceMsg(dataSource: SourceRef[ByteString])
+  final case class SinkMsg(dataSink: SinkRef[String])
+  final case class BulkSinkMsg(dataSink: SinkRef[ByteString])
+
+  def config(): Config = {
+    val address = SocketUtil.temporaryServerAddress()
+    ConfigFactory.parseString(
+      s"""
+    akka {
+      loglevel = INFO
+
+      actor {
+        provider = remote
+        serialize-messages = off
+
+//        serializers {
+//          akka-stream-ref-test = "akka.stream.remote.StreamRefsSpecSerializer"
+//        }
+//
+//        serialization-bindings {
+//          "akka.stream.remote.StreamRefsSpec$$SourceMsg" = akka-stream-ref-test
+//          "akka.stream.remote.StreamRefsSpec$$BulkSourceMsg" = akka-stream-ref-test
+//          "akka.stream.remote.StreamRefsSpec$$SinkMsg" = akka-stream-ref-test
+//          "akka.stream.remote.StreamRefsSpec$$BulkSinkMsg" = akka-stream-ref-test
+//        }
+//
+//        serialization-identifiers {
+//          "akka.stream.remote.StreamRefsSpecSerializer" = 33
+//        }
+
+      }
+
+      remote.netty.tcp {
+        port = ${address.getPort}
+        hostname = "${address.getHostName}"
+      }
+    }
+  """).withFallback(ConfigFactory.load())
+  }
+}
+
+class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSender {
+  import StreamRefsSpec._
+
+  def this() {
+    this(StreamRefsSpec.config())
+  }
+
+  val remoteSystem = ActorSystem("RemoteSystem", StreamRefsSpec.config())
+  implicit val mat = ActorMaterializer()
+
+  override protected def beforeTermination(): Unit =
+    TestKit.shutdownActorSystem(remoteSystem)
+
+  //  "A SourceRef" must {
+  //
+  //    //    "work" in {
+  //    //      val actor = remoteSystem.actorOf(Props(classOf[DatasourceActor]), "actor")
+  //    //      actor ! "give"
+  //    //      val SourceMsg(sourceRef) = expectMsgType[SourceMsg]
+  //    //
+  //    //      sourceRef.map(_  1).runForeach { x ⇒
+  //    //        println(x)
+  //    //      }
+  //    //    }
+  //
+  //  }
+
+  "A SinkRef" must {
+
+    val p = TestProbe()
+
+    // obtain the remoteActor ref via selection in order to use _real_ remoting in this test
+    val remoteActor = {
+      val it = remoteSystem.actorOf(DatasourceActor.props(p.ref), "remoteActor")
+      val remoteAddress = remoteSystem.asInstanceOf[ActorSystemImpl].provider.getDefaultAddress
+      system.actorSelection(it.path.toStringWithAddress(remoteAddress)) ! Identify("hi")
+      expectMsgType[ActorIdentity].ref.get
+    }
+
+    "receive elements via remoting" in {
+
+      remoteActor ! "receive"
+      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
+
+      Source("hello" :: "world" :: Nil)
+        .to(remoteSink)
+        .run()
+
+      p.expectMsg("hello")
+      p.expectMsg("world")
+      p.expectMsg("<COMPLETE>")
+    }
+
+//    // FIXME not yet working, seems we have issues in delivery still
+//    "receive hundreds of elements via remoting" in {
+//      remoteActor ! "receive"
+//      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
+//
+//      val msgs = (1 to 100).toList.map(_.toString)
+//
+//      Source(msgs)
+//        .to(remoteSink)
+//        .run()
+//
+//      msgs.foreach(t ⇒ p.expectMsg(t))
+//      p.expectMsg("<COMPLETE>")
+//    }
+
+  }
+
+}
+//
+//class StreamRefsSpecSerializer(val system: ExtendedActorSystem) extends SerializerWithStringManifest with BaseSerializer {
+//
+//  lazy val ext = SerializationExtension(system)
+//
+//  override def manifest(o: AnyRef): String = o match {
+//    case StreamRefsSpec.SinkMsg(_)       ⇒ "si"
+//    case StreamRefsSpec.BulkSinkMsg(_)   ⇒ "bsi"
+//    case StreamRefsSpec.SourceMsg(_)     ⇒ "so"
+//    case StreamRefsSpec.BulkSourceMsg(_) ⇒ "bso"
+//  }
+//
+//  override def toBinary(o: AnyRef): Array[Byte] = {
+//    system.log.warning("Serializing: " + o)
+//    o match {
+//      case StreamRefsSpec.SinkMsg(s)       ⇒ s.
+//      case StreamRefsSpec.BulkSinkMsg(s)   ⇒ ext.serialize(s).get
+//      case StreamRefsSpec.SourceMsg(s)     ⇒ ext.serialize(s).get
+//      case StreamRefsSpec.BulkSourceMsg(s) ⇒ ext.serialize(s).get
+//    }
+//  }
+//
+//  override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = {
+//    system.log.warning("MANI: " + manifest)
+//    ???
+//  }
+//
+//}
