@@ -84,7 +84,7 @@ final class SinkRefTargetSource[T] extends GraphStageWithMaterializedValue[Sourc
       def triggerDemand(): Unit = if (remotePartner ne null) {
         localCumulativeDemand += 1
         remotePartner ! StreamRefs.CumulativeDemand(localCumulativeDemand)
-        log.debug("[{}] Demanding until {}", self, StreamRefs.CumulativeDemand(localCumulativeDemand))
+        log.debug("[{}] Demanding until {}", selfActorName, StreamRefs.CumulativeDemand(localCumulativeDemand))
       }
 
       def runningReceive(activeSender: ActorRef): ((ActorRef, Any)) ⇒ Unit = {

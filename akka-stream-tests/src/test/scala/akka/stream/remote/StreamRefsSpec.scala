@@ -3,19 +3,13 @@
  */
 package akka.stream.remote
 
-import java.nio.file.Paths
-
-import akka.NotUsed
-import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, ExtendedActorSystem, Identify, Props }
-import akka.event.Logging
-import akka.serialization._
-import akka.stream.{ ActorAttributes, ActorMaterializer, remote }
+import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
+import akka.stream.ActorMaterializer
 import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
-import akka.stream.scaladsl.{ FileIO, Sink, Source }
+import akka.stream.scaladsl.{ Sink, Source }
 import akka.testkit.{ AkkaSpec, ImplicitSender, SocketUtil, TestKit, TestProbe }
-import akka.util.{ ByteString, Timeout }
+import akka.util.ByteString
 import com.typesafe.config._
-import akka.pattern.ask
 
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
@@ -183,20 +177,34 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       p.expectMsg("<COMPLETE>")
     }
 
-//    // FIXME not yet working, seems we have issues in delivery still
-//    "receive hundreds of elements via remoting" in {
-//      remoteActor ! "receive"
-//      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
-//
-//      val msgs = (1 to 100).toList.map(_.toString)
-//
-//      Source(msgs)
-//        .to(remoteSink)
-//        .run()
-//
-//      msgs.foreach(t ⇒ p.expectMsg(t))
-//      p.expectMsg("<COMPLETE>")
-//    }
+    "fail origin if remote Sink gets a failure" in {
+
+      remoteActor ! "receive"
+      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
+
+      val remoteFailureMessage = "Booom!"
+      Source.failed(new Exception(remoteFailureMessage))
+        .to(remoteSink)
+        .run()
+
+      val f = p.expectMsgType[akka.actor.Status.Failure]
+      f.cause.getMessage should ===(s"Remote Sink failed, reason: $remoteFailureMessage")
+    }
+
+    //    // FIXME not yet working, seems we have issues in delivery still
+    //    "receive hundreds of elements via remoting" in {
+    //      remoteActor ! "receive"
+    //      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
+    //
+    //      val msgs = (1 to 100).toList.map(_.toString)
+    //
+    //      Source(msgs)
+    //        .to(remoteSink)
+    //        .run()
+    //
+    //      msgs.foreach(t ⇒ p.expectMsg(t))
+    //      p.expectMsg("<COMPLETE>")
+    //    }
 
   }
 
