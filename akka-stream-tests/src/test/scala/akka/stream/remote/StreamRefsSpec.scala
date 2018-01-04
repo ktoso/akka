@@ -191,46 +191,47 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       f.cause.getMessage should ===(s"Remote Sink failed, reason: $remoteFailureMessage")
     }
 
-    "fail origin if remote Sink is stopped abruptly" in {
-      val otherSystem = ActorSystem("OtherRemoteSystem", StreamRefsSpec.config())
+    "receive hundreds of elements via remoting" in {
+      remoteActor ! "receive"
+      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
 
-      try {
-        // obtain the remoteActor ref via selection in order to use _real_ remoting in this test
-        val remoteActor = {
-          val it = otherSystem.actorOf(DatasourceActor.props(p.ref), "remoteActor")
-          val remoteAddress = otherSystem.asInstanceOf[ActorSystemImpl].provider.getDefaultAddress
-          system.actorSelection(it.path.toStringWithAddress(remoteAddress)) ! Identify("hi")
-          expectMsgType[ActorIdentity].ref.get
-        }
+      val msgs = (1 to 100).toList.map(i ⇒ s"payload-$i")
 
-        remoteActor ! "receive"
-        val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
+      Source(msgs)
+        .to(remoteSink)
+        .run()
 
-        Source.maybe[String] // not emitting anything
-          .to(remoteSink)
-          .run()
-
-        // and the system crashes; which should cause abrupt termination in the stream
-        TestKit.shutdownActorSystem(otherSystem)
-
-        val f = p.expectMsgType[akka.actor.Status.Failure]
-        f.cause.getMessage should ===(s"Remote Sink failed, reason:")
-      } finally TestKit.shutdownActorSystem(otherSystem)
+      msgs.foreach(t ⇒ p.expectMsg(t))
+      p.expectMsg("<COMPLETE>")
     }
 
-    //    // FIXME not yet working, seems we have issues in delivery still
-    //    "receive hundreds of elements via remoting" in {
-    //      remoteActor ! "receive"
-    //      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
+    //    "fail origin if remote Sink is stopped abruptly" in {
+    //      val otherSystem = ActorSystem("OtherRemoteSystem", StreamRefsSpec.config())
     //
-    //      val msgs = (1 to 100).toList.map(_.toString)
+    //      try {
+    //        // obtain the remoteActor ref via selection in order to use _real_ remoting in this test
+    //        val remoteActor = {
+    //          val it = otherSystem.actorOf(DatasourceActor.props(p.ref), "remoteActor")
+    //          val remoteAddress = otherSystem.asInstanceOf[ActorSystemImpl].provider.getDefaultAddress
+    //          system.actorSelection(it.path.toStringWithAddress(remoteAddress)) ! Identify("hi")
+    //          expectMsgType[ActorIdentity].ref.get
+    //        }
     //
-    //      Source(msgs)
-    //        .to(remoteSink)
-    //        .run()
+    //        remoteActor ! "receive"
+    //        val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
     //
-    //      msgs.foreach(t ⇒ p.expectMsg(t))
-    //      p.expectMsg("<COMPLETE>")
+    //        val otherMat = ActorMaterializer()(otherSystem)
+    //        Source.maybe[String] // not emitting anything
+    //          .to(remoteSink)
+    //          .run()(otherMat)
+    //
+    //        // and the system crashes; which should cause abrupt termination in the stream
+    //        Thread.sleep(300)
+    //        otherMat.shutdown()
+    //
+    //        val f = p.expectMsgType[akka.actor.Status.Failure]
+    //        f.cause.getMessage should ===(s"Remote Sink failed, reason:")
+    //      } finally TestKit.shutdownActorSystem(otherSystem)
     //    }
 
   }
