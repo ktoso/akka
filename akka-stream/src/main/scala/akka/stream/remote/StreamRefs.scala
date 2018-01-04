@@ -36,6 +36,11 @@ private[akka] object StreamRefs {
     if (seqNr <= 0) throw ReactiveStreamsCompliance.numberOfElementsInRequestMustBePositiveException
   }
 
+  // --- exceptions ---
+
+  final case class RemoteStreamRefActorTerminatedException(msg: String) extends RuntimeException(msg)
+  final case class InvalidSequenceNumberException(expectedSeqNr: Long, gotSeqNr: Long, msg: String)
+    extends IllegalStateException(s"$msg (expected: $expectedSeqNr, got: $gotSeqNr)")
+
 }
 
-final case class RemoteStreamRefActorTerminatedException(msg: String) extends RuntimeException(msg)

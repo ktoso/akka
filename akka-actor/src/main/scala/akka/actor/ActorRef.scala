@@ -368,8 +368,6 @@ private[akka] class LocalActorRef private[akka] (
    */
   def getSingleChild(name: String): InternalActorRef = actorCell.getSingleChild(name)
 
-  lazy val log = Logging(_system, getClass)
-
   override def getChild(names: Iterator[String]): InternalActorRef = {
     /*
      * The idea is to recursively descend as far as possible with LocalActor

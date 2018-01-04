@@ -3,19 +3,13 @@
  */
 package akka.stream.remote.scaladsl
 
-import java.util
-
-import akka.actor.{ Actor, ActorLogging, ActorRef, Props, Terminated }
-import akka.annotation.InternalApi
-import akka.pattern.FutureRef
+import akka.actor.{ ActorRef, Terminated }
 import akka.stream._
-import akka.stream.impl.SinkModule
+import akka.stream.remote.StreamRefs
 import akka.stream.remote.impl.StreamRefsMaster
-import akka.stream.remote.{ RemoteStreamRefActorTerminatedException, StreamRefs }
 import akka.stream.scaladsl.Source
 import akka.stream.stage._
-import akka.util.{ ByteString, OptionVal }
-import org.reactivestreams.Subscriber
+import akka.util.ByteString
 
 import scala.concurrent.{ Future, Promise }
 
@@ -63,13 +57,12 @@ final class SinkRefTargetSource[T] extends GraphStageWithMaterializedValue[Sourc
 
       val initialDemand = 4L // TODO get from config as well as attributes
 
+      var expectingSeqNr = 1L
       var localCumulativeDemand = 0L
       var remotePartner: ActorRef = _
 
       override def preStart(): Unit = {
         self = getStageActor(initialReceive, name = selfActorName)
-
-        //        receiverRef = master.allocateReceiver(self.ref)
         log.warning("Allocated receiver: {}", self.ref)
 
         promise.success(new SinkRef(self.ref, initialDemand))
@@ -108,6 +101,7 @@ final class SinkRefTargetSource[T] extends GraphStageWithMaterializedValue[Sourc
 
       lazy val initialReceive: ((ActorRef, Any)) ⇒ Unit = {
         case (sender, StreamRefs.SequencedOnNext(seqNr, payload: T)) ⇒
+          validateSequenceNr(seqNr, "Illegal sequence nr in SequencedOnNext")
           log.warning("Received seq {} from {}", StreamRefs.SequencedOnNext(seqNr, payload: T), sender)
           remotePartner = sender
           self.watch(sender) // FIXME?
@@ -117,7 +111,7 @@ final class SinkRefTargetSource[T] extends GraphStageWithMaterializedValue[Sourc
           getStageActor(runningReceive(sender)) // become running
 
         case (sender, StreamRefs.RemoteSinkCompleted(seqNr)) ⇒
-          // FIXME fail or wait if the sequence number is not strictly in order with the expected one
+          validateSequenceNr(seqNr, "Illegal sequence nr in RemoteSinkCompleted")
           log.info("The remote Sink has completed, completing this source as well...")
           self.unwatch(sender)
           completeStage()
@@ -127,6 +121,13 @@ final class SinkRefTargetSource[T] extends GraphStageWithMaterializedValue[Sourc
           self.unwatch(sender)
           failStage(new RuntimeException(s"Remote Sink failed, reason: $reason"))
       }
+
+      @throws[StreamRefs.InvalidSequenceNumberException]
+      def validateSequenceNr(seqNr: Long, msg: String): Unit = {
+        if (isInvalidSequenceNr(seqNr)) throw new StreamRefs.InvalidSequenceNumberException(seqNr, localCumulativeDemand, msg)
+      }
+      def isInvalidSequenceNr(seqNr: Long): Boolean =
+        seqNr != expectingSeqNr
 
       setHandler(out, this)
     }

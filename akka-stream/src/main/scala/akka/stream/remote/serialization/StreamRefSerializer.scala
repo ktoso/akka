@@ -21,16 +21,6 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
   private[this] val SourceRefManifest = "E"
   private[this] val SinkRefManifest = "F"
 
-  @volatile private[this] var transportInfo: Serialization.Information = _
-  def transportInformation: Serialization.Information = {
-    if (transportInfo == null) {
-      val address = system.provider.getDefaultAddress
-      transportInfo = Serialization.Information(address, system)
-    }
-    println(s"transportInfo = ${transportInfo}   @@@@ ${system} @@@ ${Thread.currentThread().getName}")
-    transportInfo
-  }
-
   override def manifest(o: AnyRef): String = o match {
     // protocol
     case _: StreamRefs.SequencedOnNext[_]  ⇒ SequencedOnNextManifest
@@ -109,27 +99,13 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
   }
 
   private def serializeSinkRef(sink: SinkRef[_]): StreamRefContainers.SinkRef = {
-    val make = () ⇒ {
-      val actorRef = StreamRefContainers.ActorRef.newBuilder()
-        .setPath(Serialization.serializedActorPath(sink.targetRef))
+    val actorRef = StreamRefContainers.ActorRef.newBuilder()
+      .setPath(Serialization.serializedActorPath(sink.targetRef))
 
-      StreamRefContainers.SinkRef.newBuilder()
-        .setInitialDemand(sink.initialDemand)
-        .setTargetRef(actorRef)
-        .build()
-    }
-
-    // Serialize actor references with full address information (defaultAddress).
-    // When sending remote messages currentTransportInformation is already set,
-    // but when serializing for digests it must be set here.
-    val it = if (Serialization.currentTransportInformation.value == null)
-      Serialization.currentTransportInformation.withValue(transportInformation) { make() }
-    else
-      make()
-
-    println(s"=== serializeSinkRef it = ${it} @@@ ${system} @@@@ ${Thread.currentThread().getName}")
-
-    it
+    StreamRefContainers.SinkRef.newBuilder()
+      .setInitialDemand(sink.initialDemand)
+      .setTargetRef(actorRef)
+      .build()
   }
 
   private def serializeSourceRef(source: SourceRef[_]): StreamRefContainers.ActorRef = {
@@ -142,16 +118,7 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   private def deserializeSinkRef(bytes: Array[Byte]): SinkRef[Any] = {
     val ref = StreamRefContainers.SinkRef.parseFrom(bytes)
-
-    def get() = serialization.system.provider.resolveActorRef(ref.getTargetRef.getPath)
-    val targetRef =
-      if (Serialization.currentTransportInformation.value == null)
-        Serialization.currentTransportInformation.withValue(transportInformation) { get() }
-      else
-        get()
-
-    println(s"=== deserializeSinkRef path = ${ref.getTargetRef.getPath}")
-    println(s"=== deserializeSinkRef resolved = ${targetRef}")
+    val targetRef = serialization.system.provider.resolveActorRef(ref.getTargetRef.getPath)
 
     new SinkRef[Any](targetRef, ref.getInitialDemand)
   }
