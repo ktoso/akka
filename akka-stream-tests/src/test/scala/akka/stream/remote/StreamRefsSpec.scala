@@ -3,6 +3,7 @@
  */
 package akka.stream.remote
 
+import akka.NotUsed
 import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
 import akka.stream.ActorMaterializer
 import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
@@ -26,17 +27,20 @@ object StreamRefsSpec {
     implicit val mat = ActorMaterializer()
 
     def receive = {
-      //      case "send" ⇒
-      //        /*
-      //         * Here we're able to send a source to a remote recipient
-      //         *
-      //         * For them it's a Source; for us it is a Sink we run data "into"
-      //         */
-      //        val source: Source[String, NotUsed] = Source.single("huge-file-")
-      //        val ref: SourceRef[String] = source.runWith(SourceRef())
-      //
-      //        sender() ! SourceMsg(ref)
-      //
+      case "give" ⇒
+        /*
+         * Here we're able to send a source to a remote recipient
+         *
+         * For them it's a Source; for us it is a Sink we run data "into"
+         */
+        val source: Source[String, NotUsed] = Source(List("hello", "world"))
+        val ref: Future[SourceRef[String]] = source.runWith(SourceRef.sink())
+
+        println(s"source = ${source}")
+        println(s"ref = ${Await.result(ref, 10.seconds)}")
+
+        sender() ! Await.result(ref, 10.seconds)
+
       //      case "send-bulk" ⇒
       //        /*
       //         * Here we're able to send a source to a remote recipient
@@ -137,31 +141,34 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
   override protected def beforeTermination(): Unit =
     TestKit.shutdownActorSystem(remoteSystem)
 
-  //  "A SourceRef" must {
-  //
-  //    //    "work" in {
-  //    //      val actor = remoteSystem.actorOf(Props(classOf[DatasourceActor]), "actor")
-  //    //      actor ! "give"
-  //    //      val SourceMsg(sourceRef) = expectMsgType[SourceMsg]
-  //    //
-  //    //      sourceRef.map(_  1).runForeach { x ⇒
-  //    //        println(x)
-  //    //      }
-  //    //    }
-  //
-  //  }
+  val p = TestProbe()
+
+  // obtain the remoteActor ref via selection in order to use _real_ remoting in this test
+  val remoteActor = {
+    val it = remoteSystem.actorOf(DatasourceActor.props(p.ref), "remoteActor")
+    val remoteAddress = remoteSystem.asInstanceOf[ActorSystemImpl].provider.getDefaultAddress
+    system.actorSelection(it.path.toStringWithAddress(remoteAddress)) ! Identify("hi")
+    expectMsgType[ActorIdentity].ref.get
+  }
+
+  "A SourceRef" must {
+
+    "send messages via remoting" in {
+      remoteActor ! "give"
+      val sourceRef = expectMsgType[SourceRef[String]]
+
+      Source.fromGraph(sourceRef)
+        .log("RECEIVED")
+        .runWith(Sink.actorRef(p.ref, "<COMPLETE>"))
+
+      p.expectMsg("hello")
+      p.expectMsg("world")
+      p.expectMsg("<COMPLETE>")
+    }
+
+  }
 
   "A SinkRef" must {
-
-    val p = TestProbe()
-
-    // obtain the remoteActor ref via selection in order to use _real_ remoting in this test
-    val remoteActor = {
-      val it = remoteSystem.actorOf(DatasourceActor.props(p.ref), "remoteActor")
-      val remoteAddress = remoteSystem.asInstanceOf[ActorSystemImpl].provider.getDefaultAddress
-      system.actorSelection(it.path.toStringWithAddress(remoteAddress)) ! Identify("hi")
-      expectMsgType[ActorIdentity].ref.get
-    }
 
     "receive elements via remoting" in {
 

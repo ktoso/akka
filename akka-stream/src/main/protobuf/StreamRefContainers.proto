@@ -16,6 +16,12 @@ message SinkRef {
     optional int64 initialDemand = 2;
 }
 
+message SourceRef {
+    required ActorRef originRef = 1;
+    // FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+    // FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+}
+
 message ActorRef {
     required string path = 1;
 }

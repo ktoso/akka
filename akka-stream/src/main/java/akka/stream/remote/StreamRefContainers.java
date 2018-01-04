@@ -612,6 +612,604 @@ public final class StreamRefContainers {
     // @@protoc_insertion_point(class_scope:SinkRef)
   }
 
+  public interface SourceRefOrBuilder
+      extends akka.protobuf.MessageOrBuilder {
+
+    // required .ActorRef originRef = 1;
+    /**
+     * <code>required .ActorRef originRef = 1;</code>
+     *
+     * <pre>
+     * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+     * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+     * </pre>
+     */
+    boolean hasOriginRef();
+    /**
+     * <code>required .ActorRef originRef = 1;</code>
+     *
+     * <pre>
+     * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+     * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+     * </pre>
+     */
+    akka.stream.remote.StreamRefContainers.ActorRef getOriginRef();
+    /**
+     * <code>required .ActorRef originRef = 1;</code>
+     *
+     * <pre>
+     * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+     * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+     * </pre>
+     */
+    akka.stream.remote.StreamRefContainers.ActorRefOrBuilder getOriginRefOrBuilder();
+  }
+  /**
+   * Protobuf type {@code SourceRef}
+   */
+  public static final class SourceRef extends
+      akka.protobuf.GeneratedMessage
+      implements SourceRefOrBuilder {
+    // Use SourceRef.newBuilder() to construct.
+    private SourceRef(akka.protobuf.GeneratedMessage.Builder<?> builder) {
+      super(builder);
+      this.unknownFields = builder.getUnknownFields();
+    }
+    private SourceRef(boolean noInit) { this.unknownFields = akka.protobuf.UnknownFieldSet.getDefaultInstance(); }
+
+    private static final SourceRef defaultInstance;
+    public static SourceRef getDefaultInstance() {
+      return defaultInstance;
+    }
+
+    public SourceRef getDefaultInstanceForType() {
+      return defaultInstance;
+    }
+
+    private final akka.protobuf.UnknownFieldSet unknownFields;
+    @java.lang.Override
+    public final akka.protobuf.UnknownFieldSet
+        getUnknownFields() {
+      return this.unknownFields;
+    }
+    private SourceRef(
+        akka.protobuf.CodedInputStream input,
+        akka.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws akka.protobuf.InvalidProtocolBufferException {
+      initFields();
+      int mutable_bitField0_ = 0;
+      akka.protobuf.UnknownFieldSet.Builder unknownFields =
+          akka.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            default: {
+              if (!parseUnknownField(input, unknownFields,
+                                     extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+            case 10: {
+              akka.stream.remote.StreamRefContainers.ActorRef.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000001) == 0x00000001)) {
+                subBuilder = originRef_.toBuilder();
+              }
+              originRef_ = input.readMessage(akka.stream.remote.StreamRefContainers.ActorRef.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(originRef_);
+                originRef_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000001;
+              break;
+            }
+          }
+        }
+      } catch (akka.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new akka.protobuf.InvalidProtocolBufferException(
+            e.getMessage()).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final akka.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return akka.stream.remote.StreamRefContainers.internal_static_SourceRef_descriptor;
+    }
+
+    protected akka.protobuf.GeneratedMessage.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return akka.stream.remote.StreamRefContainers.internal_static_SourceRef_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              akka.stream.remote.StreamRefContainers.SourceRef.class, akka.stream.remote.StreamRefContainers.SourceRef.Builder.class);
+    }
+
+    public static akka.protobuf.Parser<SourceRef> PARSER =
+        new akka.protobuf.AbstractParser<SourceRef>() {
+      public SourceRef parsePartialFrom(
+          akka.protobuf.CodedInputStream input,
+          akka.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws akka.protobuf.InvalidProtocolBufferException {
+        return new SourceRef(input, extensionRegistry);
+      }
+    };
+
+    @java.lang.Override
+    public akka.protobuf.Parser<SourceRef> getParserForType() {
+      return PARSER;
+    }
+
+    private int bitField0_;
+    // required .ActorRef originRef = 1;
+    public static final int ORIGINREF_FIELD_NUMBER = 1;
+    private akka.stream.remote.StreamRefContainers.ActorRef originRef_;
+    /**
+     * <code>required .ActorRef originRef = 1;</code>
+     *
+     * <pre>
+     * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+     * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+     * </pre>
+     */
+    public boolean hasOriginRef() {
+      return ((bitField0_ & 0x00000001) == 0x00000001);
+    }
+    /**
+     * <code>required .ActorRef originRef = 1;</code>
+     *
+     * <pre>
+     * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+     * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+     * </pre>
+     */
+    public akka.stream.remote.StreamRefContainers.ActorRef getOriginRef() {
+      return originRef_;
+    }
+    /**
+     * <code>required .ActorRef originRef = 1;</code>
+     *
+     * <pre>
+     * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+     * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+     * </pre>
+     */
+    public akka.stream.remote.StreamRefContainers.ActorRefOrBuilder getOriginRefOrBuilder() {
+      return originRef_;
+    }
+
+    private void initFields() {
+      originRef_ = akka.stream.remote.StreamRefContainers.ActorRef.getDefaultInstance();
+    }
+    private byte memoizedIsInitialized = -1;
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized != -1) return isInitialized == 1;
+
+      if (!hasOriginRef()) {
+        memoizedIsInitialized = 0;
+        return false;
+      }
+      if (!getOriginRef().isInitialized()) {
+        memoizedIsInitialized = 0;
+        return false;
+      }
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    public void writeTo(akka.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      getSerializedSize();
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        output.writeMessage(1, originRef_);
+      }
+      getUnknownFields().writeTo(output);
+    }
+
+    private int memoizedSerializedSize = -1;
+    public int getSerializedSize() {
+      int size = memoizedSerializedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += akka.protobuf.CodedOutputStream
+          .computeMessageSize(1, originRef_);
+      }
+      size += getUnknownFields().getSerializedSize();
+      memoizedSerializedSize = size;
+      return size;
+    }
+
+    private static final long serialVersionUID = 0L;
+    @java.lang.Override
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
+      return super.writeReplace();
+    }
+
+    public static akka.stream.remote.StreamRefContainers.SourceRef parseFrom(
+        akka.protobuf.ByteString data)
+        throws akka.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static akka.stream.remote.StreamRefContainers.SourceRef parseFrom(
+        akka.protobuf.ByteString data,
+        akka.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws akka.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static akka.stream.remote.StreamRefContainers.SourceRef parseFrom(byte[] data)
+        throws akka.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static akka.stream.remote.StreamRefContainers.SourceRef parseFrom(
+        byte[] data,
+        akka.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws akka.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static akka.stream.remote.StreamRefContainers.SourceRef parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return PARSER.parseFrom(input);
+    }
+    public static akka.stream.remote.StreamRefContainers.SourceRef parseFrom(
+        java.io.InputStream input,
+        akka.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return PARSER.parseFrom(input, extensionRegistry);
+    }
+    public static akka.stream.remote.StreamRefContainers.SourceRef parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return PARSER.parseDelimitedFrom(input);
+    }
+    public static akka.stream.remote.StreamRefContainers.SourceRef parseDelimitedFrom(
+        java.io.InputStream input,
+        akka.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return PARSER.parseDelimitedFrom(input, extensionRegistry);
+    }
+    public static akka.stream.remote.StreamRefContainers.SourceRef parseFrom(
+        akka.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return PARSER.parseFrom(input);
+    }
+    public static akka.stream.remote.StreamRefContainers.SourceRef parseFrom(
+        akka.protobuf.CodedInputStream input,
+        akka.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return PARSER.parseFrom(input, extensionRegistry);
+    }
+
+    public static Builder newBuilder() { return Builder.create(); }
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder(akka.stream.remote.StreamRefContainers.SourceRef prototype) {
+      return newBuilder().mergeFrom(prototype);
+    }
+    public Builder toBuilder() { return newBuilder(this); }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        akka.protobuf.GeneratedMessage.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code SourceRef}
+     */
+    public static final class Builder extends
+        akka.protobuf.GeneratedMessage.Builder<Builder>
+       implements akka.stream.remote.StreamRefContainers.SourceRefOrBuilder {
+      public static final akka.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return akka.stream.remote.StreamRefContainers.internal_static_SourceRef_descriptor;
+      }
+
+      protected akka.protobuf.GeneratedMessage.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return akka.stream.remote.StreamRefContainers.internal_static_SourceRef_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                akka.stream.remote.StreamRefContainers.SourceRef.class, akka.stream.remote.StreamRefContainers.SourceRef.Builder.class);
+      }
+
+      // Construct using akka.stream.remote.StreamRefContainers.SourceRef.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          akka.protobuf.GeneratedMessage.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (akka.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+          getOriginRefFieldBuilder();
+        }
+      }
+      private static Builder create() {
+        return new Builder();
+      }
+
+      public Builder clear() {
+        super.clear();
+        if (originRefBuilder_ == null) {
+          originRef_ = akka.stream.remote.StreamRefContainers.ActorRef.getDefaultInstance();
+        } else {
+          originRefBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000001);
+        return this;
+      }
+
+      public Builder clone() {
+        return create().mergeFrom(buildPartial());
+      }
+
+      public akka.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return akka.stream.remote.StreamRefContainers.internal_static_SourceRef_descriptor;
+      }
+
+      public akka.stream.remote.StreamRefContainers.SourceRef getDefaultInstanceForType() {
+        return akka.stream.remote.StreamRefContainers.SourceRef.getDefaultInstance();
+      }
+
+      public akka.stream.remote.StreamRefContainers.SourceRef build() {
+        akka.stream.remote.StreamRefContainers.SourceRef result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      public akka.stream.remote.StreamRefContainers.SourceRef buildPartial() {
+        akka.stream.remote.StreamRefContainers.SourceRef result = new akka.stream.remote.StreamRefContainers.SourceRef(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        if (originRefBuilder_ == null) {
+          result.originRef_ = originRef_;
+        } else {
+          result.originRef_ = originRefBuilder_.build();
+        }
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      public Builder mergeFrom(akka.protobuf.Message other) {
+        if (other instanceof akka.stream.remote.StreamRefContainers.SourceRef) {
+          return mergeFrom((akka.stream.remote.StreamRefContainers.SourceRef)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(akka.stream.remote.StreamRefContainers.SourceRef other) {
+        if (other == akka.stream.remote.StreamRefContainers.SourceRef.getDefaultInstance()) return this;
+        if (other.hasOriginRef()) {
+          mergeOriginRef(other.getOriginRef());
+        }
+        this.mergeUnknownFields(other.getUnknownFields());
+        return this;
+      }
+
+      public final boolean isInitialized() {
+        if (!hasOriginRef()) {
+          
+          return false;
+        }
+        if (!getOriginRef().isInitialized()) {
+          
+          return false;
+        }
+        return true;
+      }
+
+      public Builder mergeFrom(
+          akka.protobuf.CodedInputStream input,
+          akka.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        akka.stream.remote.StreamRefContainers.SourceRef parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (akka.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (akka.stream.remote.StreamRefContainers.SourceRef) e.getUnfinishedMessage();
+          throw e;
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      // required .ActorRef originRef = 1;
+      private akka.stream.remote.StreamRefContainers.ActorRef originRef_ = akka.stream.remote.StreamRefContainers.ActorRef.getDefaultInstance();
+      private akka.protobuf.SingleFieldBuilder<
+          akka.stream.remote.StreamRefContainers.ActorRef, akka.stream.remote.StreamRefContainers.ActorRef.Builder, akka.stream.remote.StreamRefContainers.ActorRefOrBuilder> originRefBuilder_;
+      /**
+       * <code>required .ActorRef originRef = 1;</code>
+       *
+       * <pre>
+       * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+       * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+       * </pre>
+       */
+      public boolean hasOriginRef() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <code>required .ActorRef originRef = 1;</code>
+       *
+       * <pre>
+       * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+       * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+       * </pre>
+       */
+      public akka.stream.remote.StreamRefContainers.ActorRef getOriginRef() {
+        if (originRefBuilder_ == null) {
+          return originRef_;
+        } else {
+          return originRefBuilder_.getMessage();
+        }
+      }
+      /**
+       * <code>required .ActorRef originRef = 1;</code>
+       *
+       * <pre>
+       * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+       * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+       * </pre>
+       */
+      public Builder setOriginRef(akka.stream.remote.StreamRefContainers.ActorRef value) {
+        if (originRefBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          originRef_ = value;
+          onChanged();
+        } else {
+          originRefBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000001;
+        return this;
+      }
+      /**
+       * <code>required .ActorRef originRef = 1;</code>
+       *
+       * <pre>
+       * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+       * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+       * </pre>
+       */
+      public Builder setOriginRef(
+          akka.stream.remote.StreamRefContainers.ActorRef.Builder builderForValue) {
+        if (originRefBuilder_ == null) {
+          originRef_ = builderForValue.build();
+          onChanged();
+        } else {
+          originRefBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000001;
+        return this;
+      }
+      /**
+       * <code>required .ActorRef originRef = 1;</code>
+       *
+       * <pre>
+       * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+       * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+       * </pre>
+       */
+      public Builder mergeOriginRef(akka.stream.remote.StreamRefContainers.ActorRef value) {
+        if (originRefBuilder_ == null) {
+          if (((bitField0_ & 0x00000001) == 0x00000001) &&
+              originRef_ != akka.stream.remote.StreamRefContainers.ActorRef.getDefaultInstance()) {
+            originRef_ =
+              akka.stream.remote.StreamRefContainers.ActorRef.newBuilder(originRef_).mergeFrom(value).buildPartial();
+          } else {
+            originRef_ = value;
+          }
+          onChanged();
+        } else {
+          originRefBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000001;
+        return this;
+      }
+      /**
+       * <code>required .ActorRef originRef = 1;</code>
+       *
+       * <pre>
+       * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+       * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+       * </pre>
+       */
+      public Builder clearOriginRef() {
+        if (originRefBuilder_ == null) {
+          originRef_ = akka.stream.remote.StreamRefContainers.ActorRef.getDefaultInstance();
+          onChanged();
+        } else {
+          originRefBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000001);
+        return this;
+      }
+      /**
+       * <code>required .ActorRef originRef = 1;</code>
+       *
+       * <pre>
+       * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+       * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+       * </pre>
+       */
+      public akka.stream.remote.StreamRefContainers.ActorRef.Builder getOriginRefBuilder() {
+        bitField0_ |= 0x00000001;
+        onChanged();
+        return getOriginRefFieldBuilder().getBuilder();
+      }
+      /**
+       * <code>required .ActorRef originRef = 1;</code>
+       *
+       * <pre>
+       * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+       * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+       * </pre>
+       */
+      public akka.stream.remote.StreamRefContainers.ActorRefOrBuilder getOriginRefOrBuilder() {
+        if (originRefBuilder_ != null) {
+          return originRefBuilder_.getMessageOrBuilder();
+        } else {
+          return originRef_;
+        }
+      }
+      /**
+       * <code>required .ActorRef originRef = 1;</code>
+       *
+       * <pre>
+       * FIXME: it's basically SinkRef since we just ommit the optional initial demand...
+       * FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+       * </pre>
+       */
+      private akka.protobuf.SingleFieldBuilder<
+          akka.stream.remote.StreamRefContainers.ActorRef, akka.stream.remote.StreamRefContainers.ActorRef.Builder, akka.stream.remote.StreamRefContainers.ActorRefOrBuilder> 
+          getOriginRefFieldBuilder() {
+        if (originRefBuilder_ == null) {
+          originRefBuilder_ = new akka.protobuf.SingleFieldBuilder<
+              akka.stream.remote.StreamRefContainers.ActorRef, akka.stream.remote.StreamRefContainers.ActorRef.Builder, akka.stream.remote.StreamRefContainers.ActorRefOrBuilder>(
+                  originRef_,
+                  getParentForChildren(),
+                  isClean());
+          originRef_ = null;
+        }
+        return originRefBuilder_;
+      }
+
+      // @@protoc_insertion_point(builder_scope:SourceRef)
+    }
+
+    static {
+      defaultInstance = new SourceRef(true);
+      defaultInstance.initFields();
+    }
+
+    // @@protoc_insertion_point(class_scope:SourceRef)
+  }
+
   public interface ActorRefOrBuilder
       extends akka.protobuf.MessageOrBuilder {
 
@@ -4015,6 +4613,11 @@ public final class StreamRefContainers {
     akka.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_SinkRef_fieldAccessorTable;
   private static akka.protobuf.Descriptors.Descriptor
+    internal_static_SourceRef_descriptor;
+  private static
+    akka.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_SourceRef_fieldAccessorTable;
+  private static akka.protobuf.Descriptors.Descriptor
     internal_static_ActorRef_descriptor;
   private static
     akka.protobuf.GeneratedMessage.FieldAccessorTable
@@ -4060,15 +4663,16 @@ public final class StreamRefContainers {
     java.lang.String[] descriptorData = {
       "\n\031StreamRefContainers.proto\">\n\007SinkRef\022\034" +
       "\n\ttargetRef\030\001 \002(\0132\t.ActorRef\022\025\n\rinitialD" +
-      "emand\030\002 \001(\003\"\030\n\010ActorRef\022\014\n\004path\030\001 \002(\t\"!\n" +
-      "\006Option\022\027\n\005value\030\001 \001(\0132\010.Payload\"Q\n\007Payl" +
-      "oad\022\027\n\017enclosedMessage\030\001 \002(\014\022\024\n\014serializ" +
-      "erId\030\002 \002(\005\022\027\n\017messageManifest\030\004 \001(\014\"!\n\020C" +
-      "umulativeDemand\022\r\n\005seqNr\030\001 \002(\003\";\n\017Sequen" +
-      "cedOnNext\022\r\n\005seqNr\030\001 \002(\003\022\031\n\007payload\030\002 \002(" +
-      "\0132\010.Payload\"\"\n\021RemoteSinkFailure\022\r\n\005caus" +
-      "e\030\001 \001(\014\"$\n\023RemoteSinkCompleted\022\r\n\005seqNr\030",
-      "\001 \002(\003B\026\n\022akka.stream.remoteH\001"
+      "emand\030\002 \001(\003\")\n\tSourceRef\022\034\n\toriginRef\030\001 " +
+      "\002(\0132\t.ActorRef\"\030\n\010ActorRef\022\014\n\004path\030\001 \002(\t" +
+      "\"!\n\006Option\022\027\n\005value\030\001 \001(\0132\010.Payload\"Q\n\007P" +
+      "ayload\022\027\n\017enclosedMessage\030\001 \002(\014\022\024\n\014seria" +
+      "lizerId\030\002 \002(\005\022\027\n\017messageManifest\030\004 \001(\014\"!" +
+      "\n\020CumulativeDemand\022\r\n\005seqNr\030\001 \002(\003\";\n\017Seq" +
+      "uencedOnNext\022\r\n\005seqNr\030\001 \002(\003\022\031\n\007payload\030\002" +
+      " \002(\0132\010.Payload\"\"\n\021RemoteSinkFailure\022\r\n\005c",
+      "ause\030\001 \001(\014\"$\n\023RemoteSinkCompleted\022\r\n\005seq" +
+      "Nr\030\001 \002(\003B\026\n\022akka.stream.remoteH\001"
     };
     akka.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new akka.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -4081,44 +4685,50 @@ public final class StreamRefContainers {
             akka.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_SinkRef_descriptor,
               new java.lang.String[] { "TargetRef", "InitialDemand", });
-          internal_static_ActorRef_descriptor =
+          internal_static_SourceRef_descriptor =
             getDescriptor().getMessageTypes().get(1);
+          internal_static_SourceRef_fieldAccessorTable = new
+            akka.protobuf.GeneratedMessage.FieldAccessorTable(
+              internal_static_SourceRef_descriptor,
+              new java.lang.String[] { "OriginRef", });
+          internal_static_ActorRef_descriptor =
+            getDescriptor().getMessageTypes().get(2);
           internal_static_ActorRef_fieldAccessorTable = new
             akka.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_ActorRef_descriptor,
               new java.lang.String[] { "Path", });
           internal_static_Option_descriptor =
-            getDescriptor().getMessageTypes().get(2);
+            getDescriptor().getMessageTypes().get(3);
           internal_static_Option_fieldAccessorTable = new
             akka.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_Option_descriptor,
               new java.lang.String[] { "Value", });
           internal_static_Payload_descriptor =
-            getDescriptor().getMessageTypes().get(3);
+            getDescriptor().getMessageTypes().get(4);
           internal_static_Payload_fieldAccessorTable = new
             akka.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_Payload_descriptor,
               new java.lang.String[] { "EnclosedMessage", "SerializerId", "MessageManifest", });
           internal_static_CumulativeDemand_descriptor =
-            getDescriptor().getMessageTypes().get(4);
+            getDescriptor().getMessageTypes().get(5);
           internal_static_CumulativeDemand_fieldAccessorTable = new
             akka.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_CumulativeDemand_descriptor,
               new java.lang.String[] { "SeqNr", });
           internal_static_SequencedOnNext_descriptor =
-            getDescriptor().getMessageTypes().get(5);
+            getDescriptor().getMessageTypes().get(6);
           internal_static_SequencedOnNext_fieldAccessorTable = new
             akka.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_SequencedOnNext_descriptor,
               new java.lang.String[] { "SeqNr", "Payload", });
           internal_static_RemoteSinkFailure_descriptor =
-            getDescriptor().getMessageTypes().get(6);
+            getDescriptor().getMessageTypes().get(7);
           internal_static_RemoteSinkFailure_fieldAccessorTable = new
             akka.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_RemoteSinkFailure_descriptor,
               new java.lang.String[] { "Cause", });
           internal_static_RemoteSinkCompleted_descriptor =
-            getDescriptor().getMessageTypes().get(7);
+            getDescriptor().getMessageTypes().get(8);
           internal_static_RemoteSinkCompleted_fieldAccessorTable = new
             akka.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_RemoteSinkCompleted_descriptor,

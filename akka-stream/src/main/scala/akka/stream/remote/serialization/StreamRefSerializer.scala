@@ -51,7 +51,7 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
     case RemoteSinkFailureManifest   ⇒ deserializeRemoteSinkFailure(bytes)
     // refs
     case SinkRefManifest             ⇒ deserializeSinkRef(bytes)
-    case SourceRefManifest           ⇒ ???
+    case SourceRefManifest           ⇒ deserializeSourceRef(bytes)
   }
 
   // -----
@@ -108,9 +108,12 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
       .build()
   }
 
-  private def serializeSourceRef(source: SourceRef[_]): StreamRefContainers.ActorRef = {
-    StreamRefContainers.ActorRef.newBuilder() // TODO make special proto for it
-      .setPath(Serialization.serializedActorPath(source.sourceDriverRef))
+  private def serializeSourceRef(source: SourceRef[_]): StreamRefContainers.SourceRef = {
+    val actorRef = StreamRefContainers.ActorRef.newBuilder()
+      .setPath(Serialization.serializedActorPath(source.originRef))
+
+    StreamRefContainers.SourceRef.newBuilder()
+      .setOriginRef(actorRef)
       .build()
   }
 
@@ -121,6 +124,13 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
     val targetRef = serialization.system.provider.resolveActorRef(ref.getTargetRef.getPath)
 
     new SinkRef[Any](targetRef, ref.getInitialDemand)
+  }
+
+  private def deserializeSourceRef(bytes: Array[Byte]): SourceRef[Any] = {
+    val ref = StreamRefContainers.SourceRef.parseFrom(bytes)
+    val targetRef = serialization.system.provider.resolveActorRef(ref.getOriginRef.getPath)
+
+    new SourceRef[Any](targetRef)
   }
 
   private def deserializeSequencedOnNext(bytes: Array[Byte]): AnyRef = {

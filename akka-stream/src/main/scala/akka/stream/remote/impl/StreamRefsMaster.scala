@@ -4,9 +4,10 @@
 package akka.stream.remote.impl
 
 import akka.actor.{ Actor, ActorRef, ActorSystem, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, Props }
+import akka.stream.ActorMaterializerHelper
 import akka.stream.impl.SeqActorName
 import akka.stream.remote.impl.StreamRefsMasterActor.AllocatePusherToRemoteSink
-import akka.stream.remote.scaladsl.SinkRef
+import akka.stream.remote.scaladsl.{ SinkRef, StreamRefSettings }
 
 object StreamRefsMaster extends ExtensionId[StreamRefsMaster] with ExtensionIdProvider {
 
@@ -21,8 +22,13 @@ object StreamRefsMaster extends ExtensionId[StreamRefsMaster] with ExtensionIdPr
 /** INTERNAL API */
 private[stream] final class StreamRefsMaster(system: ExtendedActorSystem) extends Extension {
 
+  val settings: StreamRefSettings = new StreamRefSettings(system.settings.config)
+
+  private[this] val sourceRefOriginSinkNames = SeqActorName("SourceRefOriginSink") // "local origin"
+  private[this] val sourceRefNames = SeqActorName("SourceRef") // "remote receiver"
+
   private[this] val sinkRefTargetSourceNames = SeqActorName("SinkRefTargetSource") // "local target"
-  private[this] val sinkRefNames = SeqActorName("SinkRefActor") // "remote sender"
+  private[this] val sinkRefNames = SeqActorName("SinkRef") // "remote sender"
 
   // TODO do we need it? perhaps for reaping?
   // system.systemActorOf(StreamRefsMasterActor.props(), "streamRefsMaster")
@@ -32,6 +38,12 @@ private[stream] final class StreamRefsMaster(system: ExtendedActorSystem) extend
 
   def nextSinkRefName(): String =
     sinkRefNames.next()
+
+  def nextSourceRefOriginSinkName(): String =
+    sourceRefOriginSinkNames.next()
+
+  def nextSourceRefName(): String =
+    sourceRefNames.next()
 
 }
 

@@ -31,7 +31,7 @@ object SinkRef {
  * This stage can only handle a single "sender" (it does not merge values);
  * The first that pushes is assumed the one we are to trust
  */
-final class SinkRefTargetSource[T] extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
+final class SinkRefTargetSource[T]() extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
   val out: Outlet[T] = Outlet[T](s"${Logging.simpleName(getClass)}.out")
   override def shape = SourceShape.of(out)
 
@@ -39,8 +39,8 @@ final class SinkRefTargetSource[T] extends GraphStageWithMaterializedValue[Sourc
     val promise = Promise[SinkRef[T]]()
 
     val logic = new TimerGraphStageLogic(shape) with StageLogging with OutHandler {
-      private[this] lazy val settings = new StreamRefSettings(ActorMaterializerHelper.downcast(materializer).system.settings.config)
       private[this] lazy val streamRefsMaster = StreamRefsMaster(ActorMaterializerHelper.downcast(materializer).system)
+      private[this] lazy val settings = streamRefsMaster.settings
 
       private[this] var self: GraphStageLogic.StageActor = _
       private[this] lazy val selfActorName = streamRefsMaster.nextSinkRefTargetSourceName()
@@ -173,6 +173,9 @@ final class SinkRefTargetSource[T] extends GraphStageWithMaterializedValue[Sourc
     }
     (logic, promise.future) // FIXME we'd want to expose just the ref!
   }
+
+  override def toString: String =
+    s"${Logging.simpleName(getClass)}()}"
 }
 
 /**
@@ -196,10 +199,10 @@ final class SinkRef[In] private[akka] ( // TODO is it more of a SourceRefSink?
     private[this] lazy val selfActorName = streamRefsMaster.nextSinkRefName()
 
     // we assume that there is at least SOME buffer space
-    private[this] var cumulativeDemand = initialDemand
+    private[this] var remoteCumulativeDemandReceived = initialDemand
 
     // FIXME this one will be sent over remoting so we have to be able to make that work
-    private[this] var grabbedSequenceNr = 0L
+    private[this] var remoteCumulativeDemandConsumed = 0L
     private[this] var self: GraphStageLogic.StageActor = _
     implicit def selfSender: ActorRef = self.ref
 
@@ -219,8 +222,10 @@ final class SinkRef[In] private[akka] ( // TODO is it more of a SourceRefSink?
       case (sender, CumulativeDemand(d)) ⇒
         validatePartnerRef(sender)
 
-        if (cumulativeDemand < d) cumulativeDemand = d
-        log.warning("Received cumulative demand [{}], consumable demand: [{}]", CumulativeDemand(d), cumulativeDemand - grabbedSequenceNr)
+        if (remoteCumulativeDemandReceived < d) {
+          remoteCumulativeDemandReceived = d
+          log.warning("Received cumulative demand [{}], consumable demand: [{}]", CumulativeDemand(d), remoteCumulativeDemandReceived - remoteCumulativeDemandConsumed)
+        }
         tryPull()
     }
 
@@ -232,12 +237,12 @@ final class SinkRef[In] private[akka] ( // TODO is it more of a SourceRefSink?
     }
 
     private def tryPull() =
-      if (grabbedSequenceNr < cumulativeDemand && !hasBeenPulled(in))
+      if (remoteCumulativeDemandConsumed < remoteCumulativeDemandReceived && !hasBeenPulled(in))
         pull(in)
 
     private def grabSequenced[T](in: Inlet[T]): SequencedOnNext[T] = {
-      val onNext = SequencedOnNext(grabbedSequenceNr, grab(in))
-      grabbedSequenceNr += 1
+      val onNext = SequencedOnNext(remoteCumulativeDemandConsumed, grab(in))
+      remoteCumulativeDemandConsumed += 1
       onNext
     }
 
@@ -248,7 +253,7 @@ final class SinkRef[In] private[akka] ( // TODO is it more of a SourceRefSink?
     }
 
     override def onUpstreamFinish(): Unit = {
-      targetRef ! StreamRefs.RemoteSinkCompleted(grabbedSequenceNr)
+      targetRef ! StreamRefs.RemoteSinkCompleted(remoteCumulativeDemandConsumed)
       self.unwatch(targetRef)
       super.onUpstreamFinish()
     }
