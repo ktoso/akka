@@ -3,8 +3,9 @@
  */
 package akka.stream.remote.scaladsl
 
-import akka.NotUsed
+import akka.{ Done, NotUsed }
 import akka.actor.ActorRef
+import akka.actor.Status.Failure
 import akka.event.Logging
 import akka.stream._
 import akka.stream.actor.{ RequestStrategy, WatermarkRequestStrategy }
@@ -14,16 +15,24 @@ import akka.stream.remote.StreamRefs.{ CumulativeDemand, SequencedOnNext }
 import akka.stream.remote.impl.StreamRefsMaster
 import akka.stream.scaladsl.{ FlowOps, Sink, Source }
 import akka.stream.stage._
-import akka.util.ByteString
+import akka.util.{ ByteString, OptionVal }
 
 import scala.concurrent.{ Future, Promise }
+import scala.util.Try
 
-// FIXME IMPLEMENT THIS
 object SourceRef {
+
+  /**
+   * A local [[Sink]] which materializes a [[SourceRef]] which can be used by other streams (including remote ones),
+   * to consume data from this local stream, as if they were attached in the spot of the local Sink directly.
+   *
+   * Diagram: TODO a nice diagram
+   */
   def sink[T](): Graph[SinkShape[T], Future[SourceRef[T]]] =
     Sink.fromGraph(new SourceRefOriginSink[T]())
 
-  def bulkTransfer[T](): Graph[SinkShape[ByteString], SourceRef[ByteString]] = ???
+  // TODO Implement using TCP
+  // def bulkTransfer[T](): Graph[SinkShape[ByteString], SourceRef[ByteString]] = ???
 }
 
 final class SourceRefOriginSink[T]() extends GraphStageWithMaterializedValue[SinkShape[T], Future[SourceRef[T]]] {
@@ -37,10 +46,10 @@ final class SourceRefOriginSink[T]() extends GraphStageWithMaterializedValue[Sin
       private[this] lazy val streamRefsMaster = StreamRefsMaster(ActorMaterializerHelper.downcast(materializer).system)
       private[this] lazy val settings = streamRefsMaster.settings
 
-      private[this] var remotePartner: ActorRef = _
+      private[this] var remotePartner: OptionVal[ActorRef] = OptionVal.None
 
       private[this] var self: GraphStageLogic.StageActor = _
-      private[this] lazy val selfActorName = streamRefsMaster.nextSinkRefTargetSourceName()
+      private[this] override lazy val stageActorName = streamRefsMaster.nextSinkRefTargetSourceName()
       private[this] implicit def selfSender: ActorRef = self.ref
 
       // demand management ---
@@ -48,11 +57,15 @@ final class SourceRefOriginSink[T]() extends GraphStageWithMaterializedValue[Sin
       private var remoteCumulativeDemandConsumed: Long = 0L
       // end of demand management ---
 
+      // early failure/completion management ---
+      private var completedBeforeRemoteConnected: OptionVal[Try[Done]] = OptionVal.None
+      // end of early failure/completion management ---
+
       override def preStart(): Unit = {
         self = getStageActor(initialReceive)
-        log.warning("Allocated receiver: {}", self.ref)
+        log.warning("Allocated emitter: {}", self.ref)
 
-        promise.success(new SourceRef(self.ref))
+        promise.success(new SourceRef(OptionVal(self.ref)))
       }
 
       lazy val initialReceive: ((ActorRef, Any)) ⇒ Unit = {
@@ -80,19 +93,33 @@ final class SourceRefOriginSink[T]() extends GraphStageWithMaterializedValue[Sin
 
       override def onPush(): Unit = {
         val elem = grabSequenced(in)
-        remotePartner ! elem
+        remotePartner.get ! elem // FIXME log error?
         log.warning("Sending sequenced: {} to {}", elem, remotePartner)
         tryPull()
       }
 
       @throws[StreamRefs.InvalidPartnerActorException]
       def observeAndValidateSender(sender: ActorRef, msg: String): Unit =
-        if (remotePartner == null) {
+        if (remotePartner.isEmpty) {
           log.debug("Received first message from {}, assuming it to be the remote partner for this stage", sender)
-          remotePartner = sender
-          self.watch(sender)
-        } else if (sender != remotePartner) {
-          throw StreamRefs.InvalidPartnerActorException(sender, remotePartner, msg)
+          remotePartner = OptionVal(sender)
+
+          if (completedBeforeRemoteConnected.isDefined) completedBeforeRemoteConnected.get match {
+            case scala.util.Failure(ex) ⇒
+              log.warning("Stream already terminated with exception before remote side materialized, failing now.")
+              sender ! StreamRefs.RemoteStreamFailure(ex.getMessage)
+              failStage(ex)
+
+            case scala.util.Success(Done) ⇒
+              log.warning("Stream already completed before remote side materialized, failing now.")
+              sender ! StreamRefs.RemoteStreamCompleted(remoteCumulativeDemandConsumed)
+              completeStage()
+          }
+          else {
+            self.watch(sender)
+          }
+        } else if (sender != remotePartner.get) {
+          throw StreamRefs.InvalidPartnerActorException(sender, remotePartner.get, msg)
         }
 
       //      @throws[StreamRefs.InvalidSequenceNumberException]
@@ -105,16 +132,24 @@ final class SourceRefOriginSink[T]() extends GraphStageWithMaterializedValue[Sin
       //      def isInvalidSequenceNr(seqNr: Long): Boolean =
       //        seqNr != expectingSeqNr
 
-      override def onUpstreamFailure(ex: Throwable): Unit = {
-        remotePartner ! StreamRefs.RemoteSinkFailure(ex.getMessage) // TODO yes / no? At least the message I guess
-        self.unwatch(remotePartner)
+      override def onUpstreamFailure(ex: Throwable): Unit = if (remotePartner.isDefined) {
+        remotePartner.get ! StreamRefs.RemoteStreamFailure(ex.getMessage)
+        self.unwatch(remotePartner.get)
         super.onUpstreamFailure(ex)
+      } else {
+        completedBeforeRemoteConnected = OptionVal(scala.util.Failure(ex))
+        // not terminating on purpose, since other side may subscribe still and then we want to fail it
+        setKeepGoing(true)
       }
 
-      override def onUpstreamFinish(): Unit = {
-        remotePartner ! StreamRefs.RemoteSinkCompleted(remoteCumulativeDemandConsumed)
-        self.unwatch(remotePartner)
+      override def onUpstreamFinish(): Unit = if (remotePartner.isDefined) {
+        remotePartner.get ! StreamRefs.RemoteStreamCompleted(remoteCumulativeDemandConsumed)
+        self.unwatch(remotePartner.get)
         super.onUpstreamFinish()
+      } else {
+        completedBeforeRemoteConnected = OptionVal(scala.util.Success(Done))
+        // not terminating on purpose, since other side may subscribe still and then we want to complete it
+        setKeepGoing(true)
       }
 
       setHandler(in, this)
@@ -125,16 +160,11 @@ final class SourceRefOriginSink[T]() extends GraphStageWithMaterializedValue[Sin
 
 }
 
-///// ------------------------------------ FIXME THIS IS A VERBATIM COPY -----------------------------------
-///// ------------------------------------ FIXME THIS IS A VERBATIM COPY -----------------------------------
-///// ------------------------------------ FIXME THIS IS A VERBATIM COPY -----------------------------------
-///// ------------------------------------ FIXME THIS IS A VERBATIM COPY -----------------------------------
 /**
  * This stage can only handle a single "sender" (it does not merge values);
  * The first that pushes is assumed the one we are to trust
  */
-// FIXME this is basically SinkRefTargetSource
-final class SourceRef[T](private[akka] val originRef: ActorRef) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
+final class SourceRef[T](private[akka] val originRef: OptionVal[ActorRef]) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
   val out: Outlet[T] = Outlet[T](s"${Logging.simpleName(getClass)}.out")
   override def shape = SourceShape.of(out)
 
@@ -163,8 +193,9 @@ final class SourceRef[T](private[akka] val originRef: ActorRef) extends GraphSta
       private val requestStrategy: RequestStrategy = WatermarkRequestStrategy(highWatermark = highDemandWatermark)
       // end of demand management ---
 
-      // TODO we could basically use the other impl... and just pass null as originRef since it'd be obtained from other side...
-      private var remotePartner: ActorRef = originRef
+      // initialized with the originRef if present, that means we're the "remote" for an already active Source on the other side (the "origin")
+      // null otherwise, in which case we allocated first -- we are the "origin", and awaiting the other side to start when we'll receive this ref
+      private var remotePartner: ActorRef = originRef.orNull
 
       override def preStart(): Unit = {
         localCumulativeDemand = settings.initialDemand.toLong
@@ -215,26 +246,26 @@ final class SourceRef[T](private[akka] val originRef: ActorRef) extends GraphSta
           triggerCumulativeDemand()
           tryPush(payload)
 
-        case (sender, StreamRefs.RemoteSinkCompleted(seqNr)) ⇒
+        case (sender, StreamRefs.RemoteStreamCompleted(seqNr)) ⇒
           observeAndValidateSender(sender, "Illegal sender in RemoteSinkCompleted")
           observeAndValidateSequenceNr(seqNr, "Illegal sequence nr in RemoteSinkCompleted")
-          log.debug("The remote Sink has completed, completing this source as well...")
+          log.debug("The remote stream has completed, completing as well...")
 
           self.unwatch(sender)
           completeStage()
 
-        case (sender, StreamRefs.RemoteSinkFailure(reason)) ⇒
+        case (sender, StreamRefs.RemoteStreamFailure(reason)) ⇒
           observeAndValidateSender(sender, "Illegal sender in RemoteSinkFailure")
-          log.debug("The remote Sink has failed, failing (reason: {})", reason)
+          log.debug("The remote stream has failed, failing (reason: {})", reason)
 
           self.unwatch(sender)
-          failStage(StreamRefs.RemoteStreamRefActorTerminatedException(s"Remote Sink failed, reason: $reason"))
+          failStage(StreamRefs.RemoteStreamRefActorTerminatedException(s"Remote stream (${sender.path}) failed, reason: $reason"))
       }
 
       def tryPush(): Unit =
         if (isAvailable(out) && receiveBuffer.nonEmpty) {
           val elem = receiveBuffer.dequeue()
-          log.warning(s"PUSHING SIGNALED ${elem} (capacity: ${receiveBuffer.used}/${receiveBuffer.capacity})")
+          log.debug(s"PUSHING SIGNALED ${elem} (capacity: ${receiveBuffer.used}/${receiveBuffer.capacity})") // TODO cleanup
           push(out, elem)
         }
       def tryPush(payload: Any): Unit =
@@ -243,14 +274,14 @@ final class SourceRef[T](private[akka] val originRef: ActorRef) extends GraphSta
             val elem = receiveBuffer.dequeue()
             push(out, elem)
             receiveBuffer.enqueue(payload.asInstanceOf[T])
-            log.warning(s"PUSHING SIGNALED ${elem} BUFFERING payload" + payload + s"(capacity: ${receiveBuffer.used}/${receiveBuffer.capacity})")
+            log.debug(s"PUSHING SIGNALED ${elem} BUFFERING payload" + payload + s"(capacity: ${receiveBuffer.used}/${receiveBuffer.capacity})") // TODO cleanup
           } else {
             push(out, payload.asInstanceOf[T])
-            log.warning(s"PUSHING DIRECTLY ${payload}")
+            log.debug(s"PUSHING DIRECTLY ${payload}") // TODO cleanup
           }
         } else {
           receiveBuffer.enqueue(payload.asInstanceOf[T])
-          log.warning("PUSHING BUFFERING payload" + payload + s"(capacity: ${receiveBuffer.used}/${receiveBuffer.capacity})")
+          log.debug("PUSHING BUFFERING payload" + payload + s"(capacity: ${receiveBuffer.used}/${receiveBuffer.capacity})") // TODO cleanup
         }
 
       @throws[StreamRefs.InvalidPartnerActorException]
@@ -282,8 +313,3 @@ final class SourceRef[T](private[akka] val originRef: ActorRef) extends GraphSta
     s"${Logging.simpleName(getClass)}($originRef)}"
 }
 
-///// ------------------------------------ FIXME END OF THIS IS A VERBATIM COPY ----------------------------
-///// ------------------------------------ FIXME END OF THIS IS A VERBATIM COPY ----------------------------
-///// ------------------------------------ FIXME END OF THIS IS A VERBATIM COPY ----------------------------
-///// ------------------------------------ FIXME END OF THIS IS A VERBATIM COPY ----------------------------
-///// ------------------------------------ FIXME END OF THIS IS A VERBATIM COPY ----------------------------

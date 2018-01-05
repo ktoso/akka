@@ -28,11 +28,11 @@ private[akka] object StreamRefs {
 
   /** Sent to a the receiver side of a SinkRef, once the sending side of the SinkRef gets signalled a Failure. */
   @InternalApi
-  final case class RemoteSinkFailure(msg: String) extends StreamRefs.Protocol
+  final case class RemoteStreamFailure(msg: String) extends StreamRefs.Protocol
 
   /** Sent to a the receiver side of a SinkRef, once the sending side of the SinkRef gets signalled a completion. */
   @InternalApi
-  final case class RemoteSinkCompleted(seqNr: Long) extends StreamRefs.Protocol
+  final case class RemoteStreamCompleted(seqNr: Long) extends StreamRefs.Protocol
 
   /**
    * Cumulative demand, equivalent to sequence numbering all events in a stream. *
@@ -46,7 +46,6 @@ private[akka] object StreamRefs {
   // --- exceptions ---
 
   final case class RemoteStreamRefActorTerminatedException(msg: String) extends RuntimeException(msg)
-  final case class RemoteStreamRefFailedException(msg: String) extends RuntimeException(msg)
   final case class InvalidSequenceNumberException(expectedSeqNr: Long, gotSeqNr: Long, msg: String)
     extends IllegalStateException(s"$msg (expected: $expectedSeqNr, got: $gotSeqNr)")
 

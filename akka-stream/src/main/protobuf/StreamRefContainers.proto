@@ -11,15 +11,15 @@ option optimize_for = SPEED;
 
 // TODO make explicit types for SinkRef/SourceRef as they can carry initial settings (initial demand etc)
 
+// TODO REMOVE THIS?????
 message SinkRef {
     required ActorRef targetRef = 1;
     optional int64 initialDemand = 2;
 }
 
 message SourceRef {
-    required ActorRef originRef = 1;
-    // FIXME: it's basically SinkRef since we just ommit the optional initial demand...
-    // FIXME: could it be that all those passable refs should be expressed internally as a StreamRef?
+    optional ActorRef originRef = 1;
+    optional int64 initialDemand = 2;
 }
 
 message ActorRef {
@@ -47,10 +47,10 @@ message SequencedOnNext {
     required Payload payload = 2;
 }
 
-message RemoteSinkFailure {
+message RemoteStreamFailure {
     optional bytes cause = 1;
 }
 
-message RemoteSinkCompleted {
+message RemoteStreamCompleted {
     required int64 seqNr = 1;
 }

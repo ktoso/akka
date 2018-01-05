@@ -4,6 +4,7 @@
 package akka.stream.remote
 
 import akka.NotUsed
+import akka.actor.Status.Failure
 import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
 import akka.stream.ActorMaterializer
 import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
@@ -14,6 +15,7 @@ import com.typesafe.config._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
+import scala.util.control.NoStackTrace
 
 object StreamRefsSpec {
 
@@ -36,8 +38,12 @@ object StreamRefsSpec {
         val source: Source[String, NotUsed] = Source(List("hello", "world"))
         val ref: Future[SourceRef[String]] = source.runWith(SourceRef.sink())
 
-        println(s"source = ${source}")
-        println(s"ref = ${Await.result(ref, 10.seconds)}")
+        // FIXME we want to avoid forcing people to do the Future here
+        sender() ! Await.result(ref, 10.seconds)
+
+      case "give-fail" ⇒
+        val ref = Source.failed[String](new Exception("Booooom!") with NoStackTrace)
+          .runWith(SourceRef.sink())
 
         sender() ! Await.result(ref, 10.seconds)
 
@@ -158,12 +164,24 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       val sourceRef = expectMsgType[SourceRef[String]]
 
       Source.fromGraph(sourceRef)
-        .log("RECEIVED")
         .runWith(Sink.actorRef(p.ref, "<COMPLETE>"))
 
       p.expectMsg("hello")
       p.expectMsg("world")
       p.expectMsg("<COMPLETE>")
+    }
+
+    "fail remote " in {
+      remoteActor ! "give-fail"
+      val sourceRef = expectMsgType[SourceRef[String]]
+
+      Source.fromGraph(sourceRef)
+        .runWith(Sink.actorRef(p.ref, "<COMPLETE>"))
+
+      val f = p.expectMsgType[Failure]
+      f.cause.getMessage should include("Remote stream (")
+      // actor name here, for easier identification
+      f.cause.getMessage should include("failed, reason: Booooom!")
     }
 
   }
@@ -195,7 +213,9 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
         .run()
 
       val f = p.expectMsgType[akka.actor.Status.Failure]
-      f.cause.getMessage should ===(s"Remote Sink failed, reason: $remoteFailureMessage")
+      f.cause.getMessage should include(s"Remote stream (")
+      // actor name ere, for easier identification
+      f.cause.getMessage should include(s"failed, reason: $remoteFailureMessage")
     }
 
     "receive hundreds of elements via remoting" in {

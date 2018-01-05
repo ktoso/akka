@@ -3,11 +3,12 @@
  */
 package akka.stream.remote.serialization
 
-import akka.actor.ExtendedActorSystem
+import akka.actor.{ ActorRef, ExtendedActorSystem }
 import akka.protobuf.ByteString
 import akka.serialization.{ BaseSerializer, Serialization, SerializationExtension, SerializerWithStringManifest }
 import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
 import akka.stream.remote.{ StreamRefContainers, StreamRefs }
+import akka.util.OptionVal
 
 final class StreamRefSerializer(val system: ExtendedActorSystem) extends SerializerWithStringManifest
   with BaseSerializer {
@@ -23,32 +24,32 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   override def manifest(o: AnyRef): String = o match {
     // protocol
-    case _: StreamRefs.SequencedOnNext[_]  ⇒ SequencedOnNextManifest
-    case _: StreamRefs.CumulativeDemand    ⇒ CumulativeDemandManifest
-    case _: StreamRefs.RemoteSinkFailure   ⇒ RemoteSinkFailureManifest
-    case _: StreamRefs.RemoteSinkCompleted ⇒ RemoteSinkCompletedManifest
+    case _: StreamRefs.SequencedOnNext[_]    ⇒ SequencedOnNextManifest
+    case _: StreamRefs.CumulativeDemand      ⇒ CumulativeDemandManifest
+    case _: StreamRefs.RemoteStreamFailure   ⇒ RemoteSinkFailureManifest
+    case _: StreamRefs.RemoteStreamCompleted ⇒ RemoteSinkCompletedManifest
     // refs
-    case _: SourceRef[_]                   ⇒ SourceRefManifest
-    case _: SinkRef[_]                     ⇒ SinkRefManifest
+    case _: SourceRef[_]                     ⇒ SourceRefManifest
+    case _: SinkRef[_]                       ⇒ SinkRefManifest
   }
 
   override def toBinary(o: AnyRef): Array[Byte] = o match {
     // protocol
-    case o: StreamRefs.SequencedOnNext[_]  ⇒ serializeSequencedOnNext(o).toByteArray
-    case d: StreamRefs.CumulativeDemand    ⇒ serializeCumulativeDemand(d).toByteArray
-    case d: StreamRefs.RemoteSinkFailure   ⇒ serializeRemoteSinkFailure(d).toByteArray
-    case d: StreamRefs.RemoteSinkCompleted ⇒ serializeRemoteSinkCompleted(d).toByteArray
+    case o: StreamRefs.SequencedOnNext[_]    ⇒ serializeSequencedOnNext(o).toByteArray
+    case d: StreamRefs.CumulativeDemand      ⇒ serializeCumulativeDemand(d).toByteArray
+    case d: StreamRefs.RemoteStreamFailure   ⇒ serializeRemoteSinkFailure(d).toByteArray
+    case d: StreamRefs.RemoteStreamCompleted ⇒ serializeRemoteSinkCompleted(d).toByteArray
     // refs
-    case ref: SinkRef[_]                   ⇒ serializeSinkRef(ref).toByteArray
-    case ref: SourceRef[_]                 ⇒ serializeSourceRef(ref).toByteArray
+    case ref: SinkRef[_]                     ⇒ serializeSinkRef(ref).toByteArray
+    case ref: SourceRef[_]                   ⇒ serializeSourceRef(ref).toByteArray
   }
 
   override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = manifest match {
     // protocol
     case SequencedOnNextManifest     ⇒ deserializeSequencedOnNext(bytes)
     case CumulativeDemandManifest    ⇒ deserializeCumulativeDemand(bytes)
-    case RemoteSinkCompletedManifest ⇒ deserializeRemoteSinkCompleted(bytes)
-    case RemoteSinkFailureManifest   ⇒ deserializeRemoteSinkFailure(bytes)
+    case RemoteSinkCompletedManifest ⇒ deserializeRemoteStreamCompleted(bytes)
+    case RemoteSinkFailureManifest   ⇒ deserializeRemoteStreamFailure(bytes)
     // refs
     case SinkRefManifest             ⇒ deserializeSinkRef(bytes)
     case SourceRefManifest           ⇒ deserializeSourceRef(bytes)
@@ -62,14 +63,14 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
       .build()
   }
 
-  private def serializeRemoteSinkFailure(d: StreamRefs.RemoteSinkFailure): StreamRefContainers.RemoteSinkFailure = {
-    StreamRefContainers.RemoteSinkFailure.newBuilder()
+  private def serializeRemoteSinkFailure(d: StreamRefs.RemoteStreamFailure): StreamRefContainers.RemoteStreamFailure = {
+    StreamRefContainers.RemoteStreamFailure.newBuilder()
       .setCause(ByteString.copyFrom(d.msg.getBytes))
       .build()
   }
 
-  private def serializeRemoteSinkCompleted(d: StreamRefs.RemoteSinkCompleted): StreamRefContainers.RemoteSinkCompleted = {
-    StreamRefContainers.RemoteSinkCompleted.newBuilder()
+  private def serializeRemoteSinkCompleted(d: StreamRefs.RemoteStreamCompleted): StreamRefContainers.RemoteStreamCompleted = {
+    StreamRefContainers.RemoteStreamCompleted.newBuilder()
       .setSeqNr(d.seqNr)
       .build()
   }
@@ -110,7 +111,7 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   private def serializeSourceRef(source: SourceRef[_]): StreamRefContainers.SourceRef = {
     val actorRef = StreamRefContainers.ActorRef.newBuilder()
-      .setPath(Serialization.serializedActorPath(source.originRef))
+      .setPath(Serialization.serializedActorPath(source.originRef.orNull))
 
     StreamRefContainers.SourceRef.newBuilder()
       .setOriginRef(actorRef)
@@ -128,7 +129,9 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   private def deserializeSourceRef(bytes: Array[Byte]): SourceRef[Any] = {
     val ref = StreamRefContainers.SourceRef.parseFrom(bytes)
-    val targetRef = serialization.system.provider.resolveActorRef(ref.getOriginRef.getPath)
+    val targetRef: OptionVal[ActorRef] =
+      if (ref.hasOriginRef) OptionVal.Some(serialization.system.provider.resolveActorRef(ref.getOriginRef.getPath))
+      else OptionVal.None
 
     new SourceRef[Any](targetRef)
   }
@@ -148,13 +151,13 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
     val d = StreamRefContainers.CumulativeDemand.parseFrom(bytes)
     StreamRefs.CumulativeDemand(d.getSeqNr)
   }
-  private def deserializeRemoteSinkCompleted(bytes: Array[Byte]): StreamRefs.RemoteSinkCompleted = {
-    val d = StreamRefContainers.RemoteSinkCompleted.parseFrom(bytes)
-    StreamRefs.RemoteSinkCompleted(d.getSeqNr)
+  private def deserializeRemoteStreamCompleted(bytes: Array[Byte]): StreamRefs.RemoteStreamCompleted = {
+    val d = StreamRefContainers.RemoteStreamCompleted.parseFrom(bytes)
+    StreamRefs.RemoteStreamCompleted(d.getSeqNr)
   }
-  private def deserializeRemoteSinkFailure(bytes: Array[Byte]): AnyRef = {
-    val d = StreamRefContainers.RemoteSinkFailure.parseFrom(bytes)
-    StreamRefs.RemoteSinkFailure(d.getCause.toStringUtf8)
+  private def deserializeRemoteStreamFailure(bytes: Array[Byte]): AnyRef = {
+    val d = StreamRefContainers.RemoteStreamFailure.parseFrom(bytes)
+    StreamRefs.RemoteStreamFailure(d.getCause.toStringUtf8)
   }
 
 }
