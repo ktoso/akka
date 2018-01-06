@@ -48,8 +48,8 @@ final class SourceRefOriginSink[T]() extends GraphStageWithMaterializedValue[Sin
 
       private[this] var remotePartner: OptionVal[ActorRef] = OptionVal.None
 
+      override protected lazy val stageActorName = streamRefsMaster.nextSinkRefTargetSourceName()
       private[this] var self: GraphStageLogic.StageActor = _
-      private[this] override lazy val stageActorName = streamRefsMaster.nextSinkRefTargetSourceName()
       private[this] implicit def selfSender: ActorRef = self.ref
 
       // demand management ---
@@ -175,8 +175,8 @@ final class SourceRef[T](private[akka] val originRef: OptionVal[ActorRef]) exten
       private[this] lazy val streamRefsMaster = StreamRefsMaster(ActorMaterializerHelper.downcast(materializer).system)
       private[this] lazy val settings = streamRefsMaster.settings
 
+      override protected lazy val stageActorName = streamRefsMaster.nextSinkRefTargetSourceName()
       private[this] var self: GraphStageLogic.StageActor = _
-      private[this] override lazy val stageActorName = streamRefsMaster.nextSinkRefTargetSourceName()
       private[this] implicit def selfSender: ActorRef = self.ref
 
       // demand management ---

@@ -40,7 +40,7 @@ final class SinkRef[In] private[akka] ( // TODO is it more of a SourceRefSink?
   override def createLogic(inheritedAttributes: Attributes) = new GraphStageLogic(shape) with StageLogging with InHandler {
 
     private[this] lazy val streamRefsMaster = StreamRefsMaster(ActorMaterializerHelper.downcast(materializer).system)
-    private[this] override lazy val stageActorName = streamRefsMaster.nextSinkRefName()
+    override protected  lazy val stageActorName = streamRefsMaster.nextSinkRefName()
 
     // we assume that there is at least SOME buffer space
     private[this] var remoteCumulativeDemandReceived = initialDemand
