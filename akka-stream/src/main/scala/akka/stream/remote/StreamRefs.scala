@@ -26,6 +26,8 @@ private[akka] object StreamRefs {
     if (payload == null) throw ReactiveStreamsCompliance.elementMustNotBeNullException
   }
 
+  final case class OnSubscribeHandshake(targetRef: ActorRef) extends StreamRefs.Protocol {}
+
   /** Sent to a the receiver side of a SinkRef, once the sending side of the SinkRef gets signalled a Failure. */
   @InternalApi
   final case class RemoteStreamFailure(msg: String) extends StreamRefs.Protocol
@@ -44,6 +46,9 @@ private[akka] object StreamRefs {
   }
 
   // --- exceptions ---
+
+  final case class TargetRefNotInitializedYetException()
+    extends IllegalStateException("Internal remote target actor ref not yet resolved, yet attempted to send messages to it. This should not happen due to proper flow-control, please open a ticket on the issue tracker: https://github.com/akka/akka")
 
   final case class RemoteStreamRefActorTerminatedException(msg: String) extends RuntimeException(msg)
   final case class InvalidSequenceNumberException(expectedSeqNr: Long, gotSeqNr: Long, msg: String)

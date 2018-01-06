@@ -15,6 +15,7 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   private[this] lazy val serialization = SerializationExtension(system)
 
+  private[this] val OnSubscribeHandshakeManifest = "S"
   private[this] val SequencedOnNextManifest = "A"
   private[this] val CumulativeDemandManifest = "B"
   private[this] val RemoteSinkFailureManifest = "C"
@@ -24,6 +25,7 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   override def manifest(o: AnyRef): String = o match {
     // protocol
+    case _: StreamRefs.OnSubscribeHandshake  ⇒ OnSubscribeHandshakeManifest
     case _: StreamRefs.SequencedOnNext[_]    ⇒ SequencedOnNextManifest
     case _: StreamRefs.CumulativeDemand      ⇒ CumulativeDemandManifest
     case _: StreamRefs.RemoteStreamFailure   ⇒ RemoteSinkFailureManifest
@@ -35,6 +37,7 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   override def toBinary(o: AnyRef): Array[Byte] = o match {
     // protocol
+    case h: StreamRefs.OnSubscribeHandshake  ⇒ serializeOnSubscribeHandshake(h).toByteArray
     case o: StreamRefs.SequencedOnNext[_]    ⇒ serializeSequencedOnNext(o).toByteArray
     case d: StreamRefs.CumulativeDemand      ⇒ serializeCumulativeDemand(d).toByteArray
     case d: StreamRefs.RemoteStreamFailure   ⇒ serializeRemoteSinkFailure(d).toByteArray
@@ -46,13 +49,14 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = manifest match {
     // protocol
-    case SequencedOnNextManifest     ⇒ deserializeSequencedOnNext(bytes)
-    case CumulativeDemandManifest    ⇒ deserializeCumulativeDemand(bytes)
-    case RemoteSinkCompletedManifest ⇒ deserializeRemoteStreamCompleted(bytes)
-    case RemoteSinkFailureManifest   ⇒ deserializeRemoteStreamFailure(bytes)
+    case OnSubscribeHandshakeManifest ⇒ deserializeOnSubscribeHandshake(bytes)
+    case SequencedOnNextManifest      ⇒ deserializeSequencedOnNext(bytes)
+    case CumulativeDemandManifest     ⇒ deserializeCumulativeDemand(bytes)
+    case RemoteSinkCompletedManifest  ⇒ deserializeRemoteStreamCompleted(bytes)
+    case RemoteSinkFailureManifest    ⇒ deserializeRemoteStreamFailure(bytes)
     // refs
-    case SinkRefManifest             ⇒ deserializeSinkRef(bytes)
-    case SourceRefManifest           ⇒ deserializeSourceRef(bytes)
+    case SinkRefManifest              ⇒ deserializeSinkRef(bytes)
+    case SourceRefManifest            ⇒ deserializeSourceRef(bytes)
   }
 
   // -----
@@ -72,6 +76,13 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
   private def serializeRemoteSinkCompleted(d: StreamRefs.RemoteStreamCompleted): StreamRefContainers.RemoteStreamCompleted = {
     StreamRefContainers.RemoteStreamCompleted.newBuilder()
       .setSeqNr(d.seqNr)
+      .build()
+  }
+
+  private def serializeOnSubscribeHandshake(o: StreamRefs.OnSubscribeHandshake): StreamRefContainers.OnSubscribeHandshake = {
+    StreamRefContainers.OnSubscribeHandshake.newBuilder()
+      .setTargetRef(StreamRefContainers.ActorRef.newBuilder()
+        .setPath(Serialization.serializedActorPath(o.targetRef)))
       .build()
   }
 
@@ -100,18 +111,18 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
   }
 
   private def serializeSinkRef(sink: SinkRef[_]): StreamRefContainers.SinkRef = {
-    val actorRef = StreamRefContainers.ActorRef.newBuilder()
-      .setPath(Serialization.serializedActorPath(sink.targetRef))
+    val ref = StreamRefContainers.SinkRef.newBuilder()
 
-    StreamRefContainers.SinkRef.newBuilder()
-      .setInitialDemand(sink.initialDemand)
-      .setTargetRef(actorRef)
-      .build()
+    if (sink.initialPartnerRef.isDefined)
+      ref.setTargetRef(StreamRefContainers.ActorRef.newBuilder()
+        .setPath(Serialization.serializedActorPath(sink.initialPartnerRef.get)))
+
+    ref.build()
   }
 
   private def serializeSourceRef(source: SourceRef[_]): StreamRefContainers.SourceRef = {
     val actorRef = StreamRefContainers.ActorRef.newBuilder()
-      .setPath(Serialization.serializedActorPath(source.originRef.orNull))
+      .setPath(Serialization.serializedActorPath(source.initialOriginRef.orNull))
 
     StreamRefContainers.SourceRef.newBuilder()
       .setOriginRef(actorRef)
@@ -120,11 +131,19 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   // ----------
 
+  private def deserializeOnSubscribeHandshake(bytes: Array[Byte]): StreamRefs.OnSubscribeHandshake = {
+    val handshake = StreamRefContainers.OnSubscribeHandshake.parseFrom(bytes)
+    val targetRef = serialization.system.provider.resolveActorRef(handshake.getTargetRef.getPath)
+    StreamRefs.OnSubscribeHandshake(targetRef)
+  }
+
   private def deserializeSinkRef(bytes: Array[Byte]): SinkRef[Any] = {
     val ref = StreamRefContainers.SinkRef.parseFrom(bytes)
-    val targetRef = serialization.system.provider.resolveActorRef(ref.getTargetRef.getPath)
+    val initialTargetRef =
+      if (ref.hasTargetRef) OptionVal(serialization.system.provider.resolveActorRef(ref.getTargetRef.getPath))
+      else OptionVal.None
 
-    new SinkRef[Any](targetRef, ref.getInitialDemand)
+    new SinkRef[Any](initialTargetRef, materializeSourceRef = true)
   }
 
   private def deserializeSourceRef(bytes: Array[Byte]): SourceRef[Any] = {

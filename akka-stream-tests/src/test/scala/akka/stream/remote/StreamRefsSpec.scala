@@ -5,7 +5,8 @@ package akka.stream.remote
 
 import akka.NotUsed
 import akka.actor.Status.Failure
-import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
+import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Address, Identify, Props }
+import akka.serialization.SerializationExtension
 import akka.stream.ActorMaterializer
 import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
 import akka.stream.scaladsl.{ Sink, Source }
@@ -190,7 +191,7 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
 
   "A SinkRef" must {
 
-    "receive elements via remoting" in {
+    "xoxo receive elements via remoting" in {
 
       remoteActor ! "receive"
       val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
@@ -227,8 +228,20 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       val msgs = (1 to 100).toList.map(i ⇒ s"payload-$i")
 
       Source(msgs)
-        .to(remoteSink)
-        .run()
+        .runWith(remoteSink)
+
+      msgs.foreach(t ⇒ p.expectMsg(t))
+      p.expectMsg("<COMPLETE>")
+    }
+
+    "receive hundreds of elements via remoting" in {
+      remoteActor ! "receive"
+      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
+
+      val msgs = (1 to 100).toList.map(i ⇒ s"payload-$i")
+
+      val it = Source(msgs)
+        .runWith(remoteSink)
 
       msgs.foreach(t ⇒ p.expectMsg(t))
       p.expectMsg("<COMPLETE>")

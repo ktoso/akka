@@ -27,7 +27,7 @@ private[stream] final class StreamRefsMaster(system: ExtendedActorSystem) extend
   private[this] val sourceRefOriginSinkNames = SeqActorName("SourceRefOriginSink") // "local origin"
   private[this] val sourceRefNames = SeqActorName("SourceRef") // "remote receiver"
 
-  private[this] val sinkRefTargetSourceNames = SeqActorName("SinkRefTargetSource") // "local target"
+  private[this] val sinkRefTargetSourceNames = SeqActorName("SourceRef") // "local target"
   private[this] val sinkRefNames = SeqActorName("SinkRef") // "remote sender"
 
   // TODO do we need it? perhaps for reaping?

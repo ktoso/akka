@@ -13,13 +13,11 @@ option optimize_for = SPEED;
 
 // TODO REMOVE THIS?????
 message SinkRef {
-    required ActorRef targetRef = 1;
-    optional int64 initialDemand = 2;
+    optional ActorRef targetRef = 1;
 }
 
 message SourceRef {
     optional ActorRef originRef = 1;
-    optional int64 initialDemand = 2;
 }
 
 message ActorRef {
@@ -38,6 +36,9 @@ message Payload {
 
 // stream refs protocol
 
+message OnSubscribeHandshake {
+    required ActorRef targetRef = 1;
+}
 message CumulativeDemand {
     required int64 seqNr = 1;
 }
