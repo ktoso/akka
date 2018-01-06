@@ -3,21 +3,18 @@
  */
 package akka.stream.remote.scaladsl
 
-import akka.{ Done, NotUsed }
-import akka.actor.ActorRef
+import akka.actor.{ ActorRef, Terminated }
 import akka.event.Logging
 import akka.stream._
 import akka.stream.actor.{ RequestStrategy, WatermarkRequestStrategy }
 import akka.stream.impl.FixedSizeBuffer
 import akka.stream.remote.StreamRefs
-import akka.stream.remote.StreamRefs.SequencedOnNext
 import akka.stream.remote.impl.StreamRefsMaster
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{ Sink, Source }
 import akka.stream.stage._
 import akka.util.OptionVal
 
 import scala.concurrent.{ Future, Promise }
-import scala.util.Try
 
 object SourceRef {
 
@@ -32,6 +29,9 @@ object SourceRef {
 
   // TODO Implement using TCP
   // def bulkTransfer[T](): Graph[SinkShape[ByteString], SourceRef[ByteString]] = ???
+
+  implicit def convertRefToSource[T](ref: SourceRef[T]): Source[T, Future[SinkRef[T]]] =
+    Source.fromGraph(ref)
 }
 
 /**
@@ -39,10 +39,22 @@ object SourceRef {
  * The first that pushes is assumed the one we are to trust
  */
 final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
+
   val out: Outlet[T] = Outlet[T](s"${Logging.simpleName(getClass)}.out")
   override def shape = SourceShape.of(out)
 
-  override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
+  /**
+   * Convenience method for obtaining a [[Source]] from this [[SourceRef]] which is a [[Graph]].
+   *
+   * Please note that an implicit conversion is also provided in [[SourceRef]].
+   */
+  def source = Source.fromGraph(this)
+  /**
+   * Method used for obtaining a [[akka.stream.javadsl.Source]] from this [[SourceRef]] which is a [[Graph]].
+   */
+  def getSource = akka.stream.javadsl.Source.fromGraph(this)
+
+  override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[SinkRef[T]]) = {
     val promise = Promise[SinkRef[T]]()
 
     val logic = new TimerGraphStageLogic(shape) with StageLogging with OutHandler {
@@ -69,7 +81,7 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
 
       // initialized with the originRef if present, that means we're the "remote" for an already active Source on the other side (the "origin")
       // null otherwise, in which case we allocated first -- we are the "origin", and awaiting the other side to start when we'll receive this ref
-      private var remotePartner: ActorRef = initialOriginRef.orNull
+      private var getPartnerRef: ActorRef = initialOriginRef.orNull
 
       override def preStart(): Unit = {
         localCumulativeDemand = settings.initialDemand.toLong
@@ -86,7 +98,7 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
       }
 
       def triggerCumulativeDemand(): Unit =
-        if (remotePartner ne null) {
+        if (getPartnerRef ne null) {
           val remainingRequested = java.lang.Long.min(highDemandWatermark, localCumulativeDemand - expectingSeqNr).toInt
           val addDemand = requestStrategy.requestDemand(remainingRequested)
 
@@ -97,7 +109,7 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
             val demand = StreamRefs.CumulativeDemand(localCumulativeDemand)
 
             log.warning("[{}] Demanding until [{}] (+{})", stageActorName, localCumulativeDemand, addDemand)
-            remotePartner ! demand
+            getPartnerRef ! demand
             scheduleDemandRedelivery()
           }
         }
@@ -107,14 +119,14 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
       override protected def onTimer(timerKey: Any): Unit = timerKey match {
         case DemandRedeliveryTimerKey ⇒
           log.debug("[{}] Scheduled re-delivery of demand until [{}]", stageActorName, localCumulativeDemand)
-          remotePartner ! StreamRefs.CumulativeDemand(localCumulativeDemand)
+          getPartnerRef ! StreamRefs.CumulativeDemand(localCumulativeDemand)
           scheduleDemandRedelivery()
       }
 
       lazy val initialReceive: ((ActorRef, Any)) ⇒ Unit = {
         case (sender, msg @ StreamRefs.OnSubscribeHandshake(remoteRef)) ⇒
           observeAndValidateSender(remoteRef, "Illegal sender in SequencedOnNext")
-          log.warning("Received HELLO {} from {}", msg, sender)
+          log.debug("Received handshake {} from {}", msg, sender)
 
           triggerCumulativeDemand()
 
@@ -140,6 +152,12 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
 
           self.unwatch(sender)
           failStage(StreamRefs.RemoteStreamRefActorTerminatedException(s"Remote stream (${sender.path}) failed, reason: $reason"))
+
+        case (_, Terminated(ref)) ⇒
+          if (getPartnerRef == ref)
+            failStage(StreamRefs.RemoteStreamRefActorTerminatedException(s"The remote partner ${getPartnerRef} has terminated! " +
+              s"Tearing down this side of the stream as well."))
+        // else this should not have happened, and we ignore this -- someone may have been doing weird things!
       }
 
       def tryPush(): Unit =
@@ -166,12 +184,14 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
 
       @throws[StreamRefs.InvalidPartnerActorException]
       def observeAndValidateSender(sender: ActorRef, msg: String): Unit =
-        if (remotePartner == null) {
+        if (getPartnerRef == null) {
           log.debug("Received first message from {}, assuming it to be the remote partner for this stage", sender)
-          remotePartner = sender
+          getPartnerRef = sender
           self.watch(sender)
-        } else if (sender != remotePartner) {
-          throw StreamRefs.InvalidPartnerActorException(sender, remotePartner, msg)
+        } else if (sender != getPartnerRef) {
+          val ex = StreamRefs.InvalidPartnerActorException(sender, getPartnerRef, msg)
+          sender ! StreamRefs.RemoteStreamFailure(ex.getMessage)
+          throw ex
         }
 
       @throws[StreamRefs.InvalidSequenceNumberException]

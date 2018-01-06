@@ -6,7 +6,6 @@ package akka.stream.remote.scaladsl
 import akka.Done
 import akka.actor.{ ActorRef, Terminated }
 import akka.event.Logging
-import akka.serialization.SerializationExtension
 import akka.stream._
 import akka.stream.remote.StreamRefs
 import akka.stream.remote.impl.StreamRefsMaster
@@ -114,7 +113,6 @@ final class SinkRef[In] private[akka] (
 
       private def tryPull() =
         if (remoteCumulativeDemandConsumed < remoteCumulativeDemandReceived && !hasBeenPulled(in)) {
-          log.warning("Pulling...")
           pull(in)
         }
 
@@ -165,7 +163,9 @@ final class SinkRef[In] private[akka] (
             self.watch(sender)
           }
         } else if (sender != getPartnerRef) {
-          throw StreamRefs.InvalidPartnerActorException(sender, getPartnerRef, failureMsg)
+          val ex = StreamRefs.InvalidPartnerActorException(sender, getPartnerRef, failureMsg)
+          sender ! StreamRefs.RemoteStreamFailure(ex.getMessage)
+          throw ex
         } // else: the ref is valid
 
       private def failRemoteTerminated() =

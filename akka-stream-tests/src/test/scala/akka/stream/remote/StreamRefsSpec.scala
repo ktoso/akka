@@ -5,8 +5,7 @@ package akka.stream.remote
 
 import akka.NotUsed
 import akka.actor.Status.Failure
-import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Address, Identify, Props }
-import akka.serialization.SerializationExtension
+import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
 import akka.stream.ActorMaterializer
 import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
 import akka.stream.scaladsl.{ Sink, Source }
@@ -154,7 +153,7 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       remoteActor ! "give"
       val sourceRef = expectMsgType[SourceRef[String]]
 
-      Source.fromGraph(sourceRef)
+      sourceRef
         .runWith(Sink.actorRef(p.ref, "<COMPLETE>"))
 
       p.expectMsg("hello")
@@ -166,7 +165,7 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       remoteActor ! "give-fail"
       val sourceRef = expectMsgType[SourceRef[String]]
 
-      Source.fromGraph(sourceRef)
+      sourceRef
         .runWith(Sink.actorRef(p.ref, "<COMPLETE>"))
 
       val f = p.expectMsgType[Failure]
@@ -181,10 +180,10 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       remoteActor ! "give-complete-asap"
       val sourceRef = expectMsgType[SourceRef[String]]
 
-      Source.fromGraph(sourceRef)
+      sourceRef
         .runWith(Sink.actorRef(p.ref, "<COMPLETE>"))
 
-      val f = p.expectMsg("<COMPLETE>")
+      p.expectMsg("<COMPLETE>")
     }
 
   }
@@ -234,19 +233,29 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       p.expectMsg("<COMPLETE>")
     }
 
-    "receive hundreds of elements via remoting" in {
-      remoteActor ! "receive"
-      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
+    // FIXME not sure about this one yet; we would want to tell the second one to GO_AWAY
+    //    "fail local Source when attempting to materialize second time to already active interchange" in {
+    //      remoteActor ! "receive"
+    //      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
+    //
+    //      val msgs = (1 to 100).toList.map(i ⇒ s"payload-$i")
+    //
+    //      val it: Future[SourceRef[String]] = Source(msgs)
+    //        .runWith(remoteSink)
+    //
+    //      val pp = TestProbe()
+    //      val i = Await.result(it, 10.seconds)
+    //      Thread.sleep(100) // need a delay to make sure we're "second"
+    //      i.runWith(Sink.actorRef(pp.ref, "<<COMPLETE>>"))
+    //
+    //      msgs.foreach(t ⇒ p.expectMsg(t))
+    //      p.expectMsg("<COMPLETE>")
+    //
+    //      val f = pp.expectMsgType[akka.actor.Status.Failure]
+    //
+    //    }
 
-      val msgs = (1 to 100).toList.map(i ⇒ s"payload-$i")
-
-      val it = Source(msgs)
-        .runWith(remoteSink)
-
-      msgs.foreach(t ⇒ p.expectMsg(t))
-      p.expectMsg("<COMPLETE>")
-    }
-
+    // FIXME did not get Terminated?
     //    "fail origin if remote Sink is stopped abruptly" in {
     //      val otherSystem = ActorSystem("OtherRemoteSystem", StreamRefsSpec.config())
     //
