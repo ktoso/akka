@@ -47,6 +47,12 @@ object StreamRefsSpec {
 
         sender() ! Await.result(ref, 10.seconds)
 
+      case "give-complete-asap" ⇒
+        val ref = Source.empty
+          .runWith(SourceRef.sink())
+
+        sender() ! Await.result(ref, 10.seconds)
+
       //      case "send-bulk" ⇒
       //        /*
       //         * Here we're able to send a source to a remote recipient
@@ -107,7 +113,6 @@ object StreamRefsSpec {
       actor {
         provider = remote
         serialize-messages = off
-
       }
 
       remote.netty.tcp {
@@ -156,7 +161,7 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       p.expectMsg("<COMPLETE>")
     }
 
-    "fail remote " in {
+    "fail when remote source failed" in {
       remoteActor ! "give-fail"
       val sourceRef = expectMsgType[SourceRef[String]]
 
@@ -167,6 +172,18 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       f.cause.getMessage should include("Remote stream (")
       // actor name here, for easier identification
       f.cause.getMessage should include("failed, reason: Booooom!")
+    }
+
+    "complete properly when remote source is empty" in {
+      // this is a special case since it makes sure that the remote stage is still there when we connect to it
+
+      remoteActor ! "give-complete-asap"
+      val sourceRef = expectMsgType[SourceRef[String]]
+
+      Source.fromGraph(sourceRef)
+        .runWith(Sink.actorRef(p.ref, "<COMPLETE>"))
+
+      val f = p.expectMsg("<COMPLETE>")
     }
 
   }
