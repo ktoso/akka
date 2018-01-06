@@ -108,21 +108,6 @@ object StreamRefsSpec {
         provider = remote
         serialize-messages = off
 
-//        serializers {
-//          akka-stream-ref-test = "akka.stream.remote.StreamRefsSpecSerializer"
-//        }
-//
-//        serialization-bindings {
-//          "akka.stream.remote.StreamRefsSpec$$SourceMsg" = akka-stream-ref-test
-//          "akka.stream.remote.StreamRefsSpec$$BulkSourceMsg" = akka-stream-ref-test
-//          "akka.stream.remote.StreamRefsSpec$$SinkMsg" = akka-stream-ref-test
-//          "akka.stream.remote.StreamRefsSpec$$BulkSinkMsg" = akka-stream-ref-test
-//        }
-//
-//        serialization-identifiers {
-//          "akka.stream.remote.StreamRefsSpecSerializer" = 33
-//        }
-
       }
 
       remote.netty.tcp {
@@ -264,31 +249,3 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
   }
 
 }
-//
-//class StreamRefsSpecSerializer(val system: ExtendedActorSystem) extends SerializerWithStringManifest with BaseSerializer {
-//
-//  lazy val ext = SerializationExtension(system)
-//
-//  override def manifest(o: AnyRef): String = o match {
-//    case StreamRefsSpec.SinkMsg(_)       ⇒ "si"
-//    case StreamRefsSpec.BulkSinkMsg(_)   ⇒ "bsi"
-//    case StreamRefsSpec.SourceMsg(_)     ⇒ "so"
-//    case StreamRefsSpec.BulkSourceMsg(_) ⇒ "bso"
-//  }
-//
-//  override def toBinary(o: AnyRef): Array[Byte] = {
-//    system.log.warning("Serializing: " + o)
-//    o match {
-//      case StreamRefsSpec.SinkMsg(s)       ⇒ s.
-//      case StreamRefsSpec.BulkSinkMsg(s)   ⇒ ext.serialize(s).get
-//      case StreamRefsSpec.SourceMsg(s)     ⇒ ext.serialize(s).get
-//      case StreamRefsSpec.BulkSourceMsg(s) ⇒ ext.serialize(s).get
-//    }
-//  }
-//
-//  override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = {
-//    system.log.warning("MANI: " + manifest)
-//    ???
-//  }
-//
-//}
