@@ -6,9 +6,11 @@ package akka.stream.remote
 import akka.NotUsed
 import akka.actor.Status.Failure
 import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
-import akka.stream.ActorMaterializer
+import akka.event.Logging
+import akka.stream.{ ActorAttributes, ActorMaterializer }
 import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
 import akka.stream.scaladsl.{ Sink, Source }
+import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.{ AkkaSpec, ImplicitSender, SocketUtil, TestKit, TestProbe }
 import akka.util.ByteString
 import com.typesafe.config._
@@ -38,20 +40,25 @@ object StreamRefsSpec {
         val source: Source[String, NotUsed] = Source(List("hello", "world"))
         val ref: Future[SourceRef[String]] = source.runWith(SourceRef.sink())
 
-        // FIXME we want to avoid forcing people to do the Future here
-        sender() ! Await.result(ref, 10.seconds)
+        sender() ! Await.result(ref, 10.seconds) // TODO avoid the await
+
+      case "give-infinite" ⇒
+        val source: Source[String, NotUsed] = Source.fromIterator(() ⇒ Iterator.from(1)).map("ping-" + _)
+        val ref: Future[SourceRef[String]] = source.runWith(SourceRef.sink())
+
+        sender() ! Await.result(ref, 10.seconds) // TODO avoid the await
 
       case "give-fail" ⇒
         val ref = Source.failed[String](new Exception("Booooom!") with NoStackTrace)
           .runWith(SourceRef.sink())
 
-        sender() ! Await.result(ref, 10.seconds)
+        sender() ! Await.result(ref, 10.seconds) // TODO avoid the await
 
       case "give-complete-asap" ⇒
         val ref = Source.empty
           .runWith(SourceRef.sink())
 
-        sender() ! Await.result(ref, 10.seconds)
+        sender() ! Await.result(ref, 10.seconds) // TODO avoid the await
 
       //      case "send-bulk" ⇒
       //        /*
@@ -186,11 +193,36 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       p.expectMsg("<COMPLETE>")
     }
 
+    "respect back-pressure from (implied by target Sink)" in {
+      remoteActor ! "give-infinite"
+      val sourceRef = expectMsgType[SourceRef[String]]
+
+      val probe = sourceRef
+        .runWith(TestSink.probe)
+
+      probe.ensureSubscription()
+      probe.expectNoMessage(100.millis)
+
+      probe.request(1)
+      probe.expectNext("ping-1")
+      probe.expectNoMessage(100.millis)
+
+      probe.request(20)
+      probe.expectNextN((1 to 20).map(i ⇒ "ping-" + (i + 1)))
+      probe.cancel()
+
+      // since no demand anyway
+      probe.expectNoMessage(100.millis)
+
+      // shhould not cause more pulling, since we issued a cancel already
+      probe.request(10)
+      probe.expectNoMessage(100.millis)
+    }
   }
 
   "A SinkRef" must {
 
-    "xoxo receive elements via remoting" in {
+    "receive elements via remoting" in {
 
       remoteActor ! "receive"
       val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
@@ -232,6 +264,10 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       msgs.foreach(t ⇒ p.expectMsg(t))
       p.expectMsg("<COMPLETE>")
     }
+
+    //    "respect back-pressure from (implied by origin Sink)" in {
+    //      PENDING
+    //    }
 
     // FIXME not sure about this one yet; we would want to tell the second one to GO_AWAY
     //    "fail local Source when attempting to materialize second time to already active interchange" in {

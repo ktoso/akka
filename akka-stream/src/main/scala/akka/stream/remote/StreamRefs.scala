@@ -26,13 +26,13 @@ private[akka] object StreamRefs {
     if (payload == null) throw ReactiveStreamsCompliance.elementMustNotBeNullException
   }
 
-  final case class OnSubscribeHandshake(targetRef: ActorRef) extends StreamRefs.Protocol {}
+  final case class OnSubscribeHandshake(targetRef: ActorRef) extends StreamRefs.Protocol
 
-  /** Sent to a the receiver side of a SinkRef, once the sending side of the SinkRef gets signalled a Failure. */
+  /** Sent to a the receiver side of a stream ref, once the sending side of the SinkRef gets signalled a Failure. */
   @InternalApi
   final case class RemoteStreamFailure(msg: String) extends StreamRefs.Protocol
 
-  /** Sent to a the receiver side of a SinkRef, once the sending side of the SinkRef gets signalled a completion. */
+  /** Sent to a the receiver side of a stream ref, once the sending side of the SinkRef gets signalled a completion. */
   @InternalApi
   final case class RemoteStreamCompleted(seqNr: Long) extends StreamRefs.Protocol
 

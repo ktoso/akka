@@ -11,7 +11,7 @@ import com.typesafe.config.Config
 final class StreamRefSettings(config: Config) {
   private val c = config.getConfig("akka.stream.stream-refs")
 
-  val initialDemand = c.getInt("initial-demand")
+  val bufferCapacity = c.getInt("buffer-capacity")
 
   val demandRedeliveryInterval = c.getDuration("demand-redelivery-interval", TimeUnit.MILLISECONDS).millis
 

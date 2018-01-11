@@ -76,10 +76,9 @@ final class SinkRef[In] private[akka] (
         self = getStageActor(initialReceive)
         if (initialPartnerRef.isDefined) observeAndValidateSender(initialPartnerRef.get, "Illegal initialPartnerRef! This would be a bug in the SinkRef usage or impl.")
 
-        log.warning("Created SinkRef, pointing to remote Sink receiver: {}, local worker: {}", initialPartnerRef, self.ref)
+        log.debug("Created SinkRef, pointing to remote Sink receiver: {}, local worker: {}", initialPartnerRef, self.ref)
 
         if (materializeSourceRef) {
-          log.warning("Materializing SourceRef pointing towards myself")
           promise.success(new SourceRef(OptionVal(self.ref)))
         }
 
@@ -98,7 +97,7 @@ final class SinkRef[In] private[akka] (
 
           if (remoteCumulativeDemandReceived < d) {
             remoteCumulativeDemandReceived = d
-            log.warning("Received cumulative demand [{}], consumable demand: [{}]", CumulativeDemand(d), remoteCumulativeDemandReceived - remoteCumulativeDemandConsumed)
+            log.debug("Received cumulative demand [{}], consumable demand: [{}]", CumulativeDemand(d), remoteCumulativeDemandReceived - remoteCumulativeDemandConsumed)
           }
 
           tryPull()
@@ -107,7 +106,7 @@ final class SinkRef[In] private[akka] (
       override def onPush(): Unit = {
         val elem = grabSequenced(in)
         getPartnerRef ! elem
-        log.warning("Sending sequenced: {} to {}", elem, initialPartnerRef)
+        log.debug("Sending sequenced: {} to {}", elem, getPartnerRef)
         tryPull()
       }
 
