@@ -352,7 +352,7 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
         .run()
 
       val failure = p.expectMsgType[Failure]
-      failure.cause.getMessage should include("[SourceRef-0] Remote side did not subscribe (materialize) handed out Sink reference")
+      failure.cause.getMessage should include("Remote side did not subscribe (materialize) handed out Sink reference")
 
       // the local "remote sink" should cancel, since it should notice the origin target actor is dead
       probe.expectCancellation()
@@ -387,65 +387,13 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       remoteActor ! "receive"
       val sinkRef = expectMsgType[SinkRef[String]]
 
-      val f = TestSource.probe[String].runWith(sinkRef)
+      val f: Future[SourceRef[String]] = TestSource.probe[String].runWith(sinkRef)
       val ex = intercept[Exception] {
         f.futureValue
       }
 
       ex.getMessage should include("This SinkRef will never materialize its materialized value (SourceRef), since it was *already* the")
     }
-
-    "fail local Source when attempting to materialize second time to already active interchange" in {
-      remoteActor ! "receive"
-      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
-
-      val msgs = (1 to 100).toList.map(i ⇒ s"payload-$i")
-
-      val it: Future[SourceRef[String]] = Source(msgs)
-        .runWith(remoteSink)
-
-      val pp = TestProbe()
-      val i = Await.result(it, 10.seconds)
-      Thread.sleep(100) // need a delay to make sure we're "second"
-      i.runWith(Sink.actorRef(pp.ref, "<<COMPLETE>>"))
-
-      msgs.foreach(t ⇒ p.expectMsg(t))
-      p.expectMsg("<COMPLETE>")
-
-      val f = pp.expectMsgType[akka.actor.Status.Failure]
-      f.cause.getMessage should include("nein")
-
-    }
-
-    // FIXME did not get Terminated?
-    //    "fail origin if remote Sink is stopped abruptly" in {
-    //      val otherSystem = ActorSystem("OtherRemoteSystem", StreamRefsSpec.config())
-    //
-    //      try {
-    //        // obtain the remoteActor ref via selection in order to use _real_ remoting in this test
-    //        val remoteActor = {
-    //          val it = otherSystem.actorOf(DatasourceActor.props(p.ref), "remoteActor")
-    //          val remoteAddress = otherSystem.asInstanceOf[ActorSystemImpl].provider.getDefaultAddress
-    //          system.actorSelection(it.path.toStringWithAddress(remoteAddress)) ! Identify("hi")
-    //          expectMsgType[ActorIdentity].ref.get
-    //        }
-    //
-    //        remoteActor ! "receive"
-    //        val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
-    //
-    //        val otherMat = ActorMaterializer()(otherSystem)
-    //        Source.maybe[String] // not emitting anything
-    //          .to(remoteSink)
-    //          .run()(otherMat)
-    //
-    //        // and the system crashes; which should cause abrupt termination in the stream
-    //        Thread.sleep(300)
-    //        otherMat.shutdown()
-    //
-    //        val f = p.expectMsgType[akka.actor.Status.Failure]
-    //        f.cause.getMessage should ===(s"Remote Sink failed, reason:")
-    //      } finally TestKit.shutdownActorSystem(otherSystem)
-    //    }
 
   }
 
