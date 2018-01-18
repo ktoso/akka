@@ -22,7 +22,7 @@ import scala.language.implicitConversions
 
 private[stream] final case class SourceRefImpl[T](initialPartnerRef: ActorRef) extends SourceRef[T] {
   def source: Source[T, NotUsed] =
-    Source.fromGraph(new SourceRefStage(OptionVal.Some(initialPartnerRef))).mapMaterializedValue(_ ⇒ NotUsed)
+    Source.fromGraph(new RemoteStreamReceiverStage(OptionVal.Some(initialPartnerRef))).mapMaterializedValue(_ ⇒ NotUsed)
 
   def getSource: javadsl.Source[T, NotUsed] = source.asJava
 }
@@ -32,7 +32,7 @@ private[stream] final case class SourceRefImpl[T](initialPartnerRef: ActorRef) e
  * If initialPartnerRef is set, then the remote side is already set up. If it is none, then we are the side creating
  * the ref.
  */
-private[stream] final class SourceRefStage[T](
+private[stream] final class RemoteStreamReceiverStage[T](
   val initialPartnerRef: OptionVal[ActorRef]
 ) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
 

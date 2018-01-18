@@ -7,9 +7,9 @@ import akka.actor.{ ActorRef, DeadLetterSuppression }
 import akka.annotation.InternalApi
 import akka.stream.impl.ReactiveStreamsCompliance
 import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.SinkRefStage
+import akka.stream.scaladsl.RemoteStreamSenderStage
 import akka.stream.scaladsl.Source
-import akka.stream.scaladsl.SourceRefStage
+import akka.stream.scaladsl.RemoteStreamReceiverStage
 import akka.util.OptionVal
 
 import scala.concurrent.Future

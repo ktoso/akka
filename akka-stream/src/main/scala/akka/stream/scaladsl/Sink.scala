@@ -457,5 +457,5 @@ object Sink {
    * to consume data from this local stream, as if they were attached in the spot of the local Sink directly.
    */
   def sourceRef[T](): Sink[T, Future[SourceRef[T]]] =
-    Sink.fromGraph(new SinkRefStage[T](OptionVal.None))
+    Sink.fromGraph(new RemoteStreamSenderStage[T](OptionVal.None))
 }

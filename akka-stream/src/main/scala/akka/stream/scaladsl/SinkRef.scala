@@ -20,7 +20,7 @@ import scala.util.Try
 
 private[stream] final case class SinkRefImpl[In](initialPartnerRef: ActorRef) extends SinkRef[In] {
   override def sink: Sink[In, NotUsed] =
-    Sink.fromGraph(new SinkRefStage[In](OptionVal.Some(initialPartnerRef)))
+    Sink.fromGraph(new RemoteStreamSenderStage[In](OptionVal.Some(initialPartnerRef)))
       .mapMaterializedValue(_ ⇒ NotUsed)
   override def getSink: javadsl.Sink[In, NotUsed] = sink.asJava
 }
@@ -30,7 +30,7 @@ private[stream] final case class SinkRefImpl[In](initialPartnerRef: ActorRef) ex
  * If initialPartnerRef is set, then the remote side is already set up. If it is none, then we are the side creating
  * the ref.
  */
-private[stream] final class SinkRefStage[In] private[akka] (
+private[stream] final class RemoteStreamSenderStage[In] private[akka](
   val initialPartnerRef: OptionVal[ActorRef]
 ) extends GraphStageWithMaterializedValue[SinkShape[In], Future[SourceRef[In]]] {
 

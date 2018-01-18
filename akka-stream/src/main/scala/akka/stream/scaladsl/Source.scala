@@ -605,5 +605,5 @@ object Source {
     Source.fromGraph(new UnfoldResourceSourceAsync(create, read, close))
 
   def sinkRef[T](): Source[T, Future[SinkRef[T]]] =
-    Source.fromGraph(new SourceRefStage[T](OptionVal.None))
+    Source.fromGraph(new RemoteStreamReceiverStage[T](OptionVal.None))
 }
