@@ -12,6 +12,7 @@ import akka.stream.impl._
 import akka.stream.impl.fusing.GraphStages
 import akka.stream.stage._
 import akka.stream.{ javadsl, _ }
+import akka.util.OptionVal
 import org.reactivestreams.{ Publisher, Subscriber }
 
 import scala.annotation.tailrec
@@ -451,4 +452,10 @@ object Sink {
   def lazyInit[T, M](sinkFactory: T ⇒ Future[Sink[T, M]], fallback: () ⇒ M): Sink[T, Future[M]] =
     Sink.fromGraph(new LazySink(sinkFactory, fallback))
 
+  /**
+   * A local [[Sink]] which materializes a [[SourceRef]] which can be used by other streams (including remote ones),
+   * to consume data from this local stream, as if they were attached in the spot of the local Sink directly.
+   */
+  def sourceRef[T](): Sink[T, Future[SourceRef[T]]] =
+    Sink.fromGraph(new SinkRefImpl[T](OptionVal.None, canMaterializeSourceRef = true))
 }

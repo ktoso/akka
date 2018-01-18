@@ -442,6 +442,9 @@ object Source {
       () ⇒ create.create().toScala,
       (s: S) ⇒ read.apply(s).toScala.map(_.asScala)(akka.dispatch.ExecutionContexts.sameThreadExecutionContext),
       (s: S) ⇒ close.apply(s).toScala))
+
+  def sinkRef[T](): javadsl.Source[T, CompletionStage[SinkRef[T]]] =
+    scaladsl.Source.sinkRef().mapMaterializedValue((_: Future[SinkRef[T]]).toJava).asJava
 }
 
 /**

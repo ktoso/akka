@@ -22,6 +22,7 @@ import scala.concurrent.{ Future, Promise }
 import java.util.concurrent.CompletionStage
 
 import akka.stream.stage.{ GraphStage, GraphStageWithMaterializedValue }
+import akka.util.OptionVal
 
 import scala.compat.java8.FutureConverters._
 
@@ -602,4 +603,7 @@ object Source {
    */
   def unfoldResourceAsync[T, S](create: () ⇒ Future[S], read: (S) ⇒ Future[Option[T]], close: (S) ⇒ Future[Done]): Source[T, NotUsed] =
     Source.fromGraph(new UnfoldResourceSourceAsync(create, read, close))
+
+  def sinkRef[T](): Source[T, Future[SinkRef[T]]] =
+    Source.fromGraph(new SourceRefImpl[T](OptionVal.None, canMaterializeSinkRef = true))
 }

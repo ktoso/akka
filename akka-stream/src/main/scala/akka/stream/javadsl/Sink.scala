@@ -19,6 +19,7 @@ import scala.util.Try
 import java.util.concurrent.CompletionStage
 
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.Future
 
 /** Java API */
 object Sink {
@@ -278,6 +279,9 @@ object Sink {
     new Sink(scaladsl.Sink.lazyInit[T, M](
       t ⇒ sinkFactory.apply(t).toScala.map(_.asScala)(ExecutionContexts.sameThreadExecutionContext),
       () ⇒ fallback.create()).mapMaterializedValue(_.toJava))
+
+  def sourceRef[T](): javadsl.Sink[T, CompletionStage[SourceRef[T]]] =
+    scaladsl.Sink.sourceRef().mapMaterializedValue((_: Future[SourceRef[T]]).toJava).asJava
 }
 
 /**

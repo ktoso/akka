@@ -43,31 +43,31 @@ object StreamRefsSpec {
          * For them it's a Source; for us it is a Sink we run data "into"
          */
         val source: Source[String, NotUsed] = Source(List("hello", "world"))
-        val ref: Future[SourceRef[String]] = source.runWith(SourceRef.sink())
+        val ref: Future[SourceRef[String]] = source.runWith(Sink.sourceRef())
 
         sender() ! Await.result(ref, 10.seconds) // TODO avoid the await
 
       case "give-infinite" ⇒
         val source: Source[String, NotUsed] = Source.fromIterator(() ⇒ Iterator.from(1)).map("ping-" + _)
-        val ref: Future[SourceRef[String]] = source.runWith(SourceRef.sink())
+        val ref: Future[SourceRef[String]] = source.runWith(Sink.sourceRef())
 
         sender() ! Await.result(ref, 10.seconds) // TODO avoid the await
 
       case "give-fail" ⇒
         val ref = Source.failed[String](new Exception("Booooom!") with NoStackTrace)
-          .runWith(SourceRef.sink())
+          .runWith(Sink.sourceRef())
 
         sender() ! Await.result(ref, 10.seconds) // TODO avoid the await
 
       case "give-complete-asap" ⇒
         val ref = Source.empty
-          .runWith(SourceRef.sink())
+          .runWith(Sink.sourceRef())
 
         sender() ! Await.result(ref, 10.seconds) // TODO avoid the await
 
       case "give-subscribe-timeout" ⇒
         val ref = Source.repeat("is anyone there?")
-          .toMat(SourceRef.sink())(Keep.right) // attributes like this so they apply to the SourceRef.sink
+          .toMat(Sink.sourceRef())(Keep.right) // attributes like this so they apply to the Sink.sourceRef
           .withAttributes(StreamRefAttributes.subscriptionTimeout(500.millis))
           .run()
 
@@ -91,7 +91,7 @@ object StreamRefsSpec {
          * For them it's a Sink; for us it's a Source.
          */
         val sink: Future[SinkRef[String]] =
-          SinkRef.source[String]
+          Source.sinkRef[String]
             .to(Sink.actorRef(probe, "<COMPLETE>"))
             .run()
 
@@ -99,7 +99,7 @@ object StreamRefsSpec {
         sender() ! Await.result(sink, 10.seconds)
 
       case "receive-subscribe-timeout" ⇒
-        val sink = SinkRef.source[String]
+        val sink = Source.sinkRef[String]
           .withAttributes(StreamRefAttributes.subscriptionTimeout(500.millis))
           .to(Sink.actorRef(probe, "<COMPLETE>"))
           .run()
@@ -108,7 +108,7 @@ object StreamRefsSpec {
         sender() ! Await.result(sink, 10.seconds)
 
       case "receive-32" ⇒
-        val (sink, driver) = SinkRef.source[String]
+        val (sink, driver) = Source.sinkRef[String]
           .toMat(TestSink.probe(context.system))(Keep.both)
           .run()
 

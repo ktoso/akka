@@ -15,9 +15,6 @@ import akka.util.OptionVal
 import scala.concurrent.Future
 
 object SinkRef {
-  def source[T](): Source[T, Future[SinkRef[T]]] =
-    Source.fromGraph(new SourceRefImpl[T](OptionVal.None, canMaterializeSinkRef = true))
-
   // TODO Implement using TCP
   // steps:
   // - lazily, but once bind a port
@@ -56,17 +53,6 @@ trait SinkRef[In] {
  * For additional configuration see `reference.conf` as well as [[akka.stream.StreamRefAttributes]].
  */
 object SourceRef {
-
-  // FIXME: Should the constructors really be put here? Maybe we can just put them into Source/Sink as we do for everything
-  //        else?
-
-  /**
-   * A local [[Sink]] which materializes a [[SourceRef]] which can be used by other streams (including remote ones),
-   * to consume data from this local stream, as if they were attached in the spot of the local Sink directly.
-   */
-  def sink[T](): Sink[T, Future[SourceRef[T]]] =
-    Sink.fromGraph(new SinkRefImpl[T](OptionVal.None, canMaterializeSourceRef = true))
-
   // TODO Implement using TCP
   // def bulkTransfer[T](): Graph[SinkShape[ByteString], SourceRef[ByteString]] = ???
 
