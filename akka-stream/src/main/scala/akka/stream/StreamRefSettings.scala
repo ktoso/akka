@@ -28,7 +28,7 @@ object StreamRefSettings {
     StreamRefSettingsImpl(
       bufferCapacity = c.getInt("buffer-capacity"),
       demandRedeliveryInterval = c.getDuration("demand-redelivery-interval", TimeUnit.MILLISECONDS).millis,
-      idleTimeout = c.getDuration("idle-timeout", TimeUnit.MILLISECONDS).millis,
+      //      idleTimeout = c.getDuration("idle-timeout", TimeUnit.MILLISECONDS).millis,
       subscriptionTimeout = c.getDuration("subscription-timeout", TimeUnit.MILLISECONDS).millis
     )
   }
@@ -38,14 +38,14 @@ object StreamRefSettings {
 trait StreamRefSettings {
   def bufferCapacity: Int
   def demandRedeliveryInterval: FiniteDuration
-  def idleTimeout: FiniteDuration
+  //  def idleTimeout: FiniteDuration
   def subscriptionTimeout: FiniteDuration
 
   // --- with... methods ---
 
   def withBufferCapacity(value: Int): StreamRefSettings
   def withDemandRedeliveryInterval(value: scala.concurrent.duration.FiniteDuration): StreamRefSettings
-  def withIdleTimeout(value: FiniteDuration): StreamRefSettings
+  //  def withIdleTimeout(value: FiniteDuration): StreamRefSettings
   def withSubscriptionTimeout(value: FiniteDuration): StreamRefSettings
 }
 
@@ -54,13 +54,13 @@ trait StreamRefSettings {
 final case class StreamRefSettingsImpl private (
   override val bufferCapacity:           Int,
   override val demandRedeliveryInterval: FiniteDuration,
-  override val idleTimeout:              FiniteDuration,
-  override val subscriptionTimeout:      FiniteDuration
+  //  override val idleTimeout:              FiniteDuration,
+  override val subscriptionTimeout: FiniteDuration
 ) extends StreamRefSettings {
 
   override def withBufferCapacity(value: Int): StreamRefSettings = copy(bufferCapacity = value)
   override def withDemandRedeliveryInterval(value: scala.concurrent.duration.FiniteDuration): StreamRefSettings = copy(demandRedeliveryInterval = value)
-  override def withIdleTimeout(value: FiniteDuration): StreamRefSettings = copy(idleTimeout = value)
+  //  override def withIdleTimeout(value: FiniteDuration): StreamRefSettings = copy(idleTimeout = value)
   override def withSubscriptionTimeout(value: FiniteDuration): StreamRefSettings = copy(subscriptionTimeout = value)
 
   override def productPrefix: String = Logging.simpleName(classOf[StreamRefSettings])
