@@ -66,9 +66,6 @@ private[stream] final class SourceRefStage[T](
 
       // demand management ---
 
-      // we set the canPush flag when we were pulled, but buffer did not have any elements
-      private[this] var canPush = false
-
       private var expectingSeqNr: Long = 0L
       private var localCumulativeDemand: Long = 0L
       private var localRemainingRequested: Int = 0
@@ -145,12 +142,12 @@ private[stream] final class SourceRefStage[T](
 
           triggerCumulativeDemand()
 
-        case (sender, msg @ StreamRefs.SequencedOnNext(seqNr, payload)) ⇒
+        case (sender, msg @ StreamRefs.SequencedOnNext(seqNr, payload: T @unchecked)) ⇒
           observeAndValidateSender(sender, "Illegal sender in SequencedOnNext")
           observeAndValidateSequenceNr(seqNr, "Illegal sequence nr in SequencedOnNext")
           log.debug("[{}] Received seq {} from {}", stageActorName, msg, sender)
 
-          tryPush(payload)
+          onReceiveElement(payload)
           triggerCumulativeDemand()
 
         case (sender, StreamRefs.RemoteStreamCompleted(seqNr)) ⇒
@@ -176,27 +173,17 @@ private[stream] final class SourceRefStage[T](
       }
 
       def tryPush(): Unit =
-        if (isAvailable(out) && receiveBuffer.nonEmpty) {
-          val elem = receiveBuffer.dequeue()
-          push(out, elem)
-        } else canPush = true
+        if (receiveBuffer.nonEmpty)
+          push(out, receiveBuffer.dequeue())
 
-      def tryPush(payload: Any): Unit = {
+      private def onReceiveElement(payload: T): Unit = {
         localRemainingRequested -= 1
-        if (canPush) {
-          canPush = false
-
-          if (receiveBuffer.nonEmpty) {
-            val elem = receiveBuffer.dequeue()
-            push(out, elem)
-            receiveBuffer.enqueue(payload.asInstanceOf[T])
-          } else {
-            push(out, payload.asInstanceOf[T])
-          }
-        } else {
-          if (receiveBuffer.isFull) throw new IllegalStateException(s"Attempted to overflow buffer! Capacity: ${receiveBuffer.capacity}, incoming element: $payload, localRemainingRequested: ${localRemainingRequested}, localCumulativeDemand: ${localCumulativeDemand}")
-          receiveBuffer.enqueue(payload.asInstanceOf[T])
-        }
+        if (receiveBuffer.isEmpty && isAvailable(out))
+          push(out, payload)
+        else if (receiveBuffer.isFull)
+          throw new IllegalStateException(s"Attempted to overflow buffer! Capacity: ${receiveBuffer.capacity}, incoming element: $payload, localRemainingRequested: ${localRemainingRequested}, localCumulativeDemand: ${localCumulativeDemand}")
+        else
+          receiveBuffer.enqueue(payload)
       }
 
       @throws[StreamRefs.InvalidPartnerActorException]
