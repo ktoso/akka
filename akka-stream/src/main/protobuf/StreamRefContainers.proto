@@ -11,7 +11,6 @@ option optimize_for = SPEED;
 
 // TODO make explicit types for SinkRef/SourceRef as they can carry initial settings (initial demand etc)
 
-// TODO REMOVE THIS?????
 message SinkRef {
     optional ActorRef targetRef = 1;
 }
@@ -24,14 +23,10 @@ message ActorRef {
     required string path = 1;
 }
 
-message Option {
-    optional Payload value = 1;
-}
-
 message Payload {
     required bytes enclosedMessage = 1;
     required int32 serializerId = 2;
-    optional bytes messageManifest = 4;
+    optional bytes messageManifest = 3;
 }
 
 // stream refs protocol

@@ -39,15 +39,23 @@ object SinkRef {
 final class SinkRef[In] private[akka] (
   private[akka] val initialPartnerRef: OptionVal[ActorRef],
   materializeSourceRef:                Boolean
-) extends GraphStageWithMaterializedValue[SinkShape[In], Future[SourceRef[In]]] with Serializable { stage ⇒
+) extends akka.stream.javadsl.SinkRef[In] {
   import akka.stream.StreamRefs._
 
-  val in = Inlet[In](s"${Logging.simpleName(getClass)}($initialPartnerRef).in")
+  private def initialRefName =
+    if (initialPartnerRef.isDefined) initialPartnerRef.get
+    else "<no-initial-ref>"
+
+  val in = {
+    val inletName = s"${Logging.simpleName(getClass)}($initialRefName).in"
+    Inlet[In](inletName)
+  }
   override def shape: SinkShape[In] = SinkShape.of(in)
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
     val promise = Promise[SourceRef[In]]
-    if (!materializeSourceRef) promise.failure(new Exception("Nein! Never!"))
+    if (!materializeSourceRef) promise.failure(new Exception(s"This stage will never materialize a source ref!" +
+      s"(Was initialized with materializeSourceRef = $materializeSourceRef)"))
 
     val logic = new TimerGraphStageLogic(shape) with StageLogging with InHandler {
 
@@ -67,9 +75,7 @@ final class SinkRef[In] private[akka] (
       private var remoteCumulativeDemandConsumed: Long = 0L
       // end of demand management ---
 
-      // early failure/completion management ---
       private var completedBeforeRemoteConnected: OptionVal[Try[Done]] = OptionVal.None
-      // end of early failure/completion management ---
 
       override def preStart(): Unit = {
         self = getStageActor(initialReceive)
@@ -120,25 +126,27 @@ final class SinkRef[In] private[akka] (
         onNext
       }
 
-      override def onUpstreamFailure(ex: Throwable): Unit = if (partnerRef.isDefined) {
-        getPartnerRef ! StreamRefs.RemoteStreamFailure(ex.getMessage)
-        self.unwatch(getPartnerRef)
-        super.onUpstreamFailure(ex)
-      } else {
-        completedBeforeRemoteConnected = OptionVal(scala.util.Failure(ex))
-        // not terminating on purpose, since other side may subscribe still and then we want to fail it
-        setKeepGoing(true)
-      }
+      override def onUpstreamFailure(ex: Throwable): Unit =
+        if (partnerRef.isDefined) {
+          getPartnerRef ! StreamRefs.RemoteStreamFailure(ex.getMessage)
+          self.unwatch(getPartnerRef)
+          super.onUpstreamFailure(ex)
+        } else {
+          completedBeforeRemoteConnected = OptionVal(scala.util.Failure(ex))
+          // not terminating on purpose, since other side may subscribe still and then we want to fail it
+          setKeepGoing(true)
+        }
 
-      override def onUpstreamFinish(): Unit = if (partnerRef.isDefined) {
-        getPartnerRef ! StreamRefs.RemoteStreamCompleted(remoteCumulativeDemandConsumed)
-        self.unwatch(getPartnerRef)
-        super.onUpstreamFinish()
-      } else {
-        completedBeforeRemoteConnected = OptionVal(scala.util.Success(Done))
-        // not terminating on purpose, since other side may subscribe still and then we want to complete it
-        setKeepGoing(true)
-      }
+      override def onUpstreamFinish(): Unit =
+        if (partnerRef.isDefined) {
+          getPartnerRef ! StreamRefs.RemoteStreamCompleted(remoteCumulativeDemandConsumed)
+          self.unwatch(getPartnerRef)
+          super.onUpstreamFinish()
+        } else {
+          completedBeforeRemoteConnected = OptionVal(scala.util.Success(Done))
+          // not terminating on purpose, since other side may subscribe still and then we want to complete it
+          setKeepGoing(true)
+        }
 
       @throws[StreamRefs.InvalidPartnerActorException]
       def observeAndValidateSender(sender: ActorRef, failureMsg: String): Unit =
@@ -177,5 +185,5 @@ final class SinkRef[In] private[akka] (
     (logic, promise.future)
   }
 
-  override def toString = s"${Logging.simpleName(getClass)}($initialPartnerRef)"
+  override def toString = s"${Logging.simpleName(getClass)}($initialRefName)"
 }

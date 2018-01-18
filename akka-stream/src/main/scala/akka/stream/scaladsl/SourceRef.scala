@@ -22,8 +22,6 @@ object SourceRef {
   /**
    * A local [[Sink]] which materializes a [[SourceRef]] which can be used by other streams (including remote ones),
    * to consume data from this local stream, as if they were attached in the spot of the local Sink directly.
-   *
-   * Diagram: TODO a nice diagram
    */
   def sink[T](): Graph[SinkShape[T], Future[SourceRef[T]]] =
     Sink.fromGraph(new SinkRef[T](OptionVal.None, materializeSourceRef = true))
