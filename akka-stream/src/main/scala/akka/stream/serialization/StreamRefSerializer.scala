@@ -135,7 +135,7 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
 
     StreamRefContainers.SourceRef.newBuilder()
       .setOriginRef(actorRef)
-      // .setCanMaterializeSink(source.ma) // FIXME actually do this!
+      .setCanMaterializeSink(source.canMaterializeSinkRef)
       .build()
   }
 

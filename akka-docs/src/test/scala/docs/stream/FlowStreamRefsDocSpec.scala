@@ -109,9 +109,9 @@ class FlowStreamRefsDocSpec extends AkkaSpec with CompileOnlySpec {
   }
 
   "show how to configure timeouts with attrs" in {
-    //#attr-sub-timeout
 
     implicit val mat: ActorMaterializer = null
+    //#attr-sub-timeout
     // configure the timeout for source
     import scala.concurrent.duration._
     import akka.stream.StreamRefAttributes

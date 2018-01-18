@@ -20,8 +20,11 @@ automatically over the network. They can be seen as a replacement to the "work p
   This is not to be mistaken with deploying streams remotely, which this feature is not intended for.
 @@@
 
-Since Akka Streams are an implementation of Reactive Streams, by induction one could also say that
-stream refs allow running *Reactive Streams over the network*.
+
+@@@ note
+  Since Akka Streams are an implementation of Reactive Streams, by induction one could also say that
+  stream refs allow running *Reactive Streams over the network*.
+@@@
 
 ## Stream References
 
@@ -54,13 +57,13 @@ can be offered to a remote actor system in order for it to consume some source o
 locally. 
 
 Scala
-:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #offer-source }
+:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowStreamRefsDocSpec.scala) { #offer-source }
 
 The origin actor which creates and owns the Source could also perform some validation or additional setup
 when preparing the source. Once it has handed out the `SourceRef` the remote side can run it like this:
 
 Scala
-:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #offer-source-use }
+:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowStreamRefsDocSpec.scala) { #offer-source-use }
 
 
 @@@ warning
@@ -89,16 +92,32 @@ into various other systems (e.g. any of the Alpakka provided Sinks).
 @@@
 
 Scala
-:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #offer-sink }
+:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowStreamRefsDocSpec.scala) { #offer-sink }
+
+Using the offered `SinkRef` to send data to the origin of the Sink is also simple, as we can treat the 
+SinkRef just as any other Sink and directly `runWith` or `run` with it.
+
+Scala
+:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowStreamRefsDocSpec.scala) { #offer-sink-use }
 
 
 
 ![simple-graph-example.png](../images/sink-ref-dance.png)
 
+@@@ warning
+  A `SinkeRef` is *by design* "single-shot". i.e. it may only be materialized once.
+  This is in order to not complicate the mental model what materializing such value would mean.
+  
+  If you have an use case for building a fan-in operation accepting writes from multiple remote nodes,
+  you can build your Sink and prepend it with a `Merge` stage, each time materializing a new `SinkRef`
+  targeting that Merge. This has the added benefit of giving you full control how to merge these streams 
+  (i.e. by using "merge preferred" or any other variation of the fan-in stages).
+@@@
+
 ## Bulk Stream References
 
 @@@ warning
-  Not yet implemented. See ticket ...... 
+  Not yet implemented. See ticket ...... FIXME, ticket number 
 @@@
 
 Bulk stream references can be used to create simple to use side-channels to transfer humongous amounts 
@@ -122,12 +141,16 @@ Since these timeouts are often very different based on the kind of stream offere
 many different kinds of them in the same application, it is possible to not only configure this setting
 globally (`akka.stream.stream-refs.subscription-timeout`), but also via attributes:
 
- 
-:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #attr-sub-timeout }
+
+
+Scala
+:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowStreamRefsDocSpec.scala) { #attr-sub-timeout }
+
+
 
 ## General configuration
 
 Other settings can be set globally, in your `application.conf`, by overriding any of the following values
 in the `akka.stream.stream-refs.*` keyspace:
 
-@@snip [reference.conf]($akka$/akka-stream/src/main/resources/reference.conf#stream-refs)
+@@snip [reference.conf]($akka$/akka-stream/src/main/resources/reference.conf) { #stream-refs }
