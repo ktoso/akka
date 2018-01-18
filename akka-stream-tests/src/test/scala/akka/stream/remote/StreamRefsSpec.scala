@@ -8,7 +8,7 @@ import akka.actor.Status.Failure
 import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
 import akka.event.Logging
 import akka.stream.{ ActorAttributes, ActorMaterializer, StreamRefAttributes, StreamRefSettings }
-import akka.stream.scaladsl.{ Sink, SinkRef, Source, SourceRef }
+import akka.stream.scaladsl.{ Keep, Sink, SinkRef, Source, SourceRef }
 import akka.stream.testkit.scaladsl._
 import akka.testkit.{ AkkaSpec, ImplicitSender, SocketUtil, TestKit, TestProbe }
 import akka.util.ByteString
@@ -59,6 +59,14 @@ object StreamRefsSpec {
 
         sender() ! Await.result(ref, 10.seconds) // TODO avoid the await
 
+      case "give-subscribe-timeout" ⇒
+        val ref = Source.repeat("is anyone there?")
+          .toMat(SourceRef.sink())(Keep.right) // attributes like this so they apply to the SourceRef.sink
+          .withAttributes(StreamRefAttributes.subscriptionTimeout(500.millis))
+          .run()
+
+        sender() ! Await.result(ref, 10.seconds) // TODO avoid the await
+
       //      case "send-bulk" ⇒
       //        /*
       //         * Here we're able to send a source to a remote recipient
@@ -84,9 +92,9 @@ object StreamRefsSpec {
         // FIXME we want to avoid forcing people to do the Future here
         sender() ! Await.result(sink, 10.seconds)
 
-      case "receive-subscribe-timeout-1-second" ⇒
+      case "receive-subscribe-timeout" ⇒
         val sink = SinkRef.source[String]
-          .withAttributes(StreamRefAttributes.subscriptionTimeout(1.second))
+          .withAttributes(StreamRefAttributes.subscriptionTimeout(500.millis))
           .to(Sink.actorRef(probe, "<COMPLETE>"))
           .run()
 
@@ -226,6 +234,24 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       probe.request(10)
       probe.expectNoMessage(100.millis)
     }
+
+    "xoxo receive timeout if subscribing too late to the source ref" in {
+      remoteActor ! "give-subscribe-timeout"
+      val remoteSource: SourceRef[String] = expectMsgType[SourceRef[String]]
+
+      // not materializing it, awaiting the timeout...
+      Thread.sleep(800) // the timeout is 500ms
+
+      val probe = remoteSource
+        .runWith(TestSink.probe[String](system))
+
+      val failure = p.expectMsgType[Failure]
+      failure.cause.getMessage should include("[SourceRef-0] Remote side did not subscribe (materialize) handed out Sink reference")
+
+      // the local "remote sink" should cancel, since it should notice the origin target actor is dead
+      val ex = probe.expectError()
+    }
+
   }
 
   "A SinkRef" must {
@@ -273,12 +299,12 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       p.expectMsg("<COMPLETE>")
     }
 
-    "xoxo receive timeout if subscribing too late to the source ref" in {
-      remoteActor ! "receive-subscribe-timeout-1-second"
+    "xoxo receive timeout if subscribing too late to the sink ref" in {
+      remoteActor ! "receive-subscribe-timeout"
       val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
 
       // not materializing it, awaiting the timeout...
-      Thread.sleep(1500)
+      Thread.sleep(800) // the timeout is 500ms
 
       val probe = TestSource.probe[String](system)
         .to(remoteSink)

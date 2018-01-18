@@ -54,13 +54,13 @@ can be offered to a remote actor system in order for it to consume some source o
 locally. 
 
 Scala
-:   @@snip [FlowDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #offer-source }
+:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #offer-source }
 
 The origin actor which creates and owns the Source could also perform some validation or additional setup
 when preparing the source. Once it has handed out the `SourceRef` the remote side can run it like this:
 
 Scala
-:   @@snip [FlowDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #offer-source-use }
+:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #offer-source-use }
 
 
 @@@ warning
@@ -89,7 +89,7 @@ into various other systems (e.g. any of the Alpakka provided Sinks).
 @@@
 
 Scala
-:   @@snip [FlowDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #offer-sink }
+:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #offer-sink }
 
 
 
@@ -107,3 +107,27 @@ of data such as huge log files, messages or even media, with as much ease as if 
 Connections for each stream ref bulk stream ref are established independently, and do not utilise
 actor messaging (which is not designed for such bulk transfers, but rather small messages).
 
+## Configuration
+
+### Stream reference subscription timeouts
+
+All stream references have a subscription timeout, which is intended to prevent resource leaks
+in situations in which a remote node would requests the allocation of many streams yet never actually run
+them. In order to prevent this, each stream reference has a default timeout (of 30 seconds), after which
+if it's "handed out" side has not been materialized, the origin will terminate with a timeout exception,
+and IF the remote side eventually would be run afterwards, it would also immediately fail with an exception
+pointing out that the origin seems to be missing.
+
+Since these timeouts are often very different based on the kind of stream offered, and there can be 
+many different kinds of them in the same application, it is possible to not only configure this setting
+globally (`akka.stream.stream-refs.subscription-timeout`), but also via attributes:
+
+ 
+:   @@snip [FlowStreamRefsDocSpec.scala]($code$/scala/docs/stream/FlowSourceRefsDocSpec.scala) { #attr-sub-timeout }
+
+## General configuration
+
+Other settings can be set globally, in your `application.conf`, by overriding any of the following values
+in the `akka.stream.stream-refs.*` keyspace:
+
+@@snip [reference.conf]($akka$/akka-stream/src/main/resources/reference.conf#stream-refs)

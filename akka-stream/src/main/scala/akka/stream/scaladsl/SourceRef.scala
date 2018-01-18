@@ -3,6 +3,8 @@
  */
 package akka.stream.scaladsl
 
+import java.util.concurrent.CompletionStage
+
 import akka.actor.{ ActorRef, Terminated }
 import akka.event.Logging
 import akka.stream._
@@ -36,7 +38,7 @@ object SourceRef {
  * This stage can only handle a single "sender" (it does not merge values);
  * The first that pushes is assumed the one we are to trust
  */
-final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
+final class SourceRef[T](private[akka] val initialPartnerRef: OptionVal[ActorRef]) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
 
   val out: Outlet[T] = Outlet[T](s"${Logging.simpleName(getClass)}.out")
   override def shape = SourceShape.of(out)
@@ -46,11 +48,20 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
    *
    * Please note that an implicit conversion is also provided in [[SourceRef]].
    */
-  def source = Source.fromGraph(this)
+  def source: Source[T, Future[SinkRef[T]]] = Source.fromGraph(this)
   /**
    * Method used for obtaining a [[akka.stream.javadsl.Source]] from this [[SourceRef]] which is a [[Graph]].
    */
-  def getSource = akka.stream.javadsl.Source.fromGraph(this)
+  def getSource: javadsl.Source[T, CompletionStage[SinkRef[T]]] = {
+    import scala.compat.java8.FutureConverters._
+    Source.fromGraph(this)
+      .mapMaterializedValue(_.toJava) // FIXME we need to have 1 impl and not javadsl/scaladsl, it becomes hell with the conversions
+      .asJava
+  }
+
+  private def initialRefName =
+    if (initialPartnerRef.isDefined) initialPartnerRef.get
+    else "<no-initial-ref>"
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[SinkRef[T]]) = {
     val promise = Promise[SinkRef[T]]()
@@ -66,7 +77,7 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
         .get[StreamRefAttributes.SubscriptionTimeout](SubscriptionTimeout(settings.subscriptionTimeout))
       // end of settings ---
 
-      override protected lazy val stageActorName = streamRefsMaster.nextSinkRefTargetSourceName()
+      override protected lazy val stageActorName: String = streamRefsMaster.nextSinkRefTargetSourceName()
       private[this] var self: GraphStageLogic.StageActor = _
       private[this] implicit def selfSender: ActorRef = self.ref
 
@@ -89,7 +100,8 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
 
       // initialized with the originRef if present, that means we're the "remote" for an already active Source on the other side (the "origin")
       // null otherwise, in which case we allocated first -- we are the "origin", and awaiting the other side to start when we'll receive this ref
-      private var getPartnerRef: ActorRef = initialOriginRef.orNull
+      private var partnerRef: OptionVal[ActorRef] = OptionVal.None
+      private def getPartnerRef = partnerRef.get
 
       override def preStart(): Unit = {
         receiveBuffer = FixedSizeBuffer[T](settings.bufferCapacity)
@@ -97,10 +109,11 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
 
         self = getStageActor(initialReceive)
         log.debug("[{}] Allocated receiver: {}", stageActorName, self.ref)
+        if (initialPartnerRef.isDefined) // this will set the partnerRef
+          observeAndValidateSender(initialPartnerRef.get, "<no error case here, definitely valid>")
 
         promise.success(new SinkRef(OptionVal(self.ref), materializeSourceRef = true)) // FIXME, false?
 
-        // MUST be called after promise is completed
         scheduleOnce(SubscriptionTimeoutTimerKey, subscriptionTimeout.timeout)
       }
 
@@ -111,7 +124,7 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
 
       def triggerCumulativeDemand(): Unit = {
         val i = receiveBuffer.remainingCapacity - localRemainingRequested
-        if (getPartnerRef != null && i > 0) {
+        if (partnerRef.isDefined && i > 0) {
           val addDemand = requestStrategy.requestDemand(receiveBuffer.used + localRemainingRequested)
           // only if demand has increased we shoot it right away
           // otherwise it's the same demand level, so it'd be triggered via redelivery anyway
@@ -176,6 +189,7 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
           failStage(StreamRefs.RemoteStreamRefActorTerminatedException(s"Remote stream (${sender.path}) failed, reason: $reason"))
 
         case (_, Terminated(ref)) ⇒
+          log.warning("TERMINATED" + ref)
           if (getPartnerRef == ref)
             failStage(StreamRefs.RemoteStreamRefActorTerminatedException(s"The remote partner ${getPartnerRef} has terminated! " +
               s"Tearing down this side of the stream as well."))
@@ -207,14 +221,15 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
       }
 
       @throws[StreamRefs.InvalidPartnerActorException]
-      def observeAndValidateSender(sender: ActorRef, msg: String): Unit =
-        if (getPartnerRef == null) {
-          log.debug("Received first message from {}, assuming it to be the remote partner for this stage", sender)
-          getPartnerRef = sender
-          self.watch(sender)
-        } else if (sender != getPartnerRef) {
-          val ex = StreamRefs.InvalidPartnerActorException(sender, getPartnerRef, msg)
-          sender ! StreamRefs.RemoteStreamFailure(ex.getMessage)
+      def observeAndValidateSender(partner: ActorRef, msg: String): Unit =
+        if (partnerRef.isEmpty) {
+          log.debug("Received first message from {}, assuming it to be the remote partner for this stage", partner)
+          partnerRef = OptionVal(partner)
+          self.watch(partner)
+          log.warning("WATCHING " + partner)
+        } else if (partnerRef.isDefined && partner != getPartnerRef) {
+          val ex = StreamRefs.InvalidPartnerActorException(partner, getPartnerRef, msg)
+          partner ! StreamRefs.RemoteStreamFailure(ex.getMessage)
           throw ex
         }
 
@@ -234,6 +249,6 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
   }
 
   override def toString: String =
-    s"${Logging.simpleName(getClass)}($initialOriginRef)}"
+    s"${Logging.simpleName(getClass)}($initialRefName)}"
 }
 

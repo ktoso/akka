@@ -5,14 +5,14 @@ package docs.stream
 
 import akka.NotUsed
 import akka.actor.{Actor, Props}
-import akka.stream.ActorMaterializer
+import akka.stream.{ActorMaterializer, StreamRefAttributes}
 import akka.stream.scaladsl._
 import akka.testkit.AkkaSpec
 import docs.CompileOnlySpec
 
 import scala.concurrent.Future
 
-class FlowSourceRefsDocSpec extends AkkaSpec with CompileOnlySpec {
+class FlowStreamRefsDocSpec extends AkkaSpec with CompileOnlySpec {
 
   "offer a source ref" in {
     //#offer-source
@@ -106,6 +106,24 @@ class FlowSourceRefsDocSpec extends AkkaSpec with CompileOnlySpec {
     // stream local metrics to Sink's origin:
     localMetrics().runWith(ready.sinkRef)
     //#offer-sink-use
+  }
+
+  "show how to configure timeouts with attrs" in {
+    //#attr-sub-timeout
+
+    implicit val mat: ActorMaterializer = null
+    // configure the timeout for source
+    import scala.concurrent.duration._
+    import akka.stream.StreamRefAttributes
+
+    // configuring SourceRef.sink (notice that we apply the attributes to the Sink!):
+    Source.repeat("hello")
+      .runWith(SourceRef.sink[String]().addAttributes(StreamRefAttributes.subscriptionTimeout(5.seconds)))
+
+    // configuring SinkRef.source:
+    SinkRef.source[String].addAttributes(StreamRefAttributes.subscriptionTimeout(5.seconds))
+      .runWith(Sink.ignore) // just an example
+    //#attr-sub-timeout
   }
 
 }

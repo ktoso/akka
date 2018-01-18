@@ -42,15 +42,15 @@ final class SinkRef[In] private[akka] (
 ) extends akka.stream.javadsl.SinkRef[In] {
   import akka.stream.StreamRefs._
 
-  private def initialRefName =
-    if (initialPartnerRef.isDefined) initialPartnerRef.get
-    else "<no-initial-ref>"
-
   val in = {
     val inletName = s"${Logging.simpleName(getClass)}($initialRefName).in"
     Inlet[In](inletName)
   }
   override def shape: SinkShape[In] = SinkShape.of(in)
+
+  private def initialRefName =
+    if (initialPartnerRef.isDefined) initialPartnerRef.get
+    else "<no-initial-ref>"
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
     val promise = Promise[SourceRef[In]]
@@ -61,6 +61,14 @@ final class SinkRef[In] private[akka] (
 
       private[this] lazy val streamRefsMaster = StreamRefsMaster(ActorMaterializerHelper.downcast(materializer).system)
 
+      // settings ---
+      import StreamRefAttributes._
+      private[this] lazy val settings = streamRefsMaster.settings
+
+      private[this] lazy val subscriptionTimeout = inheritedAttributes
+        .get[StreamRefAttributes.SubscriptionTimeout](SubscriptionTimeout(settings.subscriptionTimeout))
+      // end of settings ---
+
       override protected lazy val stageActorName: String = streamRefsMaster.nextSinkRefName()
       private[this] var self: GraphStageLogic.StageActor = _
       implicit def selfSender: ActorRef = self.ref
@@ -69,6 +77,8 @@ final class SinkRef[In] private[akka] (
       private def getPartnerRef: ActorRef =
         if (partnerRef.isDefined) partnerRef.get
         else throw StreamRefs.TargetRefNotInitializedYetException()
+
+      val SubscriptionTimeoutTimerKey = "SubscriptionTimeoutKey"
 
       // demand management ---
       private var remoteCumulativeDemandReceived: Long = 0L
@@ -92,6 +102,8 @@ final class SinkRef[In] private[akka] (
           getPartnerRef ! StreamRefs.OnSubscribeHandshake(self.ref)
           tryPull()
         }
+
+        scheduleOnce(SubscriptionTimeoutTimerKey, subscriptionTimeout.timeout)
       }
 
       lazy val initialReceive: ((ActorRef, Any)) ⇒ Unit = {
@@ -151,26 +163,26 @@ final class SinkRef[In] private[akka] (
         }
 
       @throws[StreamRefs.InvalidPartnerActorException]
-      def observeAndValidateSender(sender: ActorRef, failureMsg: String): Unit = {
+      def observeAndValidateSender(partner: ActorRef, failureMsg: String): Unit = {
         if (partnerRef.isEmpty) {
-          partnerRef = OptionVal(sender)
-          self.watch(sender)
+          partnerRef = OptionVal(partner)
+          self.watch(partner)
 
           if (completedBeforeRemoteConnected.isDefined)
             completedBeforeRemoteConnected.get match {
               case scala.util.Failure(ex) ⇒
                 log.warning("Stream already terminated with exception before remote side materialized, failing now.")
-                sender ! StreamRefs.RemoteStreamFailure(ex.getMessage)
+                partner ! StreamRefs.RemoteStreamFailure(ex.getMessage)
                 failStage(ex)
 
               case scala.util.Success(Done) ⇒
                 log.warning("Stream already completed before remote side materialized, failing now.")
-                sender ! StreamRefs.RemoteStreamCompleted(remoteCumulativeDemandConsumed)
+                partner ! StreamRefs.RemoteStreamCompleted(remoteCumulativeDemandConsumed)
                 completeStage()
             }
-        } else if (sender != getPartnerRef) {
-          val ex = StreamRefs.InvalidPartnerActorException(sender, getPartnerRef, failureMsg)
-          sender ! StreamRefs.RemoteStreamFailure(ex.getMessage)
+        } else if (partner != getPartnerRef) {
+          val ex = StreamRefs.InvalidPartnerActorException(partner, getPartnerRef, failureMsg)
+          partner ! StreamRefs.RemoteStreamFailure(ex.getMessage)
           throw ex
         } // else: the ref is valid
       }

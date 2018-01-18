@@ -129,7 +129,7 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
 
   private def serializeSourceRef(source: SourceRef[_]): StreamRefContainers.SourceRef = {
     val actorRef = StreamRefContainers.ActorRef.newBuilder()
-      .setPath(Serialization.serializedActorPath(source.initialOriginRef.orNull))
+      .setPath(Serialization.serializedActorPath(source.initialPartnerRef.orNull))
 
     StreamRefContainers.SourceRef.newBuilder()
       .setOriginRef(actorRef)
