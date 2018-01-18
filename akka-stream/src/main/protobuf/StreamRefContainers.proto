@@ -13,16 +13,10 @@ option optimize_for = SPEED;
 
 message SinkRef {
     optional ActorRef targetRef = 1;
-    // this will be basically always false, since we already materialized this "connection"
-    // so materializing another Source, where this Sink was created BY materializing a Source does not make sense
-    optional bool canMaterializeSource = 2;
 }
 
 message SourceRef {
     optional ActorRef originRef = 1;
-    // this will be basically always false, since we already materialized this "connection"
-    // so materializing another Source, where this Sink was created BY materializing a Source does not make sense
-    optional bool canMaterializeSink = 2;
 }
 
 message ActorRef {

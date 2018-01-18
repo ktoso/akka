@@ -17,7 +17,6 @@ import akka.util.ByteString
 import com.typesafe.config._
 import akka.pattern._
 import akka.stream.{ SinkRef, SourceRef }
-import akka.stream.StreamRefs.CyclicMaterializationAttemptException
 import akka.stream.testkit.TestPublisher
 
 import scala.concurrent.duration._

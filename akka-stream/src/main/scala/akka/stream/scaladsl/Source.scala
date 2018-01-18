@@ -605,5 +605,5 @@ object Source {
     Source.fromGraph(new UnfoldResourceSourceAsync(create, read, close))
 
   def sinkRef[T](): Source[T, Future[SinkRef[T]]] =
-    Source.fromGraph(new SourceRefImpl[T](OptionVal.None, canMaterializeSinkRef = true))
+    Source.fromGraph(new SourceRefImpl[T](OptionVal.None))
 }

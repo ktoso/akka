@@ -22,8 +22,7 @@ import scala.language.implicitConversions
 
 // FIXME: move to impl package
 private[stream] final class SourceRefImpl[T](
-  private[akka] val initialPartnerRef:     OptionVal[ActorRef],
-  private[akka] val canMaterializeSinkRef: Boolean
+  val initialPartnerRef: OptionVal[ActorRef]
 ) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] with SourceRef[T] {
 
   val out: Outlet[T] = Outlet[T](s"${Logging.simpleName(getClass)}.out")
@@ -47,8 +46,6 @@ private[stream] final class SourceRefImpl[T](
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[SinkRef[T]]) = {
     val promise = Promise[SinkRef[T]]()
-    if (!canMaterializeSinkRef) promise.failure(StreamRefs.CyclicMaterializationAttemptException(
-      "SourceRef", otherStage = "SinkRef"))
 
     val logic = new TimerGraphStageLogic(shape) with StageLogging with OutHandler {
       private[this] lazy val streamRefsMaster = StreamRefsMaster(ActorMaterializerHelper.downcast(materializer).system)
@@ -96,8 +93,7 @@ private[stream] final class SourceRefImpl[T](
         if (initialPartnerRef.isDefined) // this will set the partnerRef
           observeAndValidateSender(initialPartnerRef.get, "<no error case here, definitely valid>")
 
-        if (canMaterializeSinkRef)
-          promise.success(new SinkRefImpl(OptionVal(self.ref), canMaterializeSourceRef = false))
+        promise.success(new SinkRefImpl(OptionVal(self.ref)))
 
         scheduleOnce(SubscriptionTimeoutTimerKey, subscriptionTimeout.timeout)
       }

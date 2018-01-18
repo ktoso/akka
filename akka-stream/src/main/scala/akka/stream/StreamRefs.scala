@@ -118,12 +118,6 @@ private[akka] object StreamRefs {
   final case class StreamRefSubscriptionTimeoutException(msg: String)
     extends IllegalStateException(msg)
 
-  // FIXME maybe fixable if Mat would also be a type param of all those things?
-  final case class CyclicMaterializationAttemptException(stageName: String, otherStage: String)
-    extends IllegalStateException(s"This $stageName will never materialize its materialized value ($otherStage), " +
-      s"since it was *already* the result of an $otherStage's materialization. To avoid confusing 'loops' in " +
-      s"materializations, with undefined semantics, failing eagerly.")
-
   final case class RemoteStreamRefActorTerminatedException(msg: String) extends RuntimeException(msg)
   final case class InvalidSequenceNumberException(expectedSeqNr: Long, gotSeqNr: Long, msg: String)
     extends IllegalStateException(s"$msg (expected: $expectedSeqNr, got: $gotSeqNr)")

@@ -20,8 +20,7 @@ import scala.util.Try
 
 // FIXME: should be moved to impl package
 private[stream] final class SinkRefImpl[In] private[akka] (
-  private[akka] val initialPartnerRef:       OptionVal[ActorRef],
-  private[akka] val canMaterializeSourceRef: Boolean
+  val initialPartnerRef: OptionVal[ActorRef]
 ) extends GraphStageWithMaterializedValue[SinkShape[In], Future[SourceRef[In]]] with SinkRef[In] {
 
   import akka.stream.StreamRefs._
@@ -41,8 +40,6 @@ private[stream] final class SinkRefImpl[In] private[akka] (
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
     val promise = Promise[SourceRef[In]]
-    if (!canMaterializeSourceRef) promise.failure(StreamRefs.CyclicMaterializationAttemptException(
-      "SinkRef", otherStage = "SourceRef"))
 
     val logic = new TimerGraphStageLogic(shape) with StageLogging with InHandler {
 
@@ -81,8 +78,7 @@ private[stream] final class SinkRefImpl[In] private[akka] (
 
         log.debug("Created SinkRef, pointing to remote Sink receiver: {}, local worker: {}", initialPartnerRef, self.ref)
 
-        if (canMaterializeSourceRef)
-          promise.success(new SourceRefImpl(OptionVal(self.ref), canMaterializeSinkRef = false))
+        promise.success(new SourceRefImpl(OptionVal(self.ref)))
 
         if (partnerRef.isDefined) {
           getPartnerRef ! StreamRefs.OnSubscribeHandshake(self.ref)
