@@ -3,6 +3,8 @@
  */
 package akka.stream.remote
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.NotUsed
 import akka.actor.Status.Failure
 import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
@@ -13,6 +15,7 @@ import akka.stream.testkit.scaladsl._
 import akka.testkit.{ AkkaSpec, ImplicitSender, SocketUtil, TestKit, TestProbe }
 import akka.util.ByteString
 import com.typesafe.config._
+import akka.pattern._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
@@ -97,6 +100,27 @@ object StreamRefsSpec {
           .withAttributes(StreamRefAttributes.subscriptionTimeout(500.millis))
           .to(Sink.actorRef(probe, "<COMPLETE>"))
           .run()
+
+        // FIXME we want to avoid forcing people to do the Future here
+        sender() ! Await.result(sink, 10.seconds)
+
+      case "receive-32" ⇒
+        val (sink, driver) = SinkRef.source[String]
+          .toMat(TestSink.probe(context.system))(Keep.both)
+          .run()
+
+        import context.dispatcher
+        Future {
+          driver.ensureSubscription()
+          driver.request(2)
+          driver.expectNext()
+          driver.expectNext()
+          driver.expectNoMessage(100.millis)
+          driver.request(30)
+          driver.expectNextN(30)
+
+          "<COMPLETED>"
+        } pipeTo probe
 
         // FIXME we want to avoid forcing people to do the Future here
         sender() ! Await.result(sink, 10.seconds)
@@ -230,12 +254,12 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       // since no demand anyway
       probe.expectNoMessage(100.millis)
 
-      // shhould not cause more pulling, since we issued a cancel already
+      // should not cause more pulling, since we issued a cancel already
       probe.request(10)
       probe.expectNoMessage(100.millis)
     }
 
-    "xoxo receive timeout if subscribing too late to the source ref" in {
+    "receive timeout if subscribing too late to the source ref" in {
       remoteActor ! "give-subscribe-timeout"
       val remoteSource: SourceRef[String] = expectMsgType[SourceRef[String]]
 
@@ -301,7 +325,7 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       p.expectMsg("<COMPLETE>")
     }
 
-    "xoxo receive timeout if subscribing too late to the sink ref" in {
+    "receive timeout if subscribing too late to the sink ref" in {
       remoteActor ! "receive-subscribe-timeout"
       val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
 
@@ -319,9 +343,21 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       probe.expectCancellation()
     }
 
-    //    "respect back-pressure from (implied by origin Sink)" in {
-    //      PENDING
-    //    }
+    "respect back -pressure from (implied by origin Sink)" in {
+      remoteActor ! "receive-32"
+      val sinkRef = expectMsgType[SinkRef[String]]
+
+      val counter = new AtomicInteger()
+
+      Source.repeat("hello")
+        .map { it ⇒
+          counter.incrementAndGet()
+          it
+        } runWith sinkRef
+
+      // if we get this message, it means no checks in the request/expect semantics were broken, good!
+      p.expectMsg("<COMPLETED>")
+    }
 
     // FIXME not sure about this one yet; we would want to tell the second one to GO_AWAY
     //    "fail local Source when attempting to materialize second time to already active interchange" in {
