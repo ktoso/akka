@@ -4,13 +4,16 @@
 package akka.stream.remote.serialization
 
 import akka.actor.{ ActorRef, ExtendedActorSystem }
+import akka.annotation.InternalApi
 import akka.protobuf.ByteString
 import akka.serialization.{ BaseSerializer, Serialization, SerializationExtension, SerializerWithStringManifest }
 import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
 import akka.stream.remote.{ StreamRefContainers, StreamRefs }
 import akka.util.OptionVal
 
-final class StreamRefSerializer(val system: ExtendedActorSystem) extends SerializerWithStringManifest
+/** INTERNAL API */
+@InternalApi
+private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) extends SerializerWithStringManifest
   with BaseSerializer {
 
   private[this] lazy val serialization = SerializationExtension(system)
@@ -25,9 +28,11 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   override def manifest(o: AnyRef): String = o match {
     // protocol
-    case _: StreamRefs.OnSubscribeHandshake  ⇒ OnSubscribeHandshakeManifest
     case _: StreamRefs.SequencedOnNext[_]    ⇒ SequencedOnNextManifest
     case _: StreamRefs.CumulativeDemand      ⇒ CumulativeDemandManifest
+    // handshake
+    case _: StreamRefs.OnSubscribeHandshake  ⇒ OnSubscribeHandshakeManifest
+    // completion
     case _: StreamRefs.RemoteStreamFailure   ⇒ RemoteSinkFailureManifest
     case _: StreamRefs.RemoteStreamCompleted ⇒ RemoteSinkCompletedManifest
     // refs
@@ -37,9 +42,11 @@ final class StreamRefSerializer(val system: ExtendedActorSystem) extends Seriali
 
   override def toBinary(o: AnyRef): Array[Byte] = o match {
     // protocol
-    case h: StreamRefs.OnSubscribeHandshake  ⇒ serializeOnSubscribeHandshake(h).toByteArray
     case o: StreamRefs.SequencedOnNext[_]    ⇒ serializeSequencedOnNext(o).toByteArray
     case d: StreamRefs.CumulativeDemand      ⇒ serializeCumulativeDemand(d).toByteArray
+    // handshake
+    case h: StreamRefs.OnSubscribeHandshake  ⇒ serializeOnSubscribeHandshake(h).toByteArray
+    // termination
     case d: StreamRefs.RemoteStreamFailure   ⇒ serializeRemoteSinkFailure(d).toByteArray
     case d: StreamRefs.RemoteStreamCompleted ⇒ serializeRemoteSinkCompleted(d).toByteArray
     // refs

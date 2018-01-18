@@ -3,13 +3,16 @@
  */
 package akka.stream.remote.impl
 
-import akka.actor.{ Actor, ActorRef, ActorSystem, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, Props }
+import akka.actor.{Actor, ActorRef, ActorSystem, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, Props}
+import akka.annotation.InternalApi
 import akka.stream.ActorMaterializerHelper
 import akka.stream.impl.SeqActorName
 import akka.stream.remote.impl.StreamRefsMasterActor.AllocatePusherToRemoteSink
-import akka.stream.remote.scaladsl.{ SinkRef, StreamRefSettings }
+import akka.stream.remote.scaladsl.{SinkRef, StreamRefSettings}
 
-object StreamRefsMaster extends ExtensionId[StreamRefsMaster] with ExtensionIdProvider {
+/** INTERNAL API */
+@InternalApi
+private[stream] object StreamRefsMaster extends ExtensionId[StreamRefsMaster] with ExtensionIdProvider {
 
   override def createExtension(system: ExtendedActorSystem): StreamRefsMaster =
     new StreamRefsMaster(system)
@@ -20,6 +23,7 @@ object StreamRefsMaster extends ExtensionId[StreamRefsMaster] with ExtensionIdPr
 }
 
 /** INTERNAL API */
+@InternalApi
 private[stream] final class StreamRefsMaster(system: ExtendedActorSystem) extends Extension {
 
   val settings: StreamRefSettings = new StreamRefSettings(system.settings.config)
@@ -45,17 +49,4 @@ private[stream] final class StreamRefsMaster(system: ExtendedActorSystem) extend
   def nextSourceRefName(): String =
     sourceRefNames.next()
 
-}
-
-object StreamRefsMasterActor {
-  def props(): Props = Props(new StreamRefsMasterActor())
-
-  final case class AllocatePusherToRemoteSink(stageRef: ActorRef)
-}
-
-class StreamRefsMasterActor extends Actor {
-  override def receive: Receive = {
-    case AllocatePusherToRemoteSink(stageRef) ⇒
-    //      context.actorOf()
-  }
 }
