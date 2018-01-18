@@ -1,14 +1,11 @@
 /**
  * Copyright (C) 2014-2017 Lightbend Inc. <http://www.lightbend.com>
  */
-package akka.stream.remote.impl
+package akka.stream.impl
 
-import akka.actor.{Actor, ActorRef, ActorSystem, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider, Props}
+import akka.actor.{ ActorSystem, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider }
 import akka.annotation.InternalApi
-import akka.stream.ActorMaterializerHelper
-import akka.stream.impl.SeqActorName
-import akka.stream.remote.impl.StreamRefsMasterActor.AllocatePusherToRemoteSink
-import akka.stream.remote.scaladsl.{SinkRef, StreamRefSettings}
+import akka.stream.scaladsl.StreamRefSettings
 
 /** INTERNAL API */
 @InternalApi

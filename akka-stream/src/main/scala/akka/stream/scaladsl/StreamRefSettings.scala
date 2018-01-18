@@ -1,12 +1,13 @@
 /**
  * Copyright (C) 2018 Lightbend Inc. <http://www.lightbend.com>
  */
-package akka.stream.remote.scaladsl
+package akka.stream.scaladsl
 
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.duration._
 import com.typesafe.config.Config
+
+import scala.concurrent.duration._
 
 final class StreamRefSettings(config: Config) {
   private val c = config.getConfig("akka.stream.stream-refs")

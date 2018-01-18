@@ -1,20 +1,21 @@
 /**
  * Copyright (C) 2018 Lightbend Inc. <http://www.lightbend.com>
  */
-package akka.stream.remote.scaladsl
+package akka.stream.scaladsl
 
 import akka.actor.{ ActorRef, Terminated }
 import akka.event.Logging
 import akka.stream._
-import akka.stream.actor.{ MaxInFlightRequestStrategy, RequestStrategy, WatermarkRequestStrategy }
+import akka.stream.actor.{ RequestStrategy, WatermarkRequestStrategy }
 import akka.stream.impl.FixedSizeBuffer
-import akka.stream.remote.StreamRefs
-import akka.stream.remote.impl.StreamRefsMaster
-import akka.stream.scaladsl.{ Sink, Source }
+import akka.stream.StreamRefs
+import akka.stream.impl.StreamRefsMaster
 import akka.stream.stage._
 import akka.util.OptionVal
 
 import scala.concurrent.{ Future, Promise }
+
+import scala.language.implicitConversions
 
 object SourceRef {
 

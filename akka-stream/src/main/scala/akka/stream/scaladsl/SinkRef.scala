@@ -1,15 +1,14 @@
 /**
  * Copyright (C) 2018 Lightbend Inc. <http://www.lightbend.com>
  */
-package akka.stream.remote.scaladsl
+package akka.stream.scaladsl
 
 import akka.Done
 import akka.actor.{ ActorRef, Terminated }
 import akka.event.Logging
 import akka.stream._
-import akka.stream.remote.StreamRefs
-import akka.stream.remote.impl.StreamRefsMaster
-import akka.stream.scaladsl.Source
+import akka.stream.StreamRefs
+import akka.stream.impl.StreamRefsMaster
 import akka.stream.stage._
 import akka.util.OptionVal
 
@@ -39,9 +38,9 @@ object SinkRef {
  */
 final class SinkRef[In] private[akka] (
   private[akka] val initialPartnerRef: OptionVal[ActorRef],
-  val materializeSourceRef:            Boolean
+  materializeSourceRef:                Boolean
 ) extends GraphStageWithMaterializedValue[SinkShape[In], Future[SourceRef[In]]] with Serializable { stage ⇒
-  import akka.stream.remote.StreamRefs._
+  import akka.stream.StreamRefs._
 
   val in = Inlet[In](s"${Logging.simpleName(getClass)}($initialPartnerRef).in")
   override def shape: SinkShape[In] = SinkShape.of(in)

@@ -1,13 +1,12 @@
-/**
- * Copyright (C) 2014-2017 Lightbend Inc. <http://www.lightbend.com>
- */
-package akka.stream.remote
+package akka.stream
 
 import akka.actor.{ ActorRef, DeadLetterSuppression }
 import akka.annotation.InternalApi
 import akka.stream.impl.ReactiveStreamsCompliance
 
-/** INTERNAL API: Protocol messages used by the various stream -ref implementations. */
+/**
+ * INTERNAL API: Use [[akka.stream.scaladsl.SourceRef]] and [[akka.stream.scaladsl.SinkRef]] directly to obtain stream refs.
+ */
 @InternalApi
 private[akka] object StreamRefs {
 
@@ -68,4 +67,3 @@ private[akka] object StreamRefs {
     extends IllegalStateException(s"$msg (expected: $expectedRef, got: $gotRef)")
 
 }
-

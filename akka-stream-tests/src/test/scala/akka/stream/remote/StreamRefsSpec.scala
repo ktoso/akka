@@ -8,7 +8,7 @@ import akka.actor.Status.Failure
 import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
 import akka.event.Logging
 import akka.stream.{ ActorAttributes, ActorMaterializer }
-import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
+import akka.stream.scaladsl.{ SinkRef, SourceRef }
 import akka.stream.scaladsl.{ Sink, Source }
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.{ AkkaSpec, ImplicitSender, SocketUtil, TestKit, TestProbe }

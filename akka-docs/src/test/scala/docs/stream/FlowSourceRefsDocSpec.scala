@@ -17,7 +17,7 @@ class FlowSourceRefsDocSpec extends AkkaSpec with CompileOnlySpec {
   "offer a source ref" in {
     //#offer-source
     import akka.pattern._
-    import akka.stream.remote.scaladsl.SourceRef
+    import akka.stream.scaladsl.SourceRef
 
     case class RequestLogs(streamId: Int)
     case class LogsOffer(streamId: Int, sourceRef: SourceRef[String])
@@ -64,7 +64,7 @@ class FlowSourceRefsDocSpec extends AkkaSpec with CompileOnlySpec {
   "offer a sink ref" in {
     //#offer-sink
     import akka.pattern._
-    import akka.stream.remote.scaladsl.SinkRef
+    import akka.stream.scaladsl.SinkRef
 
     case class PrepareUpload(sourceId: String)
     case class MeasurementsSinkReady(sourceId: String, sinkRef: SinkRef[String])

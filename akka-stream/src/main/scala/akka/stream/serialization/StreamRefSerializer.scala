@@ -1,14 +1,14 @@
 /**
  * Copyright (C) 2009-2017 Lightbend Inc. <http://www.lightbend.com>
  */
-package akka.stream.remote.serialization
+package akka.stream.serialization
 
 import akka.actor.{ ActorRef, ExtendedActorSystem }
 import akka.annotation.InternalApi
 import akka.protobuf.ByteString
 import akka.serialization.{ BaseSerializer, Serialization, SerializationExtension, SerializerWithStringManifest }
-import akka.stream.remote.scaladsl.{ SinkRef, SourceRef }
-import akka.stream.remote.{ StreamRefContainers, StreamRefs }
+import akka.stream.scaladsl.{ SinkRef, SourceRef }
+import akka.stream.{ StreamRefContainers, StreamRefs }
 import akka.util.OptionVal
 
 /** INTERNAL API */
