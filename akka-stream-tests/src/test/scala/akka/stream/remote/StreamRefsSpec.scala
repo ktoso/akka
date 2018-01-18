@@ -5,17 +5,17 @@ package akka.stream.remote
 
 import akka.NotUsed
 import akka.actor.Status.Failure
-import akka.actor.{Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props}
+import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
 import akka.event.Logging
-import akka.stream.{ActorAttributes, ActorMaterializer}
-import akka.stream.scaladsl.{Sink, SinkRef, Source, SourceRef, StreamRefSettings}
-import akka.stream.testkit.scaladsl.TestSink
-import akka.testkit.{AkkaSpec, ImplicitSender, SocketUtil, TestKit, TestProbe}
+import akka.stream.{ ActorAttributes, ActorMaterializer, StreamRefAttributes, StreamRefSettings }
+import akka.stream.scaladsl.{ Sink, SinkRef, Source, SourceRef }
+import akka.stream.testkit.scaladsl._
+import akka.testkit.{ AkkaSpec, ImplicitSender, SocketUtil, TestKit, TestProbe }
 import akka.util.ByteString
 import com.typesafe.config._
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ Await, Future }
 import scala.util.control.NoStackTrace
 
 object StreamRefsSpec {
@@ -85,8 +85,13 @@ object StreamRefsSpec {
         sender() ! Await.result(sink, 10.seconds)
 
       case "receive-subscribe-timeout-1-second" ⇒
-        val settings = new StreamRefSettings()
-        SinkRef.source()[String]
+        val sink = SinkRef.source[String]
+          .withAttributes(StreamRefAttributes.subscriptionTimeout(1.second))
+          .to(Sink.actorRef(probe, "<COMPLETE>"))
+          .run()
+
+        // FIXME we want to avoid forcing people to do the Future here
+        sender() ! Await.result(sink, 10.seconds)
 
       //      case "receive-bulk" ⇒
       //        /*
@@ -268,17 +273,22 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       p.expectMsg("<COMPLETE>")
     }
 
-    "receive timeout if subscribing too late to the source ref" in {
+    "xoxo receive timeout if subscribing too late to the source ref" in {
       remoteActor ! "receive-subscribe-timeout-1-second"
       val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
 
-      val msgs = (1 to 100).toList.map(i ⇒ s"payload-$i")
+      // not materializing it, awaiting the timeout...
+      Thread.sleep(1500)
 
-      Source(msgs)
-        .runWith(remoteSink)
+      val probe = TestSource.probe[String](system)
+        .to(remoteSink)
+        .run()
 
-      msgs.foreach(t ⇒ p.expectMsg(t))
-      p.expectMsg("<COMPLETE>")
+      val failure = p.expectMsgType[Failure]
+      failure.cause.getMessage should include("[SourceRef-0] Remote side did not subscribe (materialize) handed out Sink reference")
+
+      // the local "remote sink" should cancel, since it should notice the origin target actor is dead
+      probe.expectCancellation()
     }
 
     //    "respect back-pressure from (implied by origin Sink)" in {

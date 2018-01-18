@@ -18,6 +18,8 @@ import akka.stream.impl.TraversalBuilder
 import scala.compat.java8.OptionConverters._
 import akka.util.ByteString
 
+import scala.concurrent.duration.FiniteDuration
+
 /**
  * Holds attributes which can be used to alter [[akka.stream.scaladsl.Flow]] / [[akka.stream.javadsl.Flow]]
  * or [[akka.stream.scaladsl.GraphDSL]] / [[akka.stream.javadsl.GraphDSL]] materialization.
@@ -336,5 +338,20 @@ object ActorAttributes {
    */
   def logLevels(onElement: Logging.LogLevel = Logging.DebugLevel, onFinish: Logging.LogLevel = Logging.DebugLevel, onFailure: Logging.LogLevel = Logging.ErrorLevel) =
     Attributes(LogLevels(onElement, onFinish, onFailure))
+
+}
+
+/**
+ * Attributes for stream refs ([[akka.stream.scaladsl.SourceRef]] and [[akka.stream.scaladsl.SinkRef]]).
+ * Note that more attributes defined in [[Attributes]] and [[ActorAttributes]].
+ */
+object StreamRefAttributes {
+  import Attributes._
+  final case class SubscriptionTimeout(timeout: FiniteDuration) extends Attribute
+
+  /**
+   * Specifies the subscription timeout within which the remote side MUST subscribe to the handed out stream reference.
+   */
+  def subscriptionTimeout(timeout: FiniteDuration): Attributes = Attributes(SubscriptionTimeout(timeout))
 
 }

@@ -11,10 +11,9 @@ import akka.stream.impl.FixedSizeBuffer
 import akka.stream.StreamRefs
 import akka.stream.impl.StreamRefsMaster
 import akka.stream.stage._
-import akka.util.OptionVal
+import akka.util.{ OptionVal, PrettyDuration }
 
 import scala.concurrent.{ Future, Promise }
-
 import scala.language.implicitConversions
 
 object SourceRef {
@@ -58,11 +57,21 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
 
     val logic = new TimerGraphStageLogic(shape) with StageLogging with OutHandler {
       private[this] lazy val streamRefsMaster = StreamRefsMaster(ActorMaterializerHelper.downcast(materializer).system)
+
+      // settings ---
+      import StreamRefAttributes._
       private[this] lazy val settings = streamRefsMaster.settings
+
+      private[this] lazy val subscriptionTimeout = inheritedAttributes
+        .get[StreamRefAttributes.SubscriptionTimeout](SubscriptionTimeout(settings.subscriptionTimeout))
+      // end of settings ---
 
       override protected lazy val stageActorName = streamRefsMaster.nextSinkRefTargetSourceName()
       private[this] var self: GraphStageLogic.StageActor = _
       private[this] implicit def selfSender: ActorRef = self.ref
+
+      val SubscriptionTimeoutTimerKey = "SubscriptionTimeoutKey"
+      val DemandRedeliveryTimerKey = "DemandRedeliveryTimerKey"
 
       // demand management ---
 
@@ -89,7 +98,10 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
         self = getStageActor(initialReceive)
         log.debug("[{}] Allocated receiver: {}", stageActorName, self.ref)
 
-        promise.success(new SinkRef(OptionVal(self.ref), materializeSourceRef = true))
+        promise.success(new SinkRef(OptionVal(self.ref), materializeSourceRef = true)) // FIXME, false?
+
+        // MUST be called after promise is completed
+        scheduleOnce(SubscriptionTimeoutTimerKey, subscriptionTimeout.timeout)
       }
 
       override def onPull(): Unit = {
@@ -115,9 +127,17 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
         }
       }
 
-      val DemandRedeliveryTimerKey = "DemandRedeliveryTimerKey"
       def scheduleDemandRedelivery() = scheduleOnce(DemandRedeliveryTimerKey, settings.demandRedeliveryInterval)
+
       override protected def onTimer(timerKey: Any): Unit = timerKey match {
+        case SubscriptionTimeoutTimerKey ⇒
+          val ex = StreamRefs.StreamRefSubscriptionTimeoutException(
+            // we know the future has been competed by now, since it is in preStart
+            s"[$stageActorName] Remote side did not subscribe (materialize) handed out Sink reference [${promise.future.value}]," +
+              s"within subscription timeout: ${PrettyDuration.format(subscriptionTimeout.timeout)}!")
+
+          throw ex // this will also log the exception, unlike failStage; this should fail rarely, but would be good to have it "loud"
+
         case DemandRedeliveryTimerKey ⇒
           log.debug("[{}] Scheduled re-delivery of demand until [{}]", stageActorName, localCumulativeDemand)
           getPartnerRef ! StreamRefs.CumulativeDemand(localCumulativeDemand)
@@ -126,6 +146,7 @@ final class SourceRef[T](private[akka] val initialOriginRef: OptionVal[ActorRef]
 
       lazy val initialReceive: ((ActorRef, Any)) ⇒ Unit = {
         case (sender, msg @ StreamRefs.OnSubscribeHandshake(remoteRef)) ⇒
+          cancelTimer("SubscriptionTimeoutTimerKey")
           observeAndValidateSender(remoteRef, "Illegal sender in SequencedOnNext")
           log.debug("[{}] Received handshake {} from {}", stageActorName, msg, sender)
 

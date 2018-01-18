@@ -65,8 +65,8 @@ final class SinkRef[In] private[akka] (
       private[this] var self: GraphStageLogic.StageActor = _
       implicit def selfSender: ActorRef = self.ref
 
-      private var partnerRef = initialPartnerRef
-      private def getPartnerRef =
+      private var partnerRef: OptionVal[ActorRef] = OptionVal.None
+      private def getPartnerRef: ActorRef =
         if (partnerRef.isDefined) partnerRef.get
         else throw StreamRefs.TargetRefNotInitializedYetException()
 
@@ -79,7 +79,8 @@ final class SinkRef[In] private[akka] (
 
       override def preStart(): Unit = {
         self = getStageActor(initialReceive)
-        if (initialPartnerRef.isDefined) observeAndValidateSender(initialPartnerRef.get, "Illegal initialPartnerRef! This would be a bug in the SinkRef usage or impl.")
+        if (initialPartnerRef.isDefined) // this will set the `partnerRef`
+          observeAndValidateSender(initialPartnerRef.get, "Illegal initialPartnerRef! This would be a bug in the SinkRef usage or impl.")
 
         log.debug("Created SinkRef, pointing to remote Sink receiver: {}, local worker: {}", initialPartnerRef, self.ref)
 
@@ -95,6 +96,7 @@ final class SinkRef[In] private[akka] (
 
       lazy val initialReceive: ((ActorRef, Any)) ⇒ Unit = {
         case (_, Terminated(ref)) ⇒
+          log.warning("TERMINATED: " + ref)
           if (ref == getPartnerRef) failStage(failRemoteTerminated())
 
         case (sender, CumulativeDemand(d)) ⇒
@@ -149,30 +151,29 @@ final class SinkRef[In] private[akka] (
         }
 
       @throws[StreamRefs.InvalidPartnerActorException]
-      def observeAndValidateSender(sender: ActorRef, failureMsg: String): Unit =
+      def observeAndValidateSender(sender: ActorRef, failureMsg: String): Unit = {
         if (partnerRef.isEmpty) {
-          log.debug("Received first message from {}, assuming it to be the remote partner for this stage", sender)
           partnerRef = OptionVal(sender)
+          self.watch(sender)
 
-          if (completedBeforeRemoteConnected.isDefined) completedBeforeRemoteConnected.get match {
-            case scala.util.Failure(ex) ⇒
-              log.warning("Stream already terminated with exception before remote side materialized, failing now.")
-              sender ! StreamRefs.RemoteStreamFailure(ex.getMessage)
-              failStage(ex)
+          if (completedBeforeRemoteConnected.isDefined)
+            completedBeforeRemoteConnected.get match {
+              case scala.util.Failure(ex) ⇒
+                log.warning("Stream already terminated with exception before remote side materialized, failing now.")
+                sender ! StreamRefs.RemoteStreamFailure(ex.getMessage)
+                failStage(ex)
 
-            case scala.util.Success(Done) ⇒
-              log.warning("Stream already completed before remote side materialized, failing now.")
-              sender ! StreamRefs.RemoteStreamCompleted(remoteCumulativeDemandConsumed)
-              completeStage()
-          }
-          else {
-            self.watch(sender)
-          }
+              case scala.util.Success(Done) ⇒
+                log.warning("Stream already completed before remote side materialized, failing now.")
+                sender ! StreamRefs.RemoteStreamCompleted(remoteCumulativeDemandConsumed)
+                completeStage()
+            }
         } else if (sender != getPartnerRef) {
           val ex = StreamRefs.InvalidPartnerActorException(sender, getPartnerRef, failureMsg)
           sender ! StreamRefs.RemoteStreamFailure(ex.getMessage)
           throw ex
         } // else: the ref is valid
+      }
 
       private def failRemoteTerminated() =
         RemoteStreamRefActorTerminatedException(s"Remote target receiver of data $partnerRef terminated. " +

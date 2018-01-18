@@ -5,7 +5,7 @@ package akka.stream.impl
 
 import akka.actor.{ ActorSystem, ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider }
 import akka.annotation.InternalApi
-import akka.stream.scaladsl.StreamRefSettings
+import akka.stream.StreamRefSettings
 
 /** INTERNAL API */
 @InternalApi
@@ -23,7 +23,7 @@ private[stream] object StreamRefsMaster extends ExtensionId[StreamRefsMaster] wi
 @InternalApi
 private[stream] final class StreamRefsMaster(system: ExtendedActorSystem) extends Extension {
 
-  val settings: StreamRefSettings = new StreamRefSettings(system.settings.config)
+  val settings: StreamRefSettings = StreamRefSettings(system)
 
   private[this] val sourceRefOriginSinkNames = SeqActorName("SourceRefOriginSink") // "local origin"
   private[this] val sourceRefNames = SeqActorName("SourceRef") // "remote receiver"
@@ -31,8 +31,7 @@ private[stream] final class StreamRefsMaster(system: ExtendedActorSystem) extend
   private[this] val sinkRefTargetSourceNames = SeqActorName("SourceRef") // "local target"
   private[this] val sinkRefNames = SeqActorName("SinkRef") // "remote sender"
 
-  // TODO do we need it? perhaps for reaping?
-  // system.systemActorOf(StreamRefsMasterActor.props(), "streamRefsMaster")
+  // TODO introduce a master with which all stages running the streams register themselves?
 
   def nextSinkRefTargetSourceName(): String =
     sinkRefTargetSourceNames.next()
