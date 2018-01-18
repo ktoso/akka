@@ -151,7 +151,7 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
       if (ref.hasTargetRef) OptionVal(serialization.system.provider.resolveActorRef(ref.getTargetRef.getPath))
       else OptionVal.None
 
-    new SinkRefImpl[Any](initialTargetRef)
+    SinkRefImpl[Any](initialTargetRef)
   }
 
   private def deserializeSourceRef(bytes: Array[Byte]): SourceRefImpl[Any] = {
@@ -160,7 +160,7 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
       if (ref.hasOriginRef) OptionVal.Some(serialization.system.provider.resolveActorRef(ref.getOriginRef.getPath))
       else OptionVal.None
 
-    new SourceRefImpl[Any](targetRef)
+    SourceRefImpl[Any](targetRef)
   }
 
   private def deserializeSequencedOnNext(bytes: Array[Byte]): AnyRef = {

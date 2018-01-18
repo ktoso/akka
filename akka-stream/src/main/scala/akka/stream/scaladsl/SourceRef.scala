@@ -20,25 +20,20 @@ import akka.util.{ OptionVal, PrettyDuration }
 import scala.concurrent.{ Future, Promise }
 import scala.language.implicitConversions
 
+private[stream] final case class SourceRefImpl[T](initialPartnerRef: OptionVal[ActorRef]) extends SourceRef[T] {
+  def source: Source[T, NotUsed] =
+    Source.fromGraph(new SourceRefStage(initialPartnerRef)).mapMaterializedValue(_ ⇒ NotUsed)
+
+  def getSource: javadsl.Source[T, NotUsed] = source.asJava
+}
+
 // FIXME: move to impl package
-private[stream] final class SourceRefImpl[T](
+private[stream] final class SourceRefStage[T](
   val initialPartnerRef: OptionVal[ActorRef]
-) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] with SourceRef[T] {
+) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
 
   val out: Outlet[T] = Outlet[T](s"${Logging.simpleName(getClass)}.out")
   override def shape = SourceShape.of(out)
-
-  /**
-   * Convenience method for obtaining a [[Source]] from this [[SourceRef]] which is a [[Graph]].
-   *
-   * Please note that an implicit conversion is also provided in [[SourceRef]].
-   */
-  def source: Source[T, NotUsed] =
-    Source.fromGraph(this).mapMaterializedValue(_ ⇒ NotUsed)
-  /**
-   * Method used for obtaining a [[akka.stream.javadsl.Source]] from this [[SourceRef]] which is a [[Graph]].
-   */
-  def getSource: javadsl.Source[T, NotUsed] = source.asJava
 
   private def initialRefName =
     if (initialPartnerRef.isDefined) initialPartnerRef.get

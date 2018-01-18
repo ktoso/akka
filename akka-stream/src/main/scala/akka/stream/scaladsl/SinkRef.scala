@@ -18,15 +18,19 @@ import akka.util.{ OptionVal, PrettyDuration }
 import scala.concurrent.{ Future, Promise }
 import scala.util.Try
 
+private[stream] final case class SinkRefImpl[In](initialPartnerRef: OptionVal[ActorRef]) extends SinkRef[In] {
+  override def sink: Sink[In, NotUsed] =
+    Sink.fromGraph(new SinkRefStage[In](initialPartnerRef))
+      .mapMaterializedValue(_ ⇒ NotUsed)
+  override def getSink: javadsl.Sink[In, NotUsed] = sink.asJava
+}
+
 // FIXME: should be moved to impl package
-private[stream] final class SinkRefImpl[In] private[akka] (
+private[stream] final class SinkRefStage[In] private[akka] (
   val initialPartnerRef: OptionVal[ActorRef]
-) extends GraphStageWithMaterializedValue[SinkShape[In], Future[SourceRef[In]]] with SinkRef[In] {
+) extends GraphStageWithMaterializedValue[SinkShape[In], Future[SourceRef[In]]] {
 
   import akka.stream.StreamRefs._
-
-  override def sink: Sink[In, NotUsed] = Sink.fromGraph(this).mapMaterializedValue(_ ⇒ NotUsed)
-  override def getSink: javadsl.Sink[In, NotUsed] = sink.asJava
 
   val in = {
     val inletName = s"${Logging.simpleName(getClass)}($initialRefName).in"
