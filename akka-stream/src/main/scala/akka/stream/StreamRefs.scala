@@ -1,8 +1,88 @@
 package akka.stream
 
+import scala.language.implicitConversions
+
+import akka.NotUsed
 import akka.actor.{ ActorRef, DeadLetterSuppression }
 import akka.annotation.InternalApi
 import akka.stream.impl.ReactiveStreamsCompliance
+import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.SinkRefImpl
+import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.SourceRefImpl
+import akka.util.OptionVal
+
+import scala.concurrent.Future
+
+object SinkRef {
+  def source[T](): Source[T, Future[SinkRef[T]]] =
+    Source.fromGraph(new SourceRefImpl[T](OptionVal.None, canMaterializeSinkRef = true))
+
+  // TODO Implement using TCP
+  // steps:
+  // - lazily, but once bind a port
+  // - advertise to other side that they may send data into this port
+  // -- "passive mode" ftp ;-)
+  // def bulkTransferSource(port: Int = -1): Source[ByteString, SinkRef[ByteString]] = ???
+
+  implicit def autoDeref[T](sinkRef: SinkRef[T]): Sink[T, NotUsed] = sinkRef.sink
+}
+
+/**
+ * The dual of SourceRef.
+ *
+ * This is the "handed out" side of a SinkRef. It powers a Source on the other side.
+ *
+ * Do not create this instance directly, but use `SinkRef` factories, to run/setup its targetRef.
+ *
+ * We do not materialize the refs back and forth, which is why the 2nd param.
+ */
+trait SinkRef[In] {
+  def sink: Sink[In, NotUsed]
+  def getSink: javadsl.Sink[In, NotUsed]
+}
+
+/**
+ * A SourceRef allows sharing a "reference" with others, with the main purpose of crossing a network boundary.
+ * Usually obtaining a SourceRef would be done via Actor messaging, in which one system asks a remote one,
+ * to share some data with it, and the remote one decides to do so in a back-pressured streaming fashion -- using a stream ref.
+ *
+ * See also [[akka.stream.scaladsl.SinkRef]] which is the dual of a SourceRef.
+ *
+ * To create a SourceRef you have to materialize the Source that you want to get the reference to,
+ * and run it `to` the `SourceRef.sink`. A such obtained `SourceRef` can be then shared with a remote host.
+ * Once materialized, it will start pulling data from the source you originally materialized to obtain the source reference.
+ *
+ * For additional configuration see `reference.conf` as well as [[akka.stream.StreamRefAttributes]].
+ */
+object SourceRef {
+
+  // FIXME: Should the constructors really be put here? Maybe we can just put them into Source/Sink as we do for everything
+  //        else?
+
+  /**
+   * A local [[Sink]] which materializes a [[SourceRef]] which can be used by other streams (including remote ones),
+   * to consume data from this local stream, as if they were attached in the spot of the local Sink directly.
+   */
+  def sink[T](): Sink[T, Future[SourceRef[T]]] =
+    Sink.fromGraph(new SinkRefImpl[T](OptionVal.None, canMaterializeSourceRef = true))
+
+  // TODO Implement using TCP
+  // def bulkTransfer[T](): Graph[SinkShape[ByteString], SourceRef[ByteString]] = ???
+
+  /** Implicitly converts a SourceRef to a Source. The same can be achieved by calling `.source` on the SourceRef itself. */
+  implicit def convertRefToSource[T](ref: SourceRef[T]): Source[T, NotUsed] =
+    ref.source
+}
+
+/**
+ * This stage can only handle a single "sender" (it does not merge values);
+ * The first that pushes is assumed the one we are to trust.
+ */
+trait SourceRef[T] {
+  def source: Source[T, NotUsed]
+  def getSource: javadsl.Source[T, NotUsed]
+}
 
 /**
  * INTERNAL API: Use [[akka.stream.scaladsl.SourceRef]] and [[akka.stream.scaladsl.SinkRef]] directly to obtain stream refs.

@@ -10,12 +10,13 @@ import akka.actor.Status.Failure
 import akka.actor.{ Actor, ActorIdentity, ActorLogging, ActorRef, ActorSystem, ActorSystemImpl, Identify, Props }
 import akka.event.Logging
 import akka.stream.{ ActorAttributes, ActorMaterializer, StreamRefAttributes, StreamRefSettings }
-import akka.stream.scaladsl.{ Keep, Sink, SinkRef, Source, SourceRef }
+import akka.stream.scaladsl.{ Keep, Sink, Source }
 import akka.stream.testkit.scaladsl._
 import akka.testkit.{ AkkaSpec, ImplicitSender, SocketUtil, TestKit, TestProbe }
 import akka.util.ByteString
 import com.typesafe.config._
 import akka.pattern._
+import akka.stream.{ SinkRef, SourceRef }
 import akka.stream.StreamRefs.CyclicMaterializationAttemptException
 import akka.stream.testkit.TestPublisher
 

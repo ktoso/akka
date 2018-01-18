@@ -20,45 +20,6 @@ import akka.util.{ OptionVal, PrettyDuration }
 import scala.concurrent.{ Future, Promise }
 import scala.language.implicitConversions
 
-/**
- * A SourceRef allows sharing a "reference" with others, with the main purpose of crossing a network boundary.
- * Usually obtaining a SourceRef would be done via Actor messaging, in which one system asks a remote one,
- * to share some data with it, and the remote one decides to do so in a back-pressured streaming fashion -- using a stream ref.
- *
- * See also [[akka.stream.scaladsl.SinkRef]] which is the dual of a SourceRef.
- *
- * To create a SourceRef you have to materialize the Source that you want to get the reference to,
- * and run it `to` the `SourceRef.sink`. A such obtained `SourceRef` can be then shared with a remote host.
- * Once materialized, it will start pulling data from the source you originally materialized to obtain the source reference.
- *
- * For additional configuration see `reference.conf` as well as [[akka.stream.StreamRefAttributes]].
- */
-object SourceRef {
-
-  /**
-   * A local [[Sink]] which materializes a [[SourceRef]] which can be used by other streams (including remote ones),
-   * to consume data from this local stream, as if they were attached in the spot of the local Sink directly.
-   */
-  def sink[T](): Sink[T, Future[SourceRef[T]]] =
-    Sink.fromGraph(new SinkRefImpl[T](OptionVal.None, canMaterializeSourceRef = true))
-
-  // TODO Implement using TCP
-  // def bulkTransfer[T](): Graph[SinkShape[ByteString], SourceRef[ByteString]] = ???
-
-  /** Implicitly converts a SourceRef to a Source. The same can be achieved by calling `.source` on the SourceRef itself. */
-  implicit def convertRefToSource[T](ref: SourceRef[T]): Source[T, NotUsed] =
-    ref.source
-}
-
-/**
- * This stage can only handle a single "sender" (it does not merge values);
- * The first that pushes is assumed the one we are to trust.
- */
-trait SourceRef[T] {
-  def source: Source[T, NotUsed]
-  def getSource: javadsl.Source[T, NotUsed]
-}
-
 // FIXME: move to impl package
 private[stream] final class SourceRefImpl[T](
   private[akka] val initialPartnerRef:     OptionVal[ActorRef],

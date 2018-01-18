@@ -18,42 +18,16 @@ import akka.util.{ OptionVal, PrettyDuration }
 import scala.concurrent.{ Future, Promise }
 import scala.util.Try
 
-object SinkRef {
-  def source[T](): Source[T, Future[SinkRef[T]]] =
-    Source.fromGraph(new SourceRefImpl[T](OptionVal.None, canMaterializeSinkRef = true))
-
-  // TODO Implement using TCP
-  // steps:
-  // - lazily, but once bind a port
-  // - advertise to other side that they may send data into this port
-  // -- "passive mode" ftp ;-)
-  // def bulkTransferSource(port: Int = -1): Source[ByteString, SinkRef[ByteString]] = ???
-
-  implicit def autoDeref[T](sinkRef: SinkRef[T]): Sink[T, NotUsed] = sinkRef.sink
-}
-
-/**
- * The dual of SourceRef.
- *
- * This is the "handed out" side of a SinkRef. It powers a Source on the other side.
- *
- * Do not create this instance directly, but use `SinkRef` factories, to run/setup its targetRef.
- *
- * We do not materialize the refs back and forth, which is why the 2nd param.
- */
-trait SinkRef[In] {
-  def sink: Sink[In, NotUsed]
-}
-
 // FIXME: should be moved to impl package
 private[stream] final class SinkRefImpl[In] private[akka] (
   private[akka] val initialPartnerRef:       OptionVal[ActorRef],
   private[akka] val canMaterializeSourceRef: Boolean
-) extends akka.stream.javadsl.SinkRef[In] with SinkRef[In] {
+) extends GraphStageWithMaterializedValue[SinkShape[In], Future[SourceRef[In]]] with SinkRef[In] {
 
   import akka.stream.StreamRefs._
 
   override def sink: Sink[In, NotUsed] = Sink.fromGraph(this).mapMaterializedValue(_ ⇒ NotUsed)
+  override def getSink: javadsl.Sink[In, NotUsed] = sink.asJava
 
   val in = {
     val inletName = s"${Logging.simpleName(getClass)}($initialRefName).in"
