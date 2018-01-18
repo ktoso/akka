@@ -12,11 +12,11 @@ option optimize_for = SPEED;
 // TODO make explicit types for SinkRef/SourceRef as they can carry initial settings (initial demand etc)
 
 message SinkRef {
-    optional ActorRef targetRef = 1;
+    ActorRef targetRef = 1;
 }
 
 message SourceRef {
-    optional ActorRef originRef = 1;
+    ActorRef originRef = 1;
 }
 
 message ActorRef {

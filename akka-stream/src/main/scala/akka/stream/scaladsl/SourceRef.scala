@@ -20,14 +20,18 @@ import akka.util.{ OptionVal, PrettyDuration }
 import scala.concurrent.{ Future, Promise }
 import scala.language.implicitConversions
 
-private[stream] final case class SourceRefImpl[T](initialPartnerRef: OptionVal[ActorRef]) extends SourceRef[T] {
+private[stream] final case class SourceRefImpl[T](initialPartnerRef: ActorRef) extends SourceRef[T] {
   def source: Source[T, NotUsed] =
-    Source.fromGraph(new SourceRefStage(initialPartnerRef)).mapMaterializedValue(_ ⇒ NotUsed)
+    Source.fromGraph(new SourceRefStage(OptionVal.Some(initialPartnerRef))).mapMaterializedValue(_ ⇒ NotUsed)
 
   def getSource: javadsl.Source[T, NotUsed] = source.asJava
 }
 
 // FIXME: move to impl package
+/**
+ * If initialPartnerRef is set, then the remote side is already set up. If it is none, then we are the side creating
+ * the ref.
+ */
 private[stream] final class SourceRefStage[T](
   val initialPartnerRef: OptionVal[ActorRef]
 ) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
@@ -88,7 +92,7 @@ private[stream] final class SourceRefStage[T](
         if (initialPartnerRef.isDefined) // this will set the partnerRef
           observeAndValidateSender(initialPartnerRef.get, "<no error case here, definitely valid>")
 
-        promise.success(new SinkRefImpl(OptionVal(self.ref)))
+        promise.success(new SinkRefImpl(self.ref))
 
         scheduleOnce(SubscriptionTimeoutTimerKey, subscriptionTimeout.timeout)
       }

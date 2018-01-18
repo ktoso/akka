@@ -18,14 +18,18 @@ import akka.util.{ OptionVal, PrettyDuration }
 import scala.concurrent.{ Future, Promise }
 import scala.util.Try
 
-private[stream] final case class SinkRefImpl[In](initialPartnerRef: OptionVal[ActorRef]) extends SinkRef[In] {
+private[stream] final case class SinkRefImpl[In](initialPartnerRef: ActorRef) extends SinkRef[In] {
   override def sink: Sink[In, NotUsed] =
-    Sink.fromGraph(new SinkRefStage[In](initialPartnerRef))
+    Sink.fromGraph(new SinkRefStage[In](OptionVal.Some(initialPartnerRef)))
       .mapMaterializedValue(_ ⇒ NotUsed)
   override def getSink: javadsl.Sink[In, NotUsed] = sink.asJava
 }
 
 // FIXME: should be moved to impl package
+/**
+ * If initialPartnerRef is set, then the remote side is already set up. If it is none, then we are the side creating
+ * the ref.
+ */
 private[stream] final class SinkRefStage[In] private[akka] (
   val initialPartnerRef: OptionVal[ActorRef]
 ) extends GraphStageWithMaterializedValue[SinkShape[In], Future[SourceRef[In]]] {
@@ -82,7 +86,7 @@ private[stream] final class SinkRefStage[In] private[akka] (
 
         log.debug("Created SinkRef, pointing to remote Sink receiver: {}, local worker: {}", initialPartnerRef, self.ref)
 
-        promise.success(new SourceRefImpl(OptionVal(self.ref)))
+        promise.success(new SourceRefImpl(self.ref))
 
         if (partnerRef.isDefined) {
           getPartnerRef ! StreamRefs.OnSubscribeHandshake(self.ref)

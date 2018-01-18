@@ -119,21 +119,17 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
   }
 
   private def serializeSinkRef(sink: SinkRefImpl[_]): StreamRefContainers.SinkRef = {
-    val ref = StreamRefContainers.SinkRef.newBuilder()
-
-    if (sink.initialPartnerRef.isDefined)
-      ref.setTargetRef(StreamRefContainers.ActorRef.newBuilder()
-        .setPath(Serialization.serializedActorPath(sink.initialPartnerRef.get)))
-
-    ref.build()
+    StreamRefContainers.SinkRef.newBuilder()
+      .setTargetRef(StreamRefContainers.ActorRef.newBuilder()
+        .setPath(Serialization.serializedActorPath(sink.initialPartnerRef)))
+      .build()
   }
 
   private def serializeSourceRef(source: SourceRefImpl[_]): StreamRefContainers.SourceRef = {
-    val actorRef = StreamRefContainers.ActorRef.newBuilder()
-      .setPath(Serialization.serializedActorPath(source.initialPartnerRef.orNull))
-
     StreamRefContainers.SourceRef.newBuilder()
-      .setOriginRef(actorRef)
+      .setOriginRef(
+        StreamRefContainers.ActorRef.newBuilder()
+          .setPath(Serialization.serializedActorPath(source.initialPartnerRef)))
       .build()
   }
 
@@ -147,20 +143,16 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
 
   private def deserializeSinkRef(bytes: Array[Byte]): SinkRefImpl[Any] = {
     val ref = StreamRefContainers.SinkRef.parseFrom(bytes)
-    val initialTargetRef =
-      if (ref.hasTargetRef) OptionVal(serialization.system.provider.resolveActorRef(ref.getTargetRef.getPath))
-      else OptionVal.None
+    val initialTargetRef = serialization.system.provider.resolveActorRef(ref.getTargetRef.getPath)
 
     SinkRefImpl[Any](initialTargetRef)
   }
 
   private def deserializeSourceRef(bytes: Array[Byte]): SourceRefImpl[Any] = {
     val ref = StreamRefContainers.SourceRef.parseFrom(bytes)
-    val targetRef: OptionVal[ActorRef] =
-      if (ref.hasOriginRef) OptionVal.Some(serialization.system.provider.resolveActorRef(ref.getOriginRef.getPath))
-      else OptionVal.None
+    val initialPartnerRef = serialization.system.provider.resolveActorRef(ref.getOriginRef.getPath)
 
-    SourceRefImpl[Any](targetRef)
+    SourceRefImpl[Any](initialPartnerRef)
   }
 
   private def deserializeSequencedOnNext(bytes: Array[Byte]): AnyRef = {
