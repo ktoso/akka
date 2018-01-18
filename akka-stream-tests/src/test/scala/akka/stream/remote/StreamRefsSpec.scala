@@ -16,6 +16,8 @@ import akka.testkit.{ AkkaSpec, ImplicitSender, SocketUtil, TestKit, TestProbe }
 import akka.util.ByteString
 import com.typesafe.config._
 import akka.pattern._
+import akka.stream.StreamRefs.CyclicMaterializationAttemptException
+import akka.stream.testkit.TestPublisher
 
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
@@ -278,6 +280,19 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       ex.getMessage should include("has terminated! Tearing down this side of the stream as well.")
     }
 
+    // TODO would be nice to enforce this statically, but then we get into hell type wise... it can't just be the simple "just a source ref"...
+    "if obtained from remote, materialized value should fail materialized value immediately to avoid weird 'cycles' in materialization" in {
+      remoteActor ! "give"
+      val sourceRef = expectMsgType[SourceRef[String]]
+
+      val f = sourceRef.to(Sink.ignore).run()
+      val ex = intercept[Exception] {
+        f.futureValue
+      }
+
+      ex.getMessage should include("This SourceRef will never materialize its materialized value (SinkRef), since it was *already* the")
+    }
+
   }
 
   "A SinkRef" must {
@@ -347,39 +362,60 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       remoteActor ! "receive-32"
       val sinkRef = expectMsgType[SinkRef[String]]
 
-      val counter = new AtomicInteger()
-
-      Source.repeat("hello")
-        .map { it ⇒
-          counter.incrementAndGet()
-          it
-        } runWith sinkRef
+      Source.repeat("hello") runWith sinkRef
 
       // if we get this message, it means no checks in the request/expect semantics were broken, good!
       p.expectMsg("<COMPLETED>")
     }
 
-    // FIXME not sure about this one yet; we would want to tell the second one to GO_AWAY
-    //    "fail local Source when attempting to materialize second time to already active interchange" in {
-    //      remoteActor ! "receive"
-    //      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
-    //
-    //      val msgs = (1 to 100).toList.map(i ⇒ s"payload-$i")
-    //
-    //      val it: Future[SourceRef[String]] = Source(msgs)
-    //        .runWith(remoteSink)
-    //
-    //      val pp = TestProbe()
-    //      val i = Await.result(it, 10.seconds)
-    //      Thread.sleep(100) // need a delay to make sure we're "second"
-    //      i.runWith(Sink.actorRef(pp.ref, "<<COMPLETE>>"))
-    //
-    //      msgs.foreach(t ⇒ p.expectMsg(t))
-    //      p.expectMsg("<COMPLETE>")
-    //
-    //      val f = pp.expectMsgType[akka.actor.Status.Failure]
-    //
-    //    }
+    "not allow materializing multiple times" in {
+      remoteActor ! "receive"
+      val sinkRef = expectMsgType[SinkRef[String]]
+
+      val p1: TestPublisher.Probe[String] = TestSource.probe[String].to(sinkRef).run()
+      val p2: TestPublisher.Probe[String] = TestSource.probe[String].to(sinkRef).run()
+
+      p1.ensureSubscription()
+      val req = p1.expectRequest()
+
+      // will be cancelled immediately, since it's 2nd:
+      p2.ensureSubscription()
+      p2.expectCancellation()
+    }
+
+    "if obtained from remote, materialized value should fail materialized value immediately to avoid weird 'cycles' in materialization" in {
+      remoteActor ! "receive"
+      val sinkRef = expectMsgType[SinkRef[String]]
+
+      val f = TestSource.probe[String].runWith(sinkRef)
+      val ex = intercept[Exception] {
+        f.futureValue
+      }
+
+      ex.getMessage should include("This SinkRef will never materialize its materialized value (SourceRef), since it was *already* the")
+    }
+
+    "fail local Source when attempting to materialize second time to already active interchange" in {
+      remoteActor ! "receive"
+      val remoteSink: SinkRef[String] = expectMsgType[SinkRef[String]]
+
+      val msgs = (1 to 100).toList.map(i ⇒ s"payload-$i")
+
+      val it: Future[SourceRef[String]] = Source(msgs)
+        .runWith(remoteSink)
+
+      val pp = TestProbe()
+      val i = Await.result(it, 10.seconds)
+      Thread.sleep(100) // need a delay to make sure we're "second"
+      i.runWith(Sink.actorRef(pp.ref, "<<COMPLETE>>"))
+
+      msgs.foreach(t ⇒ p.expectMsg(t))
+      p.expectMsg("<COMPLETE>")
+
+      val f = pp.expectMsgType[akka.actor.Status.Failure]
+      f.cause.getMessage should include("nein")
+
+    }
 
     // FIXME did not get Terminated?
     //    "fail origin if remote Sink is stopped abruptly" in {

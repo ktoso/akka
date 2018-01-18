@@ -17,7 +17,7 @@ import scala.util.Try
 
 object SinkRef {
   def source[T](): Source[T, Future[SinkRef[T]]] =
-    Source.fromGraph(new SourceRef[T](OptionVal.None))
+    Source.fromGraph(new SourceRef[T](OptionVal.None, canMaterializeSinkRef = true))
 
   // TODO Implement using TCP
   // steps:
@@ -37,8 +37,8 @@ object SinkRef {
  * We do not materialize the refs back and forth, which is why the 2nd param.
  */
 final class SinkRef[In] private[akka] (
-  private[akka] val initialPartnerRef: OptionVal[ActorRef],
-  materializeSourceRef:                Boolean
+  private[akka] val initialPartnerRef:       OptionVal[ActorRef],
+  private[akka] val canMaterializeSourceRef: Boolean
 ) extends akka.stream.javadsl.SinkRef[In] {
   import akka.stream.StreamRefs._
 
@@ -54,8 +54,8 @@ final class SinkRef[In] private[akka] (
 
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
     val promise = Promise[SourceRef[In]]
-    if (!materializeSourceRef) promise.failure(new Exception(s"This stage will never materialize a source ref!" +
-      s"(Was initialized with materializeSourceRef = $materializeSourceRef)"))
+    if (!canMaterializeSourceRef) promise.failure(StreamRefs.CyclicMaterializationAttemptException(
+      "SinkRef", otherStage = "SourceRef"))
 
     val logic = new TimerGraphStageLogic(shape) with StageLogging with InHandler {
 
@@ -94,9 +94,8 @@ final class SinkRef[In] private[akka] (
 
         log.debug("Created SinkRef, pointing to remote Sink receiver: {}, local worker: {}", initialPartnerRef, self.ref)
 
-        if (materializeSourceRef) {
-          promise.success(new SourceRef(OptionVal(self.ref)))
-        }
+        if (canMaterializeSourceRef)
+          promise.success(new SourceRef(OptionVal(self.ref), canMaterializeSinkRef = false))
 
         if (partnerRef.isDefined) {
           getPartnerRef ! StreamRefs.OnSubscribeHandshake(self.ref)

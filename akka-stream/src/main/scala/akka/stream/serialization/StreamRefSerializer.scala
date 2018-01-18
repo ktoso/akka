@@ -124,6 +124,8 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
       ref.setTargetRef(StreamRefContainers.ActorRef.newBuilder()
         .setPath(Serialization.serializedActorPath(sink.initialPartnerRef.get)))
 
+    ref.setCanMaterializeSource(sink.canMaterializeSourceRef)
+
     ref.build()
   }
 
@@ -133,6 +135,7 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
 
     StreamRefContainers.SourceRef.newBuilder()
       .setOriginRef(actorRef)
+      // .setCanMaterializeSink(source.ma) // FIXME actually do this!
       .build()
   }
 
@@ -150,7 +153,8 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
       if (ref.hasTargetRef) OptionVal(serialization.system.provider.resolveActorRef(ref.getTargetRef.getPath))
       else OptionVal.None
 
-    new SinkRef[Any](initialTargetRef, materializeSourceRef = true)
+    val canMaterializeSource = ref.hasCanMaterializeSource && ref.getCanMaterializeSource
+    new SinkRef[Any](initialTargetRef, canMaterializeSource)
   }
 
   private def deserializeSourceRef(bytes: Array[Byte]): SourceRef[Any] = {
@@ -159,7 +163,9 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
       if (ref.hasOriginRef) OptionVal.Some(serialization.system.provider.resolveActorRef(ref.getOriginRef.getPath))
       else OptionVal.None
 
-    new SourceRef[Any](targetRef)
+    val canMaterializeSink = ref.hasCanMaterializeSink && ref.getCanMaterializeSink
+
+    new SourceRef[Any](targetRef, canMaterializeSink)
   }
 
   private def deserializeSequencedOnNext(bytes: Array[Byte]): AnyRef = {

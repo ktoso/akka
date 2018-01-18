@@ -24,6 +24,26 @@ public final class StreamRefContainers {
      * <code>optional .ActorRef targetRef = 1;</code>
      */
     akka.stream.StreamRefContainers.ActorRefOrBuilder getTargetRefOrBuilder();
+
+    // optional bool canMaterializeSource = 2;
+    /**
+     * <code>optional bool canMaterializeSource = 2;</code>
+     *
+     * <pre>
+     * this will be basically always false, since we already materialized this "connection"
+     * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+     * </pre>
+     */
+    boolean hasCanMaterializeSource();
+    /**
+     * <code>optional bool canMaterializeSource = 2;</code>
+     *
+     * <pre>
+     * this will be basically always false, since we already materialized this "connection"
+     * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+     * </pre>
+     */
+    boolean getCanMaterializeSource();
   }
   /**
    * Protobuf type {@code SinkRef}
@@ -89,6 +109,11 @@ public final class StreamRefContainers {
               bitField0_ |= 0x00000001;
               break;
             }
+            case 16: {
+              bitField0_ |= 0x00000002;
+              canMaterializeSource_ = input.readBool();
+              break;
+            }
           }
         }
       } catch (akka.protobuf.InvalidProtocolBufferException e) {
@@ -151,8 +176,35 @@ public final class StreamRefContainers {
       return targetRef_;
     }
 
+    // optional bool canMaterializeSource = 2;
+    public static final int CANMATERIALIZESOURCE_FIELD_NUMBER = 2;
+    private boolean canMaterializeSource_;
+    /**
+     * <code>optional bool canMaterializeSource = 2;</code>
+     *
+     * <pre>
+     * this will be basically always false, since we already materialized this "connection"
+     * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+     * </pre>
+     */
+    public boolean hasCanMaterializeSource() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <code>optional bool canMaterializeSource = 2;</code>
+     *
+     * <pre>
+     * this will be basically always false, since we already materialized this "connection"
+     * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+     * </pre>
+     */
+    public boolean getCanMaterializeSource() {
+      return canMaterializeSource_;
+    }
+
     private void initFields() {
       targetRef_ = akka.stream.StreamRefContainers.ActorRef.getDefaultInstance();
+      canMaterializeSource_ = false;
     }
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
@@ -175,6 +227,9 @@ public final class StreamRefContainers {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         output.writeMessage(1, targetRef_);
       }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        output.writeBool(2, canMaterializeSource_);
+      }
       getUnknownFields().writeTo(output);
     }
 
@@ -187,6 +242,10 @@ public final class StreamRefContainers {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         size += akka.protobuf.CodedOutputStream
           .computeMessageSize(1, targetRef_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        size += akka.protobuf.CodedOutputStream
+          .computeBoolSize(2, canMaterializeSource_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -311,6 +370,8 @@ public final class StreamRefContainers {
           targetRefBuilder_.clear();
         }
         bitField0_ = (bitField0_ & ~0x00000001);
+        canMaterializeSource_ = false;
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -347,6 +408,10 @@ public final class StreamRefContainers {
         } else {
           result.targetRef_ = targetRefBuilder_.build();
         }
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.canMaterializeSource_ = canMaterializeSource_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -365,6 +430,9 @@ public final class StreamRefContainers {
         if (other == akka.stream.StreamRefContainers.SinkRef.getDefaultInstance()) return this;
         if (other.hasTargetRef()) {
           mergeTargetRef(other.getTargetRef());
+        }
+        if (other.hasCanMaterializeSource()) {
+          setCanMaterializeSource(other.getCanMaterializeSource());
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -516,6 +584,59 @@ public final class StreamRefContainers {
         return targetRefBuilder_;
       }
 
+      // optional bool canMaterializeSource = 2;
+      private boolean canMaterializeSource_ ;
+      /**
+       * <code>optional bool canMaterializeSource = 2;</code>
+       *
+       * <pre>
+       * this will be basically always false, since we already materialized this "connection"
+       * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+       * </pre>
+       */
+      public boolean hasCanMaterializeSource() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <code>optional bool canMaterializeSource = 2;</code>
+       *
+       * <pre>
+       * this will be basically always false, since we already materialized this "connection"
+       * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+       * </pre>
+       */
+      public boolean getCanMaterializeSource() {
+        return canMaterializeSource_;
+      }
+      /**
+       * <code>optional bool canMaterializeSource = 2;</code>
+       *
+       * <pre>
+       * this will be basically always false, since we already materialized this "connection"
+       * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+       * </pre>
+       */
+      public Builder setCanMaterializeSource(boolean value) {
+        bitField0_ |= 0x00000002;
+        canMaterializeSource_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional bool canMaterializeSource = 2;</code>
+       *
+       * <pre>
+       * this will be basically always false, since we already materialized this "connection"
+       * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+       * </pre>
+       */
+      public Builder clearCanMaterializeSource() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        canMaterializeSource_ = false;
+        onChanged();
+        return this;
+      }
+
       // @@protoc_insertion_point(builder_scope:SinkRef)
     }
 
@@ -543,6 +664,26 @@ public final class StreamRefContainers {
      * <code>optional .ActorRef originRef = 1;</code>
      */
     akka.stream.StreamRefContainers.ActorRefOrBuilder getOriginRefOrBuilder();
+
+    // optional bool canMaterializeSink = 2;
+    /**
+     * <code>optional bool canMaterializeSink = 2;</code>
+     *
+     * <pre>
+     * this will be basically always false, since we already materialized this "connection"
+     * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+     * </pre>
+     */
+    boolean hasCanMaterializeSink();
+    /**
+     * <code>optional bool canMaterializeSink = 2;</code>
+     *
+     * <pre>
+     * this will be basically always false, since we already materialized this "connection"
+     * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+     * </pre>
+     */
+    boolean getCanMaterializeSink();
   }
   /**
    * Protobuf type {@code SourceRef}
@@ -608,6 +749,11 @@ public final class StreamRefContainers {
               bitField0_ |= 0x00000001;
               break;
             }
+            case 16: {
+              bitField0_ |= 0x00000002;
+              canMaterializeSink_ = input.readBool();
+              break;
+            }
           }
         }
       } catch (akka.protobuf.InvalidProtocolBufferException e) {
@@ -670,8 +816,35 @@ public final class StreamRefContainers {
       return originRef_;
     }
 
+    // optional bool canMaterializeSink = 2;
+    public static final int CANMATERIALIZESINK_FIELD_NUMBER = 2;
+    private boolean canMaterializeSink_;
+    /**
+     * <code>optional bool canMaterializeSink = 2;</code>
+     *
+     * <pre>
+     * this will be basically always false, since we already materialized this "connection"
+     * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+     * </pre>
+     */
+    public boolean hasCanMaterializeSink() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <code>optional bool canMaterializeSink = 2;</code>
+     *
+     * <pre>
+     * this will be basically always false, since we already materialized this "connection"
+     * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+     * </pre>
+     */
+    public boolean getCanMaterializeSink() {
+      return canMaterializeSink_;
+    }
+
     private void initFields() {
       originRef_ = akka.stream.StreamRefContainers.ActorRef.getDefaultInstance();
+      canMaterializeSink_ = false;
     }
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
@@ -694,6 +867,9 @@ public final class StreamRefContainers {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         output.writeMessage(1, originRef_);
       }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        output.writeBool(2, canMaterializeSink_);
+      }
       getUnknownFields().writeTo(output);
     }
 
@@ -706,6 +882,10 @@ public final class StreamRefContainers {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         size += akka.protobuf.CodedOutputStream
           .computeMessageSize(1, originRef_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        size += akka.protobuf.CodedOutputStream
+          .computeBoolSize(2, canMaterializeSink_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -830,6 +1010,8 @@ public final class StreamRefContainers {
           originRefBuilder_.clear();
         }
         bitField0_ = (bitField0_ & ~0x00000001);
+        canMaterializeSink_ = false;
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -866,6 +1048,10 @@ public final class StreamRefContainers {
         } else {
           result.originRef_ = originRefBuilder_.build();
         }
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.canMaterializeSink_ = canMaterializeSink_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -884,6 +1070,9 @@ public final class StreamRefContainers {
         if (other == akka.stream.StreamRefContainers.SourceRef.getDefaultInstance()) return this;
         if (other.hasOriginRef()) {
           mergeOriginRef(other.getOriginRef());
+        }
+        if (other.hasCanMaterializeSink()) {
+          setCanMaterializeSink(other.getCanMaterializeSink());
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -1033,6 +1222,59 @@ public final class StreamRefContainers {
           originRef_ = null;
         }
         return originRefBuilder_;
+      }
+
+      // optional bool canMaterializeSink = 2;
+      private boolean canMaterializeSink_ ;
+      /**
+       * <code>optional bool canMaterializeSink = 2;</code>
+       *
+       * <pre>
+       * this will be basically always false, since we already materialized this "connection"
+       * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+       * </pre>
+       */
+      public boolean hasCanMaterializeSink() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <code>optional bool canMaterializeSink = 2;</code>
+       *
+       * <pre>
+       * this will be basically always false, since we already materialized this "connection"
+       * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+       * </pre>
+       */
+      public boolean getCanMaterializeSink() {
+        return canMaterializeSink_;
+      }
+      /**
+       * <code>optional bool canMaterializeSink = 2;</code>
+       *
+       * <pre>
+       * this will be basically always false, since we already materialized this "connection"
+       * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+       * </pre>
+       */
+      public Builder setCanMaterializeSink(boolean value) {
+        bitField0_ |= 0x00000002;
+        canMaterializeSink_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional bool canMaterializeSink = 2;</code>
+       *
+       * <pre>
+       * this will be basically always false, since we already materialized this "connection"
+       * so materializing another Source, where this Sink was created BY materializing a Source does not make sense
+       * </pre>
+       */
+      public Builder clearCanMaterializeSink() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        canMaterializeSink_ = false;
+        onChanged();
+        return this;
       }
 
       // @@protoc_insertion_point(builder_scope:SourceRef)
@@ -4501,18 +4743,20 @@ public final class StreamRefContainers {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\031StreamRefContainers.proto\"\'\n\007SinkRef\022\034" +
-      "\n\ttargetRef\030\001 \001(\0132\t.ActorRef\")\n\tSourceRe" +
-      "f\022\034\n\toriginRef\030\001 \001(\0132\t.ActorRef\"\030\n\010Actor" +
-      "Ref\022\014\n\004path\030\001 \002(\t\"Q\n\007Payload\022\027\n\017enclosed" +
-      "Message\030\001 \002(\014\022\024\n\014serializerId\030\002 \002(\005\022\027\n\017m" +
-      "essageManifest\030\003 \001(\014\"4\n\024OnSubscribeHands" +
-      "hake\022\034\n\ttargetRef\030\001 \002(\0132\t.ActorRef\"!\n\020Cu" +
-      "mulativeDemand\022\r\n\005seqNr\030\001 \002(\003\";\n\017Sequenc" +
-      "edOnNext\022\r\n\005seqNr\030\001 \002(\003\022\031\n\007payload\030\002 \002(\013" +
-      "2\010.Payload\"$\n\023RemoteStreamFailure\022\r\n\005cau",
-      "se\030\001 \001(\014\"&\n\025RemoteStreamCompleted\022\r\n\005seq" +
-      "Nr\030\001 \002(\003B\017\n\013akka.streamH\001"
+      "\n\031StreamRefContainers.proto\"E\n\007SinkRef\022\034" +
+      "\n\ttargetRef\030\001 \001(\0132\t.ActorRef\022\034\n\024canMater" +
+      "ializeSource\030\002 \001(\010\"E\n\tSourceRef\022\034\n\torigi" +
+      "nRef\030\001 \001(\0132\t.ActorRef\022\032\n\022canMaterializeS" +
+      "ink\030\002 \001(\010\"\030\n\010ActorRef\022\014\n\004path\030\001 \002(\t\"Q\n\007P" +
+      "ayload\022\027\n\017enclosedMessage\030\001 \002(\014\022\024\n\014seria" +
+      "lizerId\030\002 \002(\005\022\027\n\017messageManifest\030\003 \001(\014\"4" +
+      "\n\024OnSubscribeHandshake\022\034\n\ttargetRef\030\001 \002(" +
+      "\0132\t.ActorRef\"!\n\020CumulativeDemand\022\r\n\005seqN" +
+      "r\030\001 \002(\003\";\n\017SequencedOnNext\022\r\n\005seqNr\030\001 \002(",
+      "\003\022\031\n\007payload\030\002 \002(\0132\010.Payload\"$\n\023RemoteSt" +
+      "reamFailure\022\r\n\005cause\030\001 \001(\014\"&\n\025RemoteStre" +
+      "amCompleted\022\r\n\005seqNr\030\001 \002(\003B\017\n\013akka.strea" +
+      "mH\001"
     };
     akka.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new akka.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -4524,13 +4768,13 @@ public final class StreamRefContainers {
           internal_static_SinkRef_fieldAccessorTable = new
             akka.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_SinkRef_descriptor,
-              new java.lang.String[] { "TargetRef", });
+              new java.lang.String[] { "TargetRef", "CanMaterializeSource", });
           internal_static_SourceRef_descriptor =
             getDescriptor().getMessageTypes().get(1);
           internal_static_SourceRef_fieldAccessorTable = new
             akka.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_SourceRef_descriptor,
-              new java.lang.String[] { "OriginRef", });
+              new java.lang.String[] { "OriginRef", "CanMaterializeSink", });
           internal_static_ActorRef_descriptor =
             getDescriptor().getMessageTypes().get(2);
           internal_static_ActorRef_fieldAccessorTable = new
