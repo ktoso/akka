@@ -279,20 +279,6 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       val ex = probe.expectError()
       ex.getMessage should include("has terminated! Tearing down this side of the stream as well.")
     }
-
-    // TODO would be nice to enforce this statically, but then we get into hell type wise... it can't just be the simple "just a source ref"...
-    "if obtained from remote, materialized value should fail materialized value immediately to avoid weird 'cycles' in materialization" in {
-      remoteActor ! "give"
-      val sourceRef = expectMsgType[SourceRef[String]]
-
-      val f = sourceRef.to(Sink.ignore).run()
-      val ex = intercept[Exception] {
-        f.futureValue
-      }
-
-      ex.getMessage should include("This SourceRef will never materialize its materialized value (SinkRef), since it was *already* the")
-    }
-
   }
 
   "A SinkRef" must {
@@ -381,18 +367,6 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       // will be cancelled immediately, since it's 2nd:
       p2.ensureSubscription()
       p2.expectCancellation()
-    }
-
-    "if obtained from remote, materialized value should fail materialized value immediately to avoid weird 'cycles' in materialization" in {
-      remoteActor ! "receive"
-      val sinkRef = expectMsgType[SinkRef[String]]
-
-      val f: Future[SourceRef[String]] = TestSource.probe[String].runWith(sinkRef)
-      val ex = intercept[Exception] {
-        f.futureValue
-      }
-
-      ex.getMessage should include("This SinkRef will never materialize its materialized value (SourceRef), since it was *already* the")
     }
 
   }

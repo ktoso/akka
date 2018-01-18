@@ -3,8 +3,10 @@
  */
 package akka.stream.scaladsl
 
+import scala.language.implicitConversions
 import java.util.concurrent.CompletionStage
 
+import akka.NotUsed
 import akka.actor.{ ActorRef, Terminated }
 import akka.event.Logging
 import akka.stream._
@@ -37,25 +39,31 @@ object SourceRef {
    * A local [[Sink]] which materializes a [[SourceRef]] which can be used by other streams (including remote ones),
    * to consume data from this local stream, as if they were attached in the spot of the local Sink directly.
    */
-  def sink[T](): Graph[SinkShape[T], Future[SourceRef[T]]] =
-    Sink.fromGraph(new SinkRef[T](OptionVal.None, canMaterializeSourceRef = true))
+  def sink[T](): Sink[T, Future[SourceRef[T]]] =
+    Sink.fromGraph(new SinkRefImpl[T](OptionVal.None, canMaterializeSourceRef = true))
 
   // TODO Implement using TCP
   // def bulkTransfer[T](): Graph[SinkShape[ByteString], SourceRef[ByteString]] = ???
 
   /** Implicitly converts a SourceRef to a Source. The same can be achieved by calling `.source` on the SourceRef itself. */
-  implicit def convertRefToSource[T](ref: SourceRef[T]): Source[T, Future[SinkRef[T]]] =
-    Source.fromGraph(ref)
+  implicit def convertRefToSource[T](ref: SourceRef[T]): Source[T, NotUsed] =
+    ref.source
 }
 
 /**
  * This stage can only handle a single "sender" (it does not merge values);
  * The first that pushes is assumed the one we are to trust.
  */
-final class SourceRef[T](
+trait SourceRef[T] {
+  def source: Source[T, NotUsed]
+  def getSource: javadsl.Source[T, NotUsed]
+}
+
+// FIXME: move to impl package
+private[stream] final class SourceRefImpl[T](
   private[akka] val initialPartnerRef:     OptionVal[ActorRef],
   private[akka] val canMaterializeSinkRef: Boolean
-) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] {
+) extends GraphStageWithMaterializedValue[SourceShape[T], Future[SinkRef[T]]] with SourceRef[T] {
 
   val out: Outlet[T] = Outlet[T](s"${Logging.simpleName(getClass)}.out")
   override def shape = SourceShape.of(out)
@@ -65,16 +73,12 @@ final class SourceRef[T](
    *
    * Please note that an implicit conversion is also provided in [[SourceRef]].
    */
-  def source: Source[T, Future[SinkRef[T]]] = Source.fromGraph(this)
+  def source: Source[T, NotUsed] =
+    Source.fromGraph(this).mapMaterializedValue(_ ⇒ NotUsed)
   /**
    * Method used for obtaining a [[akka.stream.javadsl.Source]] from this [[SourceRef]] which is a [[Graph]].
    */
-  def getSource: javadsl.Source[T, CompletionStage[SinkRef[T]]] = {
-    import scala.compat.java8.FutureConverters._
-    Source.fromGraph(this)
-      .mapMaterializedValue(_.toJava) // FIXME we need to have 1 impl and not javadsl/scaladsl, it becomes hell with the conversions
-      .asJava
-  }
+  def getSource: javadsl.Source[T, NotUsed] = source.asJava
 
   private def initialRefName =
     if (initialPartnerRef.isDefined) initialPartnerRef.get
@@ -132,7 +136,7 @@ final class SourceRef[T](
           observeAndValidateSender(initialPartnerRef.get, "<no error case here, definitely valid>")
 
         if (canMaterializeSinkRef)
-          promise.success(new SinkRef(OptionVal(self.ref), canMaterializeSourceRef = false))
+          promise.success(new SinkRefImpl(OptionVal(self.ref), canMaterializeSourceRef = false))
 
         scheduleOnce(SubscriptionTimeoutTimerKey, subscriptionTimeout.timeout)
       }

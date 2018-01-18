@@ -3,7 +3,10 @@
  */
 package akka.stream.scaladsl
 
+import scala.language.implicitConversions
+
 import akka.Done
+import akka.NotUsed
 import akka.actor.{ ActorRef, Terminated }
 import akka.event.Logging
 import akka.stream._
@@ -17,7 +20,7 @@ import scala.util.Try
 
 object SinkRef {
   def source[T](): Source[T, Future[SinkRef[T]]] =
-    Source.fromGraph(new SourceRef[T](OptionVal.None, canMaterializeSinkRef = true))
+    Source.fromGraph(new SourceRefImpl[T](OptionVal.None, canMaterializeSinkRef = true))
 
   // TODO Implement using TCP
   // steps:
@@ -25,6 +28,8 @@ object SinkRef {
   // - advertise to other side that they may send data into this port
   // -- "passive mode" ftp ;-)
   // def bulkTransferSource(port: Int = -1): Source[ByteString, SinkRef[ByteString]] = ???
+
+  implicit def autoDeref[T](sinkRef: SinkRef[T]): Sink[T, NotUsed] = sinkRef.sink
 }
 
 /**
@@ -36,11 +41,19 @@ object SinkRef {
  *
  * We do not materialize the refs back and forth, which is why the 2nd param.
  */
-final class SinkRef[In] private[akka] (
+trait SinkRef[In] {
+  def sink: Sink[In, NotUsed]
+}
+
+// FIXME: should be moved to impl package
+private[stream] final class SinkRefImpl[In] private[akka] (
   private[akka] val initialPartnerRef:       OptionVal[ActorRef],
   private[akka] val canMaterializeSourceRef: Boolean
-) extends akka.stream.javadsl.SinkRef[In] {
+) extends akka.stream.javadsl.SinkRef[In] with SinkRef[In] {
+
   import akka.stream.StreamRefs._
+
+  override def sink: Sink[In, NotUsed] = Sink.fromGraph(this).mapMaterializedValue(_ ⇒ NotUsed)
 
   val in = {
     val inletName = s"${Logging.simpleName(getClass)}($initialRefName).in"
@@ -95,7 +108,7 @@ final class SinkRef[In] private[akka] (
         log.debug("Created SinkRef, pointing to remote Sink receiver: {}, local worker: {}", initialPartnerRef, self.ref)
 
         if (canMaterializeSourceRef)
-          promise.success(new SourceRef(OptionVal(self.ref), canMaterializeSinkRef = false))
+          promise.success(new SourceRefImpl(OptionVal(self.ref), canMaterializeSinkRef = false))
 
         if (partnerRef.isDefined) {
           getPartnerRef ! StreamRefs.OnSubscribeHandshake(self.ref)

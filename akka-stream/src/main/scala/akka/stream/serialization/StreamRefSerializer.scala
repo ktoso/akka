@@ -7,7 +7,8 @@ import akka.actor.{ ActorRef, ExtendedActorSystem }
 import akka.annotation.InternalApi
 import akka.protobuf.ByteString
 import akka.serialization.{ BaseSerializer, Serialization, SerializationExtension, SerializerWithStringManifest }
-import akka.stream.scaladsl.{ SinkRef, SourceRef }
+import akka.stream.scaladsl.SinkRefImpl
+import akka.stream.scaladsl.SourceRefImpl
 import akka.stream.{ StreamRefContainers, StreamRefs }
 import akka.util.OptionVal
 
@@ -36,8 +37,8 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
     case _: StreamRefs.RemoteStreamFailure   ⇒ RemoteSinkFailureManifest
     case _: StreamRefs.RemoteStreamCompleted ⇒ RemoteSinkCompletedManifest
     // refs
-    case _: SourceRef[_]                     ⇒ SourceRefManifest
-    case _: SinkRef[_]                       ⇒ SinkRefManifest
+    case _: SourceRefImpl[_]                 ⇒ SourceRefManifest
+    case _: SinkRefImpl[_]                   ⇒ SinkRefManifest
   }
 
   override def toBinary(o: AnyRef): Array[Byte] = o match {
@@ -50,8 +51,8 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
     case d: StreamRefs.RemoteStreamFailure   ⇒ serializeRemoteSinkFailure(d).toByteArray
     case d: StreamRefs.RemoteStreamCompleted ⇒ serializeRemoteSinkCompleted(d).toByteArray
     // refs
-    case ref: SinkRef[_]                     ⇒ serializeSinkRef(ref).toByteArray
-    case ref: SourceRef[_]                   ⇒ serializeSourceRef(ref).toByteArray
+    case ref: SinkRefImpl[_]                 ⇒ serializeSinkRef(ref).toByteArray
+    case ref: SourceRefImpl[_]               ⇒ serializeSourceRef(ref).toByteArray
   }
 
   override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = manifest match {
@@ -117,7 +118,7 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
       .build()
   }
 
-  private def serializeSinkRef(sink: SinkRef[_]): StreamRefContainers.SinkRef = {
+  private def serializeSinkRef(sink: SinkRefImpl[_]): StreamRefContainers.SinkRef = {
     val ref = StreamRefContainers.SinkRef.newBuilder()
 
     if (sink.initialPartnerRef.isDefined)
@@ -129,7 +130,7 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
     ref.build()
   }
 
-  private def serializeSourceRef(source: SourceRef[_]): StreamRefContainers.SourceRef = {
+  private def serializeSourceRef(source: SourceRefImpl[_]): StreamRefContainers.SourceRef = {
     val actorRef = StreamRefContainers.ActorRef.newBuilder()
       .setPath(Serialization.serializedActorPath(source.initialPartnerRef.orNull))
 
@@ -147,17 +148,17 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
     StreamRefs.OnSubscribeHandshake(targetRef)
   }
 
-  private def deserializeSinkRef(bytes: Array[Byte]): SinkRef[Any] = {
+  private def deserializeSinkRef(bytes: Array[Byte]): SinkRefImpl[Any] = {
     val ref = StreamRefContainers.SinkRef.parseFrom(bytes)
     val initialTargetRef =
       if (ref.hasTargetRef) OptionVal(serialization.system.provider.resolveActorRef(ref.getTargetRef.getPath))
       else OptionVal.None
 
     val canMaterializeSource = ref.hasCanMaterializeSource && ref.getCanMaterializeSource
-    new SinkRef[Any](initialTargetRef, canMaterializeSource)
+    new SinkRefImpl[Any](initialTargetRef, canMaterializeSource)
   }
 
-  private def deserializeSourceRef(bytes: Array[Byte]): SourceRef[Any] = {
+  private def deserializeSourceRef(bytes: Array[Byte]): SourceRefImpl[Any] = {
     val ref = StreamRefContainers.SourceRef.parseFrom(bytes)
     val targetRef: OptionVal[ActorRef] =
       if (ref.hasOriginRef) OptionVal.Some(serialization.system.provider.resolveActorRef(ref.getOriginRef.getPath))
@@ -165,7 +166,7 @@ private[akka] final class StreamRefSerializer(val system: ExtendedActorSystem) e
 
     val canMaterializeSink = ref.hasCanMaterializeSink && ref.getCanMaterializeSink
 
-    new SourceRef[Any](targetRef, canMaterializeSink)
+    new SourceRefImpl[Any](targetRef, canMaterializeSink)
   }
 
   private def deserializeSequencedOnNext(bytes: Array[Byte]): AnyRef = {
