@@ -10,7 +10,7 @@ import akka.stream._
 import akka.stream.StreamRefs
 import akka.stream.impl.StreamRefsMaster
 import akka.stream.stage._
-import akka.util.OptionVal
+import akka.util.{ OptionVal, PrettyDuration }
 
 import scala.concurrent.{ Future, Promise }
 import scala.util.Try
@@ -108,8 +108,9 @@ final class SinkRef[In] private[akka] (
 
       lazy val initialReceive: ((ActorRef, Any)) ⇒ Unit = {
         case (_, Terminated(ref)) ⇒
-          log.warning("TERMINATED: " + ref)
-          if (ref == getPartnerRef) failStage(failRemoteTerminated())
+          if (ref == getPartnerRef)
+            failStage(RemoteStreamRefActorTerminatedException(s"Remote target receiver of data $partnerRef terminated. " +
+              s"Local stream terminating, message loss (on remote side) may have happened."))
 
         case (sender, CumulativeDemand(d)) ⇒
           observeAndValidateSender(sender, "Illegal sender for CumulativeDemand")
@@ -133,6 +134,16 @@ final class SinkRef[In] private[akka] (
         if (remoteCumulativeDemandConsumed < remoteCumulativeDemandReceived && !hasBeenPulled(in)) {
           pull(in)
         }
+
+      override protected def onTimer(timerKey: Any): Unit = timerKey match {
+        case SubscriptionTimeoutTimerKey ⇒
+          val ex = StreamRefs.StreamRefSubscriptionTimeoutException(
+            // we know the future has been competed by now, since it is in preStart
+            s"[$stageActorName] Remote side did not subscribe (materialize) handed out Sink reference [${promise.future.value}]," +
+              s"within subscription timeout: ${PrettyDuration.format(subscriptionTimeout.timeout)}!")
+
+          throw ex // this will also log the exception, unlike failStage; this should fail rarely, but would be good to have it "loud"
+      }
 
       private def grabSequenced[T](in: Inlet[T]): SequencedOnNext[T] = {
         val onNext = SequencedOnNext(remoteCumulativeDemandConsumed, grab(in))

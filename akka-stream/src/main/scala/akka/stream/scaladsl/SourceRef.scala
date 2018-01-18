@@ -189,7 +189,6 @@ final class SourceRef[T](private[akka] val initialPartnerRef: OptionVal[ActorRef
           failStage(StreamRefs.RemoteStreamRefActorTerminatedException(s"Remote stream (${sender.path}) failed, reason: $reason"))
 
         case (_, Terminated(ref)) ⇒
-          log.warning("TERMINATED" + ref)
           if (getPartnerRef == ref)
             failStage(StreamRefs.RemoteStreamRefActorTerminatedException(s"The remote partner ${getPartnerRef} has terminated! " +
               s"Tearing down this side of the stream as well."))
@@ -226,7 +225,6 @@ final class SourceRef[T](private[akka] val initialPartnerRef: OptionVal[ActorRef
           log.debug("Received first message from {}, assuming it to be the remote partner for this stage", partner)
           partnerRef = OptionVal(partner)
           self.watch(partner)
-          log.warning("WATCHING " + partner)
         } else if (partnerRef.isDefined && partner != getPartnerRef) {
           val ex = StreamRefs.InvalidPartnerActorException(partner, getPartnerRef, msg)
           partner ! StreamRefs.RemoteStreamFailure(ex.getMessage)

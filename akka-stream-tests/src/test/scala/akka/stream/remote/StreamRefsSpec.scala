@@ -245,11 +245,13 @@ class StreamRefsSpec(config: Config) extends AkkaSpec(config) with ImplicitSende
       val probe = remoteSource
         .runWith(TestSink.probe[String](system))
 
-      val failure = p.expectMsgType[Failure]
-      failure.cause.getMessage should include("[SourceRef-0] Remote side did not subscribe (materialize) handed out Sink reference")
+      //      val failure = p.expectMsgType[Failure]
+      //      failure.cause.getMessage should include("[SourceRef-0] Remote side did not subscribe (materialize) handed out Sink reference")
 
       // the local "remote sink" should cancel, since it should notice the origin target actor is dead
+      probe.ensureSubscription()
       val ex = probe.expectError()
+      ex.getMessage should include("has terminated! Tearing down this side of the stream as well.")
     }
 
   }
