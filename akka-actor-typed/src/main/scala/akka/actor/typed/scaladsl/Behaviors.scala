@@ -4,6 +4,7 @@
 package akka.actor.typed
 package scaladsl
 
+import akka.actor.typed.Behavior.StashX
 import akka.annotation.{ ApiMayChange, InternalApi }
 import akka.actor.typed.internal.{ BehaviorImpl, Supervisor, TimerSchedulerImpl }
 
@@ -53,6 +54,9 @@ object Behaviors {
   def deferred[T](factory: ActorContext[T] ⇒ Behavior[T]): Behavior[T] =
     Behavior.DeferredBehavior(factory)
 
+  def stashing[T](limit: Int)(factory: StashX[T] ⇒ Behavior[T]): Behavior[T] =
+    Behavior.StashingBehavior(limit, factory)
+
   /**
    * Factory for creating a [[MutableBehavior]] that typically holds mutable state as
    * instance variables in the concrete [[MutableBehavior]] implementation class.
@@ -61,7 +65,7 @@ object Behaviors {
    * function. The reason for the deferred creation is to avoid sharing the same instance in
    * multiple actors, and to create a new instance when the actor is restarted.
    *
-   * @param producer
+   * @param factory
    *          behavior factory that takes the child actor’s context as argument
    * @return the deferred behavior
    */

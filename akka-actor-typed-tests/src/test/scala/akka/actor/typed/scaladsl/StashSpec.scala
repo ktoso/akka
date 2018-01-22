@@ -4,6 +4,7 @@
 package akka.actor.typed
 package scaladsl
 
+import akka.actor.typed.Behavior.StashX
 import akka.event.LoggingAdapter
 import akka.testkit.typed.TestKit
 import akka.testkit.typed.scaladsl.TestProbe
@@ -41,6 +42,45 @@ object StashSpec {
           Behaviors.unhandled
         case u: Unstashed ⇒
           throw new IllegalStateException(s"Unexpected $u in active")
+      }
+    }
+
+  def normal: Behavior[Command] =
+    Behaviors.stashing(10) { stash ⇒
+      Behaviors.immutable { (ctx, cmd) ⇒
+        cmd match {
+          case msg: Msg ⇒
+            println(s"msg = $msg")
+            normal
+
+          case Stash ⇒
+            println(s"msg = Stash")
+            stash()
+
+          case Unstash ⇒
+            println(s"msg = Unstash")
+            stash.unstash()
+          // is much simpler than having to deal with the dropping yourself, and also passing the number into 2 places
+          // buffer.unstash(ctx, unstashing(buffer.drop(numberOfMessages), processed), numberOfMessages, Unstashed)
+
+          case UnstashAll ⇒
+            println(s"msg = UnstashAll")
+            stash.unstashAll()
+        }
+      }
+    }
+
+  def other(stash: StashX[Command]): Behavior[Command] =
+    Behaviors.immutable { (ctx, cmd) ⇒
+      cmd match {
+        case _: Msg ⇒
+          normal
+
+        case Stash ⇒
+          stash()
+
+        case Unstash ⇒
+          stash.unstash()
       }
     }
 
@@ -186,6 +226,19 @@ abstract class StashSpec extends TestKit with TypedAkkaSpecWithShutdown {
   def behaviorUnderTest: Behavior[Command]
 
   s"Stashing with $testQualifier" must {
+
+    "special dsl" in {
+      val actor = spawn(normal)
+
+      actor ! Msg("a")
+      actor ! Msg("b")
+      actor ! Msg("c")
+
+      actor ! Stash
+      actor ! Unstash
+
+      actor ! Msg("d")
+    }
 
     "support unstash all" in {
       val actor = spawn(behaviorUnderTest)

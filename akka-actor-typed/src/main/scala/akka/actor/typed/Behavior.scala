@@ -4,6 +4,7 @@
 package akka.actor.typed
 
 import akka.actor.InvalidMessageException
+import akka.actor.typed.internal.{ ImmutableStashBufferImpl, MutableStashBufferImpl }
 
 import scala.annotation.tailrec
 import akka.util.LineNumbers
@@ -90,6 +91,7 @@ object Behavior {
    * that is not necessary.
    */
   def same[T]: Behavior[T] = SameBehavior.asInstanceOf[Behavior[T]]
+
   /**
    * Return this behavior from message processing in order to advise the
    * system to reuse the previous behavior, including the hint that the
@@ -187,11 +189,49 @@ object Behavior {
     override def toString: String = s"Deferred(${LineNumbers(factory)})"
   }
 
+  trait StashX[T] {
+    def apply(): Behavior[T] = StashBehavior.asInstanceOf[Behavior[T]]
+    def unstash(): Behavior[T] = UnstashBehavior.asInstanceOf[Behavior[T]]
+    def unstashAll(): Behavior[T] = UnstashAllBehavior.asInstanceOf[Behavior[T]]
+  }
+  final class StashXImpl[T](cap: Int) extends StashX[T] {
+    private val buf = MutableStashBufferImpl[T](cap)
+    def :+(t: T): Unit = if (buf.isFull) ??? else buf.stash(t)
+    def dropHead: T = buf.dropHead()
+  }
+
+  /**
+   * INTERNAL API.
+   */
+  @InternalApi
+  private[akka] final case class StashingBehavior[T](cap: Int, factory: StashX[T] ⇒ Behavior[T]) extends Behavior[T] {
+
+    @throws(classOf[Exception])
+    def apply(ctx: ActorContext[T]): Behavior[T] = factory(new StashXImpl[T](cap))
+
+    override def toString: String = s"Stashing(cap:$cap,${LineNumbers(factory)})"
+  }
+
   /**
    * INTERNAL API.
    */
   private[akka] object SameBehavior extends Behavior[Nothing] {
     override def toString = "Same"
+  }
+
+  trait StashingXBehavior
+
+  /** INTERNAL API */
+  private[akka] case class StashBehavior(s: StashXImpl[Any]) extends Behavior[Nothing] with StashingXBehavior {
+    override def toString = "Stash"
+  }
+  /** INTERNAL API */
+  private[akka] case class UnstashBehavior(s: StashXImpl[Any]) extends Behavior[Nothing] with StashingXBehavior {
+    override def toString = "Unstash"
+  }
+  /** INTERNAL API */
+  private[akka] case class UnstashAllBehavior(s: StashXImpl[Any]) extends Behavior[Nothing] with StashingXBehavior {
+    override def toString = "UnstashAll"
   }
 
   /**
@@ -305,6 +345,7 @@ object Behavior {
       case IgnoreBehavior         ⇒ SameBehavior.asInstanceOf[Behavior[T]]
       case s: StoppedBehavior[T]  ⇒ s
       case EmptyBehavior          ⇒ UnhandledBehavior.asInstanceOf[Behavior[T]]
+      case s: StashingBehavior[_] ⇒ throw new IllegalArgumentException(s"stashing [$s] should not be passed to interpreter")
       case ext: ExtensibleBehavior[T] ⇒
         val possiblyDeferredResult = msg match {
           case signal: Signal ⇒ ext.receiveSignal(ctx, signal)

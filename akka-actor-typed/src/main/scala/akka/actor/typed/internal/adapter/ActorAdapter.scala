@@ -5,6 +5,7 @@ package akka.actor.typed
 package internal
 package adapter
 
+import akka.actor.typed.Behavior
 import akka.{ actor ⇒ a }
 import akka.annotation.InternalApi
 import akka.util.OptionVal
@@ -56,6 +57,14 @@ import akka.util.OptionVal
               behavior = new Behavior.StoppedBehavior(OptionVal.Some(Behavior.canonicalize(postStop, behavior, ctx)))
           }
           context.stop(self)
+        case stashing: StashingXBehavior ⇒
+          if (stashing.isInstanceOf[Behavior.StashBehavior]) stashing.asInstanceOf[Behavior.StashBehavior].s.:+(msg)
+          else ???
+        //          stashing match {
+        //            case ss: StashBehavior     ⇒ ss.s.:+(msg)
+        //            case ss: UnstashBehavior   ⇒ Behavior.interpretMessage(behavior, ctx, ss.s.dropHead)
+        //            case _: UnstashAllBehavior ⇒ ???
+        //          }
         case _ ⇒
           behavior = Behavior.canonicalize(b, behavior, ctx)
       }
@@ -95,6 +104,7 @@ import akka.util.OptionVal
       case null                   ⇒ // skip PostStop
       case _: DeferredBehavior[_] ⇒
       // Do not undefer a DeferredBehavior as that may cause creation side-effects, which we do not want on termination.
+
       case s: StoppedBehavior[_] ⇒ s.postStop match {
         case OptionVal.Some(postStop) ⇒ Behavior.interpretSignal(postStop, ctx, PostStop)
         case OptionVal.None           ⇒ // no postStop behavior defined
