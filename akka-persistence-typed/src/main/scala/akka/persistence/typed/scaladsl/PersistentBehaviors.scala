@@ -3,12 +3,17 @@
  */
 package akka.persistence.typed.scaladsl
 
-import akka.actor.typed.Behavior.UntypedBehavior
-import akka.actor.typed.scaladsl.ActorContext
+import akka.actor.typed.Behavior
+import akka.actor.typed.Behavior.DeferredBehavior
+import akka.actor.typed.internal.TimerSchedulerImpl
+import akka.{ actor ⇒ a }
+import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, TimerScheduler }
 import akka.annotation.{ DoNotInherit, InternalApi }
-import akka.persistence.typed.internal._
+import akka.persistence.typed.internal.EventsourcedRequestingRecoveryPermit
+import akka.persistence.typed.scaladsl.PersistentBehaviors.CommandHandler
 
 import scala.collection.{ immutable ⇒ im }
+import scala.language.implicitConversions
 
 object PersistentBehaviors {
 
@@ -20,33 +25,58 @@ object PersistentBehaviors {
     initialState:   State,
     commandHandler: CommandHandler[Command, Event, State],
     eventHandler:   (State, Event) ⇒ State): PersistentBehavior[Command, Event, State] = {
-    // FIXME remove `persistenceIdFromActorName: String ⇒ String` from PersistentBehavior
-    new PersistentBehavior(_ ⇒ persistenceId, initialState, commandHandler, eventHandler,
-      recoveryCompleted = (_, _) ⇒ (),
-      tagger = _ ⇒ Set.empty,
-      snapshotOn = (_, _, _) ⇒ false)
-  }
+    new PersistentBehavior(
+      persistenceId,
+      initialState,
+      commandHandler,
+      eventHandler,
+      recoveryCompleted = (_: ActorContext[Command], _: State) ⇒ (),
+      tagger = (_: Event) ⇒ Set.empty,
+      snapshotWhen = (_: State, _: Event, _: Long) ⇒ false,
+      journalPluginId = "",
+      snapshotPluginId = ""
+    )
+
+  /**
+   * Create a `Behavior` for a persistent actor in Cluster Sharding, when the persistenceId is not known
+   * until the actor is started and typically based on the entityId, which
+   * is the actor name.
+   *
+   * TODO This will not be needed when it can be wrapped in `Actor.deferred`.
+   */
+  @Deprecated // FIXME remove this
+  def persistentEntity[Command, Event, State](
+    persistenceIdFromActorName: String ⇒ String,
+    initialState:               State,
+    commandHandler:             CommandHandler[Command, Event, State],
+    eventHandler:               (State, Event) ⇒ State): PersistentBehavior[Command, Event, State] =
+    ???
 
   /**
    * Factories for effects - how a persistent actor reacts on a command
    */
   object Effect {
 
+    // TODO docs
     def persist[Event, State](event: Event): Effect[Event, State] =
       Persist(event)
 
+    // TODO docs
     def persist[Event, A <: Event, B <: Event, State](evt1: A, evt2: B, events: Event*): Effect[Event, State] =
       persist(evt1 :: evt2 :: events.toList)
 
+    // TODO docs
     def persist[Event, State](eventOpt: Option[Event]): Effect[Event, State] =
       eventOpt match {
         case Some(evt) ⇒ persist[Event, State](evt)
         case _         ⇒ none[Event, State]
       }
 
+    // TODO docs
     def persist[Event, State](events: im.Seq[Event]): Effect[Event, State] =
       PersistAll(events)
 
+    // TODO docs
     def persist[Event, State](events: im.Seq[Event], sideEffects: im.Seq[ChainableEffect[Event, State]]): Effect[Event, State] =
       new CompositeEffect[Event, State](PersistAll[Event, State](events), sideEffects)
 
@@ -91,6 +121,42 @@ object PersistentBehaviors {
     def andThenStop: Effect[Event, State] =
       CompositeEffect(this, Effect.stop[Event, State])
   }
+
+  @InternalApi
+  private[akka] object CompositeEffect {
+    def apply[Event, State](effect: Effect[Event, State], sideEffects: ChainableEffect[Event, State]): Effect[Event, State] =
+      if (effect.events.isEmpty) {
+        CompositeEffect[Event, State](
+          None,
+          effect.sideEffects ++ (sideEffects :: Nil)
+        )
+      } else {
+        CompositeEffect[Event, State](
+          Some(effect),
+          sideEffects :: Nil
+        )
+      }
+  }
+
+  @InternalApi
+  private[akka] final case class CompositeEffect[Event, State](
+    persistingEffect: Option[Effect[Event, State]],
+    _sideEffects:     im.Seq[ChainableEffect[Event, State]]) extends Effect[Event, State] {
+    override val events = persistingEffect.map(_.events).getOrElse(Nil)
+
+    override def sideEffects[E >: Event]: im.Seq[ChainableEffect[E, State]] = _sideEffects.asInstanceOf[im.Seq[ChainableEffect[E, State]]]
+
+  }
+
+  @InternalApi
+  private[akka] case object PersistNothing extends Effect[Nothing, Nothing]
+
+  @InternalApi
+  private[akka] case class Persist[Event, State](event: Event) extends Effect[Event, State] {
+    override def events = event :: Nil
+  }
+  @InternalApi
+  private[akka] case class PersistAll[Event, State](override val events: im.Seq[Event]) extends Effect[Event, State]
 
   /**
    * Not for user extension
@@ -137,19 +203,33 @@ object PersistentBehaviors {
   }
 }
 
-class PersistentBehavior[Command, Event, State](
-  @InternalApi private[akka] val persistenceIdFromActorName: String ⇒ String,
-  val initialState:                                          State,
-  val commandHandler:                                        PersistentBehaviors.CommandHandler[Command, Event, State],
-  val eventHandler:                                          (State, Event) ⇒ State,
-  val recoveryCompleted:                                     (ActorContext[Command], State) ⇒ Unit,
-  val tagger:                                                Event ⇒ Set[String],
-  val snapshotOn:                                            (State, Event, Long) ⇒ Boolean) extends UntypedBehavior[Command] {
+final class PersistentBehavior[Command, Event, State](
+  _persistenceId:        String,
+  val initialState:      State,
+  val commandHandler:    PersistentBehaviors.CommandHandler[Command, Event, State],
+  val eventHandler:      (State, Event) ⇒ State,
+  val recoveryCompleted: (ActorContext[Command], State) ⇒ Unit,
+  val tagger:            Event ⇒ Set[String],
+  val journalPluginId:   String,
+  val snapshotPluginId:  String,
+  val snapshotWhen:      (State, Event, Long) ⇒ Boolean
+) extends DeferredBehavior[Command](ctx ⇒
+  TimerSchedulerImpl.wrapWithTimers[Command](timers ⇒
+    new InitialPersistentBehavior(
+      ctx.asInstanceOf[ActorContext[Any]], // sorry
+      timers.asInstanceOf[TimerScheduler[Any]],
+      _persistenceId,
+      initialState,
+      commandHandler,
+      eventHandler,
+      recoveryCompleted,
+      tagger,
+      journalPluginId,
+      snapshotPluginId,
+      snapshotWhen
+    ).asInstanceOf[Behavior[Command]] // FIXME this is nasty, but works since we adapt other things
 
-  import PersistentBehaviors._
-
-  /** INTERNAL API */
-  @InternalApi private[akka] override def untypedProps: akka.actor.Props = PersistentActorImpl.props(() ⇒ this)
+  )(ctx)) {
 
   /**
    * The `callback` function is called to notify the actor that the recovery process
@@ -165,8 +245,8 @@ class PersistentBehavior[Command, Event, State](
    *
    * `predicate` receives the State, Event and the sequenceNr used for the Event
    */
-  def snapshotOn(predicate: (State, Event, Long) ⇒ Boolean): PersistentBehavior[Command, Event, State] =
-    copy(snapshotOn = predicate)
+  def snapshotWhen(predicate: (State, Event, Long) ⇒ Boolean): PersistentBehavior[Command, Event, State] =
+    copy(snapshotWhen = predicate)
 
   /**
    * Snapshot every N events
@@ -175,7 +255,7 @@ class PersistentBehavior[Command, Event, State](
    */
   def snapshotEvery(numberOfEvents: Long): PersistentBehavior[Command, Event, State] = {
     require(numberOfEvents > 0, s"numberOfEvents should be positive: Was $numberOfEvents")
-    copy(snapshotOn = (_, _, seqNr) ⇒ seqNr % numberOfEvents == 0)
+    copy(snapshotWhen = (_, _, seqNr) ⇒ seqNr % numberOfEvents == 0)
   }
 
   /**
@@ -185,12 +265,38 @@ class PersistentBehavior[Command, Event, State](
     copy(tagger = tagger)
 
   private def copy(
-    persistenceIdFromActorName: String ⇒ String                       = persistenceIdFromActorName,
-    initialState:               State                                 = initialState,
-    commandHandler:             CommandHandler[Command, Event, State] = commandHandler,
-    eventHandler:               (State, Event) ⇒ State                = eventHandler,
-    recoveryCompleted:          (ActorContext[Command], State) ⇒ Unit = recoveryCompleted,
-    tagger:                     Event ⇒ Set[String]                   = tagger,
-    snapshotOn:                 (State, Event, Long) ⇒ Boolean        = snapshotOn): PersistentBehavior[Command, Event, State] =
-    new PersistentBehavior(persistenceIdFromActorName, initialState, commandHandler, eventHandler, recoveryCompleted, tagger, snapshotOn)
+    initialState:      State                                 = initialState,
+    commandHandler:    CommandHandler[Command, Event, State] = commandHandler,
+    eventHandler:      (State, Event) ⇒ State                = eventHandler,
+    recoveryCompleted: (ActorContext[Command], State) ⇒ Unit = recoveryCompleted,
+    tagger:            Event ⇒ Set[String]                   = tagger,
+    snapshotWhen:      (State, Event, Long) ⇒ Boolean        = snapshotWhen,
+    journalPluginId:   String                                = journalPluginId,
+    snapshotPluginId:  String                                = snapshotPluginId): PersistentBehavior[Command, Event, State] =
+    new PersistentBehavior[Command, Event, State](
+      _persistenceId = _persistenceId,
+      initialState = initialState,
+      commandHandler = commandHandler,
+      eventHandler = eventHandler,
+      recoveryCompleted = recoveryCompleted,
+      tagger = tagger,
+      journalPluginId = journalPluginId,
+      snapshotPluginId = snapshotPluginId,
+      snapshotWhen = snapshotWhen)
+
 }
+
+// this is only convenience as it's a pain to create the abstract one directly in the immutable factory method
+final class InitialPersistentBehavior[Command, Event, State](
+  override val context:  ActorContext[Any],
+  override val timers:   TimerScheduler[Any],
+  val persistenceId:     String,
+  val initialState:      State,
+  val commandHandler:    PersistentBehaviors.CommandHandler[Command, Event, State],
+  val eventHandler:      (State, Event) ⇒ State,
+  val recoveryCompleted: (ActorContext[Command], State) ⇒ Unit,
+  val tagger:            Event ⇒ Set[String],
+  val journalPluginId:   String,
+  val snapshotPluginId:  String,
+  val snapshotWhen:      (State, Event, Long) ⇒ Boolean
+) extends EventsourcedRequestingRecoveryPermit[Command, Event, State](context)

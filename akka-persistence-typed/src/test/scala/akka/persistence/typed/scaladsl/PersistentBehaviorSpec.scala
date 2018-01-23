@@ -3,8 +3,9 @@
  */
 package akka.persistence.typed.scaladsl
 
+import akka.actor.ActorSystemImpl
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ ActorRef, ActorSystem, SupervisorStrategy, Terminated, TypedAkkaSpecWithShutdown }
+import akka.actor.typed.{ ActorRef, ActorSystem, Behavior, SupervisorStrategy, Terminated, TypedAkkaSpecWithShutdown }
 import akka.persistence.snapshot.SnapshotStore
 import akka.persistence.typed.scaladsl.PersistentBehaviors._
 import akka.persistence.{ SelectedSnapshot, SnapshotMetadata, SnapshotSelectionCriteria }
@@ -16,18 +17,17 @@ import org.scalatest.concurrent.Eventually
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-object PersistentActorSpec {
+object PersistentBehaviorSpec {
 
   class InMemorySnapshotStore extends SnapshotStore {
+
     private var state = Map.empty[String, (Any, SnapshotMetadata)]
 
     def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] = {
-      log.debug("loadAsync: {} {}", persistenceId, criteria)
       Future.successful(state.get(persistenceId).map(r ⇒ SelectedSnapshot(r._2, r._1)))
     }
 
     def saveAsync(metadata: SnapshotMetadata, snapshot: Any): Future[Unit] = {
-      log.debug("saveAsync: {} {}", metadata, snapshot)
       state += (metadata.persistenceId -> (snapshot, metadata))
       Future.successful(())
     }
@@ -39,7 +39,7 @@ object PersistentActorSpec {
   val config = ConfigFactory.parseString(
     s"""
     akka.loglevel = INFO
-    akka.persistence.snapshot-store.inmem.class = "akka.persistence.typed.scaladsl.PersistentActorSpec$$InMemorySnapshotStore"
+    akka.persistence.snapshot-store.inmem.class = "akka.persistence.typed.scaladsl.PersistentBehaviorSpec$$InMemorySnapshotStore"
     akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
     akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.inmem"
     """)
@@ -139,22 +139,22 @@ object PersistentActorSpec {
       },
       eventHandler = (state, evt) ⇒ evt match {
         case Incremented(delta) ⇒
-          probe ! (state, evt)
+          probe ! ((state, evt))
           State(state.value + delta, state.history :+ state.value)
       })
   }
 
 }
 
-class PersistentActorSpec extends ActorTestKit with Eventually with TypedAkkaSpecWithShutdown {
+class PersistentBehaviorSpec extends TestKit(PersistentBehaviorSpec.config) with Eventually with TypedAkkaSpecWithShutdown {
 
-  override def config = PersistentActorSpec.config
+  import PersistentBehaviorSpec._
 
-  import PersistentActorSpec._
+  implicit val testSettings = TestKitSettings(system)
 
   "A typed persistent actor" must {
 
-    "persist an event" in {
+    "xoxo persist an event" in {
       val c = spawn(counter("c1"))
 
       val probe = TestProbe[State]
@@ -171,7 +171,7 @@ class PersistentActorSpec extends ActorTestKit with Eventually with TypedAkkaSpe
       c ! Increment
       c ! Increment
       c ! GetValue(probe.ref)
-      probe.expectMessage(State(3, Vector(0, 1, 2)))
+      probe.expectMessage(10.seconds, State(3, Vector(0, 1, 2)))
 
       val c2 = spawn(counter("c2"))
       c2 ! GetValue(probe.ref)
@@ -249,10 +249,6 @@ class PersistentActorSpec extends ActorTestKit with Eventually with TypedAkkaSpe
     }
 
     "work when wrapped in other behavior" in {
-      // FIXME This is a major problem with current implementation. Since the
-      // behavior is running as an untyped PersistentActor it's not possible to
-      // wrap it in Actor.deferred or Actor.supervise
-      pending
       val probe = TestProbe[State]
       val behavior = Behaviors.supervise[Command](counter("c13"))
         .onFailure(SupervisorStrategy.restartWithBackoff(1.second, 10.seconds, 0.1))
@@ -272,7 +268,7 @@ class PersistentActorSpec extends ActorTestKit with Eventually with TypedAkkaSpe
     }
 
     "snapshot via predicate" in {
-      val alwaysSnapshot = counter("c9").snapshotOn { (_, _, _) ⇒ true }
+      val alwaysSnapshot = counter("c9").snapshotWhen { (_, _, _) ⇒ true }
       val c = spawn(alwaysSnapshot)
       val watchProbe = watcher(c)
       val replyProbe = TestProbe[State]()
@@ -293,7 +289,8 @@ class PersistentActorSpec extends ActorTestKit with Eventually with TypedAkkaSpe
     }
 
     "check all events for snapshot in PersistAll" in {
-      val snapshotAtTwo = counter("c11").snapshotOn { (s, e, _) ⇒
+      val snapshotAtTwo = counter("c11").snapshotWhen { (s, _, _) ⇒
+        println(">>> SHOULD SNAP? " + s + " ??? " + (s.value == 2))
         s.value == 2
       }
       val c: ActorRef[Command] = spawn(snapshotAtTwo)
@@ -325,7 +322,7 @@ class PersistentActorSpec extends ActorTestKit with Eventually with TypedAkkaSpe
       c ! LogThenStop
       watchProbe.expectMessage("Terminated")
 
-      // no shapshot should have happened
+      // no snapshot should have happened
       val probeC2 = TestProbe[(State, Event)]()
       val c2 = spawn(counterWithProbe("c10", probeC2.ref).snapshotEvery(2))
       probeC2.expectMessage[(State, Event)]((State(0, Vector()), Incremented(1)))

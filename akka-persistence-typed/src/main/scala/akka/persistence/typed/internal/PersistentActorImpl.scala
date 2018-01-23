@@ -5,25 +5,28 @@ package akka.persistence.typed.internal
 
 import akka.actor.ActorLogging
 import akka.actor.typed.internal.adapter.ActorContextAdapter
+import akka.actor.typed.scaladsl.ActorContext
 import akka.annotation.InternalApi
 import akka.persistence.journal.Tagged
-import akka.persistence.typed.scaladsl.{ PersistentBehavior, PersistentBehaviors }
+import akka.persistence.typed.scaladsl.PersistentBehaviors
 import akka.persistence.{ RecoveryCompleted, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer, PersistentActor ⇒ UntypedPersistentActor }
 import akka.{ actor ⇒ a }
 
 /**
  * INTERNAL API
  */
+@Deprecated
 @InternalApi private[akka] object PersistentActorImpl {
 
   /**
-   * Stop the actor for passivation. `PoisonPill` does not work well
-   * with persistent actors.
+   * Stop the actor for passivation.
+   * `PoisonPill` does not work well  with persistent actors.
    */
   case object StopForPassivation
 
+  @Deprecated
   def props[C, E, S](
-    behaviorFactory: () ⇒ PersistentBehavior[C, E, S]): a.Props =
+    behaviorFactory: () ⇒ EventsourcedBehavior[C, E, S]): a.Props =
     a.Props(new PersistentActorImpl(behaviorFactory()))
 
 }
@@ -32,12 +35,13 @@ import akka.{ actor ⇒ a }
  * INTERNAL API
  * The `PersistentActor` that runs a `PersistentBehavior`.
  */
+@Deprecated
 @InternalApi private[akka] class PersistentActorImpl[C, E, S](
-  behavior: PersistentBehavior[C, E, S]) extends UntypedPersistentActor with ActorLogging {
+  behavior: EventsourcedBehavior[C, E, S]) extends UntypedPersistentActor with ActorLogging {
 
   import PersistentBehaviors._
 
-  override val persistenceId: String = behavior.persistenceIdFromActorName(self.path.name)
+  override val persistenceId: String = behavior.persistenceId // .persistenceIdFromActorName(self.path.name)
 
   private var state: S = behavior.initialState
 
@@ -46,7 +50,7 @@ import akka.{ actor ⇒ a }
   private val eventHandler: (S, E) ⇒ S = behavior.eventHandler
 
   private val ctxAdapter = new ActorContextAdapter[C](context)
-  private val ctx = ctxAdapter.asScala
+  private val ctx: ActorContext[C] = ctxAdapter.asScala
 
   override def receiveRecover: Receive = {
     case SnapshotOffer(_, snapshot) ⇒
@@ -101,7 +105,7 @@ import akka.{ actor ⇒ a }
       val eventToPersist = if (tags.isEmpty) event else Tagged(event, tags)
       persist(eventToPersist) { _ ⇒
         sideEffects.foreach(applySideEffect)
-        if (shouldSnapshot(state, event, lastSequenceNr))
+        if (snapshotWhen(state, event, lastSequenceNr))
           saveSnapshot(state)
       }
     case PersistAll(events) ⇒
@@ -111,10 +115,10 @@ import akka.{ actor ⇒ a }
         // also, ensure that there is an event handler for each single event
         var count = events.size
         var seqNr = lastSequenceNr
-        val (newState, shouldSnapshotAfterPersist) = events.foldLeft((state, false)) {
+        val (newState, snapshotWhenAfterPersist) = events.foldLeft((state, false)) {
           case ((currentState, snapshot), event) ⇒
             seqNr += 1
-            (applyEvent(currentState, event), snapshot || shouldSnapshot(currentState, event, seqNr))
+            (applyEvent(currentState, event), snapshot || snapshotWhen(currentState, event, seqNr))
         }
         state = newState
         val eventsToPersist = events.map { event ⇒
@@ -125,7 +129,7 @@ import akka.{ actor ⇒ a }
           count -= 1
           if (count == 0) {
             sideEffects.foreach(applySideEffect)
-            if (shouldSnapshotAfterPersist)
+            if (snapshotWhenAfterPersist)
               saveSnapshot(state)
           }
         }
@@ -149,8 +153,9 @@ import akka.{ actor ⇒ a }
     case SideEffect(callbacks) ⇒ callbacks.apply(state)
   }
 
-  private def shouldSnapshot(state: S, event: E, sequenceNr: Long): Boolean = {
-    behavior.snapshotOn(state, event, sequenceNr)
+  private def snapshotWhen(state: S, event: E, sequenceNr: Long): Boolean = {
+    ??? // should not be used now with the real impl
+    behavior.snapshotWhen(state, event, sequenceNr)
   }
 
 }
