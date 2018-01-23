@@ -180,13 +180,18 @@ object Behavior {
    * Not placed in internal.BehaviorImpl because Behavior is sealed.
    */
   @InternalApi
-  private[akka] final case class DeferredBehavior[T](factory: SAC[T] ⇒ Behavior[T]) extends Behavior[T] {
+  @DoNotInherit
+  private[akka] class DeferredBehavior[T](val factory: SAC[T] ⇒ Behavior[T]) extends Behavior[T] {
 
     /** start the deferred behavior */
     @throws(classOf[Exception])
     def apply(ctx: ActorContext[T]): Behavior[T] = factory(ctx.asScala)
 
     override def toString: String = s"Deferred(${LineNumbers(factory)})"
+  }
+  object DeferredBehavior {
+    def apply[T](factory: SAC[T] ⇒ Behavior[T]) =
+      new DeferredBehavior[T](factory)
   }
 
   /**
@@ -299,7 +304,7 @@ object Behavior {
   def interpretSignal[T](behavior: Behavior[T], ctx: ActorContext[T], signal: Signal): Behavior[T] =
     interpret(behavior, ctx, signal)
 
-  private def interpret[T](behavior: Behavior[T], ctx: ActorContext[T], msg: Any): Behavior[T] =
+  private def interpret[T](behavior: Behavior[T], ctx: ActorContext[T], msg: Any): Behavior[T] = {
     behavior match {
       case null ⇒ throw new InvalidMessageException("[null] is not an allowed message")
       case SameBehavior | UnhandledBehavior ⇒
@@ -318,6 +323,7 @@ object Behavior {
         }
         start(possiblyDeferredResult, ctx)
     }
+  }
 
   /**
    * INTERNAL API
@@ -331,10 +337,8 @@ object Behavior {
       if (!Behavior.isAlive(b2) || !messages.hasNext) b2
       else {
         val nextB = messages.next() match {
-          case sig: Signal ⇒
-            Behavior.interpretSignal(b2, ctx, sig)
-          case msg ⇒
-            Behavior.interpretMessage(b2, ctx, msg)
+          case sig: Signal ⇒ Behavior.interpretSignal(b2, ctx, sig)
+          case msg         ⇒ Behavior.interpretMessage(b2, ctx, msg)
         }
         interpretOne(Behavior.canonicalize(nextB, b, ctx)) // recursive
       }
