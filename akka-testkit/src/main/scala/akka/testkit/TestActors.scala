@@ -3,17 +3,32 @@
  */
 package akka.testkit
 
-import akka.actor.{ Props, Actor, ActorRef }
+import akka.actor.{Actor, ActorLogging, ActorRef, OneForOneStrategy, Props, SupervisorStrategy}
 
 /**
  * A collection of common actor patterns used in tests.
  */
 object TestActors {
 
+  import scala.concurrent.duration._
   /**
    * EchoActor sends back received messages (unmodified).
    */
-  class EchoActor extends Actor {
+  class EchoActor extends Actor with ActorLogging{
+
+
+    /**
+     * Sometimes Nakadi is not stable, and can return errors for valid token.
+     * We want to try connecting several times before going for backoff
+     */
+    def supervisionStrategy = OneForOneStrategy(maxNrOfRetries = 1, withinTimeRange = 10.seconds) {
+      case e: Exception =>
+        log.warning("exception in fulfillment api producer {}", e.getMessage)
+        SupervisorStrategy.Restart
+      case _ => SupervisorStrategy.Escalate
+    }
+
+
     override def receive = {
       case message ⇒ sender() ! message
     }

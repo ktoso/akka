@@ -214,15 +214,16 @@ abstract class EventsourcedRunning[Command, Event, State](
   def applyEvent(s: S, event: E): S =
     eventHandler(s, event)
 
-  @tailrec private def applyEffects(msg: Any, effect: Effect[E, S], sideEffects: immutable.Seq[ChainableEffect[_, S]] = Nil): Behavior[Any] = {
+  private def applyEffects(msg: Any, effect: Effect[E, S], sideEffects: immutable.Seq[ChainableEffect[_, S]] = Nil): Behavior[Any] = {
     log.info(s"ApplyEffects: ${msg} => Effect: ${effect}")
 
     effect match {
-      case CompositeEffect(Some(persist), currentSideEffects) ⇒
-        applyEffects(msg, persist, currentSideEffects ++ sideEffects) // "unwrap" & recur
-
-      case CompositeEffect(_, currentSideEffects) ⇒
-        applySideEffects(currentSideEffects ++ sideEffects) unlessStopped tryUnstash(context, this)
+      case CompositeEffect(e, currentSideEffects) ⇒
+        applyEffects(msg, e, currentSideEffects ++ sideEffects) unlessStopped tryUnstash(context, this)
+      //      case CompositeEffect(effect, currentSideEffects) ⇒
+      //        applyEffects(msg, effect, currentSideEffects ++ sideEffects) // "unwrap" & recur
+      //      case CompositeEffect(_, currentSideEffects) ⇒
+      //        applySideEffects(currentSideEffects ++ sideEffects) unlessStopped tryUnstash(context, this)
 
       case Persist(event) ⇒
         // apply the event before persist so that validation exception is handled before persisting
