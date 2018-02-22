@@ -26,7 +26,7 @@ import scala.reflect.ClassTag
   final case class TimerMsg(key: Any, generation: Int, owner: AnyRef)
 
   def withTimers[T](factory: TimerSchedulerImpl[T] ⇒ Behavior[T]): Behavior[T] = {
-    scaladsl.Behaviors.deferred[T](wrapWithTimers(factory))
+    scaladsl.Behaviors.setup[T](wrapWithTimers(factory))
   }
 
   /** INTERNAL API */

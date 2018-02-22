@@ -9,13 +9,15 @@ import akka.actor.typed.internal.TimerSchedulerImpl
 import akka.{ actor ⇒ a }
 import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, TimerScheduler }
 import akka.annotation.{ DoNotInherit, InternalApi }
-import akka.persistence.typed.internal.EventsourcedRequestingRecoveryPermit
+import akka.persistence.typed.internal._
 import akka.persistence.typed.scaladsl.PersistentBehaviors.CommandHandler
 
 import scala.collection.{ immutable ⇒ im }
 import scala.language.implicitConversions
 
 object PersistentBehaviors {
+
+  type CommandHandler[Command, Event, State] = (ActorContext[Command], State, Command) ⇒ Effect[Event, State]
 
   /**
    * Create a `Behavior` for a persistent actor.
@@ -24,7 +26,7 @@ object PersistentBehaviors {
     persistenceId:  String,
     initialState:   State,
     commandHandler: CommandHandler[Command, Event, State],
-    eventHandler:   (State, Event) ⇒ State): PersistentBehavior[Command, Event, State] = {
+    eventHandler:   (State, Event) ⇒ State): PersistentBehavior[Command, Event, State] =
     new PersistentBehavior(
       persistenceId,
       initialState,
@@ -52,119 +54,15 @@ object PersistentBehaviors {
     eventHandler:               (State, Event) ⇒ State): PersistentBehavior[Command, Event, State] =
     ???
 
-  /**
-   * Factories for effects - how a persistent actor reacts on a command
-   */
-  object Effect {
-
-    // TODO docs
-    def persist[Event, State](event: Event): Effect[Event, State] =
-      Persist(event)
-
-    // TODO docs
-    def persist[Event, A <: Event, B <: Event, State](evt1: A, evt2: B, events: Event*): Effect[Event, State] =
-      persist(evt1 :: evt2 :: events.toList)
-
-    // TODO docs
-    def persist[Event, State](eventOpt: Option[Event]): Effect[Event, State] =
-      eventOpt match {
-        case Some(evt) ⇒ persist[Event, State](evt)
-        case _         ⇒ none[Event, State]
-      }
-
-    // TODO docs
-    def persist[Event, State](events: im.Seq[Event]): Effect[Event, State] =
-      PersistAll(events)
-
-    // TODO docs
-    def persist[Event, State](events: im.Seq[Event], sideEffects: im.Seq[ChainableEffect[Event, State]]): Effect[Event, State] =
-      new CompositeEffect[Event, State](PersistAll[Event, State](events), sideEffects)
-
-    /**
-     * Do not persist anything
-     */
-    def none[Event, State]: Effect[Event, State] = PersistNothing.asInstanceOf[Effect[Event, State]]
-
-    /**
-     * This command is not handled, but it is not an error that it isn't.
-     */
-    def unhandled[Event, State]: Effect[Event, State] = Unhandled.asInstanceOf[Effect[Event, State]]
-
-    /**
-     * Stop this persistent actor
-     */
-    def stop[Event, State]: ChainableEffect[Event, State] = Stop.asInstanceOf[ChainableEffect[Event, State]]
-  }
-
-  /**
-   * Instances are created through the factories in the [[Effect]] companion object.
-   *
-   * Not for user extension.
-   */
-  @DoNotInherit
-  trait Effect[+Event, State] {
-    self: EffectImpl[Event, State] ⇒
-    /* All events that will be persisted in this effect */
-    def events: im.Seq[Event]
-
-    def sideEffects[E >: Event]: im.Seq[ChainableEffect[E, State]]
-
-    /** Convenience method to register a side effect with just a callback function */
-    final def andThen(callback: State ⇒ Unit): Effect[Event, State] =
-      CompositeEffect(this, SideEffect[Event, State](callback))
-
-    /** Convenience method to register a side effect with just a lazy expression */
-    final def andThen(callback: ⇒ Unit): Effect[Event, State] =
-      CompositeEffect(this, SideEffect[Event, State]((_: State) ⇒ callback))
-
-    /** The side effect is to stop the actor */
-    def andThenStop: Effect[Event, State] =
-      CompositeEffect(this, Effect.stop[Event, State])
-  }
-
-  @InternalApi
-  private[akka] object CompositeEffect {
-    def apply[Event, State](effect: Effect[Event, State], sideEffects: ChainableEffect[Event, State]): Effect[Event, State] =
-      if (effect.events.isEmpty) {
-        CompositeEffect[Event, State](
-          None,
-          effect.sideEffects ++ (sideEffects :: Nil)
-        )
-      } else {
-        CompositeEffect[Event, State](
-          Some(effect),
-          sideEffects :: Nil
-        )
-      }
-  }
-
-  @InternalApi
-  private[akka] final case class CompositeEffect[Event, State](
-    persistingEffect: Option[Effect[Event, State]],
-    _sideEffects:     im.Seq[ChainableEffect[Event, State]]) extends Effect[Event, State] {
-    override val events = persistingEffect.map(_.events).getOrElse(Nil)
-
-    override def sideEffects[E >: Event]: im.Seq[ChainableEffect[E, State]] = _sideEffects.asInstanceOf[im.Seq[ChainableEffect[E, State]]]
-
-  }
-
-  @InternalApi
-  private[akka] case object PersistNothing extends Effect[Nothing, Nothing]
-
-  @InternalApi
-  private[akka] case class Persist[Event, State](event: Event) extends Effect[Event, State] {
-    override def events = event :: Nil
-  }
-  @InternalApi
-  private[akka] case class PersistAll[Event, State](override val events: im.Seq[Event]) extends Effect[Event, State]
-
-  /**
-   * Not for user extension
-   */
-  @DoNotInherit
-  abstract class ChainableEffect[Event, State] extends EffectImpl[Event, State]
-
-  type CommandHandler[Command, Event, State] = (ActorContext[Command], State, Command) ⇒ Effect[Event, State]
+//  @InternalApi
+//  private[akka] case object PersistNothing extends EffectImpl[Nothing, Nothing]
+//
+//  @InternalApi
+//  private[akka] case class Persist[Event, State](event: Event) extends EffectImpl[Event, State] {
+//    override def events = event :: Nil
+//  }
+//  @InternalApi
+//  private[akka] case class PersistAll[Event, State](override val events: im.Seq[Event]) extends EffectImpl[Event, State]
 
   /**
    * The `CommandHandler` defines how to act on commands.

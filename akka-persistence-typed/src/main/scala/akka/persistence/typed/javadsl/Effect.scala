@@ -4,8 +4,6 @@
 package akka.persistence.typed.javadsl
 
 import akka.annotation.DoNotInherit
-import akka.persistence.typed.scaladsl.PersistentBehaviors._
-import akka.japi.{ function ⇒ japi }
 import akka.persistence.typed.internal._
 
 import scala.collection.JavaConverters._
