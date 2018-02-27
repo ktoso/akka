@@ -1,6 +1,6 @@
 package akka.persistence.typed.internal
 
-import akka.actor.typed.Behavior
+import akka.actor.typed.{ ActorSystem, Behavior }
 import akka.actor.{ DeadLetter, StashOverflowException }
 import akka.actor.typed.scaladsl.{ ActorContext, StashBuffer }
 import akka.event.{ Logging, LoggingAdapter }
@@ -37,8 +37,8 @@ trait EventsourcedStashManagement {
       case e: StashOverflowException ⇒
         internalStashOverflowStrategy match {
           case DiscardToDeadLetterStrategy ⇒
-            val snd: a.ActorRef = null // FIXME can we improve it somehow?
-            context.system.deadLetters.tell(DeadLetter(msg, snd, context.self.toUntyped), snd)
+            val snd: a.ActorRef = a.ActorRef.noSender // FIXME can we improve it somehow?
+            context.system.deadLetters.tell(DeadLetter(msg, snd, context.self.toUntyped))
 
           case ReplyToStrategy(response) ⇒
             throw new RuntimeException("ReplyToStrategy does not make sense at all in Akka Typed, since there is no sender()!")

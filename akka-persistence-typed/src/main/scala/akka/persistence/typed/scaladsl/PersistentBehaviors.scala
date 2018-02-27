@@ -11,12 +11,13 @@ import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, TimerScheduler }
 import akka.annotation.{ DoNotInherit, InternalApi }
 import akka.persistence.typed.internal._
 import akka.persistence.typed.scaladsl.PersistentBehaviors.CommandHandler
+import akka.util.ConstantFun
 
-import scala.collection.{ immutable ⇒ im }
 import scala.language.implicitConversions
 
 object PersistentBehaviors {
 
+  // we use this type internally, however it's easier for users to understand the function, so we use it in external api
   type CommandHandler[Command, Event, State] = (ActorContext[Command], State, Command) ⇒ Effect[Event, State]
 
   /**
@@ -25,16 +26,16 @@ object PersistentBehaviors {
   def immutable[Command, Event, State](
     persistenceId:  String,
     initialState:   State,
-    commandHandler: CommandHandler[Command, Event, State],
+    commandHandler: (ActorContext[Command], State, Command) ⇒ Effect[Event, State],
     eventHandler:   (State, Event) ⇒ State): PersistentBehavior[Command, Event, State] =
     new PersistentBehavior(
       persistenceId,
       initialState,
       commandHandler,
       eventHandler,
-      recoveryCompleted = (_: ActorContext[Command], _: State) ⇒ (),
+      recoveryCompleted = ConstantFun.scalaAnyTwoToUnit,
       tagger = (_: Event) ⇒ Set.empty,
-      snapshotWhen = (_: State, _: Event, _: Long) ⇒ false,
+      snapshotWhen = ConstantFun.scalaAnyThreeToFalse,
       journalPluginId = "",
       snapshotPluginId = ""
     )
@@ -50,19 +51,9 @@ object PersistentBehaviors {
   def persistentEntity[Command, Event, State](
     persistenceIdFromActorName: String ⇒ String,
     initialState:               State,
-    commandHandler:             CommandHandler[Command, Event, State],
+    commandHandler:             (ActorContext[Command], State, Command) ⇒ Effect[Event, State],
     eventHandler:               (State, Event) ⇒ State): PersistentBehavior[Command, Event, State] =
     ???
-
-//  @InternalApi
-//  private[akka] case object PersistNothing extends EffectImpl[Nothing, Nothing]
-//
-//  @InternalApi
-//  private[akka] case class Persist[Event, State](event: Event) extends EffectImpl[Event, State] {
-//    override def events = event :: Nil
-//  }
-//  @InternalApi
-//  private[akka] case class PersistAll[Event, State](override val events: im.Seq[Event]) extends EffectImpl[Event, State]
 
   /**
    * The `CommandHandler` defines how to act on commands.

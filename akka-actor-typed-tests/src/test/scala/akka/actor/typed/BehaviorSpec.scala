@@ -3,8 +3,8 @@
  */
 package akka.actor.typed
 
-import akka.actor.typed.scaladsl.{ Behaviors ⇒ SActor }
-import akka.actor.typed.javadsl.{ ActorContext ⇒ JActorContext, Behaviors ⇒ JActor }
+import akka.actor.typed.scaladsl.{ Behaviors ⇒ SBehaviors }
+import akka.actor.typed.javadsl.{ ActorContext ⇒ JActorContext, Behaviors ⇒ JBehaviors }
 import akka.japi.function.{ Function ⇒ F1e, Function2 ⇒ F2, Procedure2 ⇒ P2 }
 import akka.japi.pf.{ FI, PFBuilder }
 import java.util.function.{ Function ⇒ F1 }
@@ -167,21 +167,21 @@ object BehaviorSpec {
   /*
  * function converters for Java, to ease the pain on Scala 2.11
  */
-  def fs(f: (JBehaviorsContext[Command], Signal) ⇒ Behavior[Command]) =
-    new F2[JBehaviorsContext[Command], Signal, Behavior[Command]] {
-      override def apply(ctx: JBehaviorsContext[Command], sig: Signal) = f(ctx, sig)
+  def fs(f: (JActorContext[Command], Signal) ⇒ Behavior[Command]) =
+    new F2[JActorContext[Command], Signal, Behavior[Command]] {
+      override def apply(ctx: JActorContext[Command], sig: Signal) = f(ctx, sig)
     }
-  def fc(f: (JBehaviorsContext[Command], Command) ⇒ Behavior[Command]) =
-    new F2[JBehaviorsContext[Command], Command, Behavior[Command]] {
-      override def apply(ctx: JBehaviorsContext[Command], command: Command) = f(ctx, command)
+  def fc(f: (JActorContext[Command], Command) ⇒ Behavior[Command]) =
+    new F2[JActorContext[Command], Command, Behavior[Command]] {
+      override def apply(ctx: JActorContext[Command], command: Command) = f(ctx, command)
     }
-  def ps(f: (JBehaviorsContext[Command], Signal) ⇒ Unit) =
-    new P2[JBehaviorsContext[Command], Signal] {
-      override def apply(ctx: JBehaviorsContext[Command], sig: Signal) = f(ctx, sig)
+  def ps(f: (JActorContext[Command], Signal) ⇒ Unit) =
+    new P2[JActorContext[Command], Signal] {
+      override def apply(ctx: JActorContext[Command], sig: Signal) = f(ctx, sig)
     }
-  def pc(f: (JBehaviorsContext[Command], Command) ⇒ Unit) =
-    new P2[JBehaviorsContext[Command], Command] {
-      override def apply(ctx: JBehaviorsContext[Command], command: Command) = f(ctx, command)
+  def pc(f: (JActorContext[Command], Command) ⇒ Unit) =
+    new P2[JActorContext[Command], Command] {
+      override def apply(ctx: JActorContext[Command], command: Command) = f(ctx, command)
     }
   def pf(f: PFBuilder[Command, Command] ⇒ PFBuilder[Command, Command]) =
     new F1[PFBuilder[Command, Command], PFBuilder[Command, Command]] {
@@ -191,9 +191,9 @@ object BehaviorSpec {
     new FI.Apply[Command, Command] {
       override def apply(in: Command) = f(in)
     }
-  def df(f: JBehaviorsContext[Command] ⇒ Behavior[Command]) =
-    new F1e[JBehaviorsContext[Command], Behavior[Command]] {
-      override def apply(in: JBehaviorsContext[Command]) = f(in)
+  def df(f: JActorContext[Command] ⇒ Behavior[Command]) =
+    new F1e[JActorContext[Command], Behavior[Command]] {
+      override def apply(in: JActorContext[Command]) = f(in)
     }
 
   trait Lifecycle extends Common {

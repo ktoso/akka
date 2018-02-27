@@ -5,15 +5,18 @@ package akka.persistence.typed.javadsl
 
 import java.util.Collections
 
-import akka.actor.typed.Behavior.UntypedBehavior
+import akka.actor.Props
+import akka.actor.typed.Behavior
+import akka.actor.typed.Behavior.{ DelegatingBehavior, UntypedBehavior }
 import akka.actor.typed.javadsl.ActorContext
-import akka.annotation.ApiMayChange
+import akka.annotation.{ ApiMayChange, InternalApi }
 import akka.persistence.typed._
 import akka.persistence.typed.internal._
+import akka.{ actor ⇒ untyped }
 
 import scala.collection.JavaConverters._
 
-@ApiMayChange abstract class PersistentBehavior[Command, Event, State >: Null](val persistenceId: String) extends UntypedBehavior[Command] {
+@ApiMayChange abstract class PersistentBehavior[Command, Event, State >: Null](val persistenceId: String) extends DelegatingBehavior[Command] {
 
   def Effect: EffectFactories[Command, Event, State] = EffectFactory.asInstanceOf[EffectFactories[Command, Event, State]]
 
@@ -60,19 +63,13 @@ import scala.collection.JavaConverters._
    */
   def tagsFor(event: Event): java.util.Set[String] = Collections.emptySet()
 
-  /**
-   * INTERNAL API
-   */
-  override private[akka] def untypedProps = {
-    new scaladsl.PersistentBehavior[Command, Event, State](
-      _ ⇒ persistenceId,
+  // FIXME not final solution I guess
+  override def delegate: Behavior[Command] =
+    scaladsl.PersistentBehaviors.immutable[Command, Event, State](
+      persistenceId,
       initialState,
-      (ctx, s, e) ⇒ commandHandler.apply(ctx.asJava, s, e).asInstanceOf[EffectImpl[Event, State]],
-      (s: State, e: Event) ⇒ eventHandler().apply(s, e),
-      (ctx, s) ⇒ onRecoveryCompleted(ctx.asJava, s),
-      e ⇒ tagsFor(e).asScala.toSet,
-      shouldSnapshot
-    ).untypedProps
-  }
+      (c, state, cmd) ⇒ commandHandler()(c.asJava, state, cmd).asInstanceOf[EffectImpl[Event, State]],
+      eventHandler()(_, _)
+    )
 }
 

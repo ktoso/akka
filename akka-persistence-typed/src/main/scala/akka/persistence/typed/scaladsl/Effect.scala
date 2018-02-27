@@ -9,7 +9,6 @@ import akka.persistence.typed.internal._
 
 import scala.collection.{ immutable ⇒ im }
 
-
 /**
  * Factories for effects - how a persistent actor reacts on a command
  */

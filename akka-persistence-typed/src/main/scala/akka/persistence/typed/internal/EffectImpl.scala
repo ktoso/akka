@@ -3,14 +3,15 @@
  */
 package akka.persistence.typed.internal
 
-import akka.persistence.typed.{javadsl ⇒ j}
+import akka.persistence.typed.javadsl
+import akka.persistence.typed.scaladsl
 
-import scala.collection.{immutable ⇒ im}
-import akka.annotation.{DoNotInherit, InternalApi}
+import scala.collection.{ immutable ⇒ im }
+import akka.annotation.{ DoNotInherit, InternalApi }
 
 /** INTERNAL API */
 @InternalApi
-private[akka] abstract class EffectImpl[+Event, State] extends j.Effect[Event, State] with EffectImpl[Event, State] {
+private[akka] abstract class EffectImpl[+Event, State] extends javadsl.Effect[Event, State] with scaladsl.Effect[Event, State] {
   /* All events that will be persisted in this effect */
   override def events: im.Seq[Event] = Nil
 

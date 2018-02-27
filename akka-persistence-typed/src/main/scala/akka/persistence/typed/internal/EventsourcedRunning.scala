@@ -82,7 +82,7 @@ abstract class EventsourcedRunning[Command, Event, State](
 
     final override def onCommand(command: Command): Behavior[Any] = {
       val effect = commandHandler(commandContext, state, command)
-      applyEffects(command, effect)
+      applyEffects(command, effect.asInstanceOf[EffectImpl[E, S]]) // TODO can we avoid the cast?
     }
     final override def onJournalResponse(response: Response): Behavior[Any] = {
       // should not happen, what would it reply?
@@ -209,12 +209,15 @@ abstract class EventsourcedRunning[Command, Event, State](
     case SideEffect(callbacks) ⇒
       callbacks(state)
       same
+
+    case _ ⇒
+      throw new IllegalArgumentException(s"Not supported effect detected [${effect.getClass.getName}]!")
   }
 
   def applyEvent(s: S, event: E): S =
     eventHandler(s, event)
 
-  private def applyEffects(msg: Any, effect: Effect[E, S], sideEffects: immutable.Seq[ChainableEffect[_, S]] = Nil): Behavior[Any] = {
+  private def applyEffects(msg: Any, effect: EffectImpl[E, S], sideEffects: immutable.Seq[ChainableEffect[_, S]] = Nil): Behavior[Any] = {
     log.info(s"ApplyEffects: ${msg} => Effect: ${effect}")
 
     effect match {
