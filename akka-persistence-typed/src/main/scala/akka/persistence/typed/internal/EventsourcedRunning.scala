@@ -251,6 +251,7 @@ abstract class EventsourcedRunning[Command, Event, State](
         }
 
       case PersistAll(events) ⇒
+        log.info(s"PERSIST ALL: ${events}")
         if (events.nonEmpty) {
           // apply the event before persist so that validation exception is handled before persisting
           // the invalid event, in case such validation is implemented in the event handler.
@@ -278,13 +279,13 @@ abstract class EventsourcedRunning[Command, Event, State](
           }
         } else {
           // run side-effects even when no events are emitted
-          sideEffects.foreach(applySideEffect)
-          same
+          applySideEffects(sideEffects)
         }
+        tryUnstash(context, same)
 
       case e: PersistNothing.type @unchecked ⇒
-        applySideEffects(sideEffects)
-        tryUnstash(context, this) // FIXME where to unstash?
+        println(s"PERSIST NOTHING ===== ")
+        tryUnstash(context, applySideEffects(sideEffects))
 
       case _: Unhandled.type @unchecked ⇒
         applySideEffects(sideEffects)
