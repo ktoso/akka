@@ -55,7 +55,9 @@ private[akka] object EventsourcedBehavior {
 
 }
 
-trait EventsourcedBehavior[Command, Event, State] {
+/** INTERNAL API */
+@InternalApi
+private[akka] trait EventsourcedBehavior[Command, Event, State] {
   import EventsourcedBehavior._
   import akka.actor.typed.scaladsl.adapter._
 
