@@ -46,13 +46,8 @@ abstract class EventsourcedRecoveringSnapshot[Command, Event, State](
 
   // ----------
 
-  private var _lastSequenceNr: Long = 0L
-  def sequenceNr: Long = _lastSequenceNr
-  def lastSequenceNr: Long = sequenceNr
+  private var lastSequenceNr: Long = 0L
   def snapshotSequenceNr: Long = lastSequenceNr
-
-  private def setLastSequenceNr(value: Long): Unit =
-    _lastSequenceNr = value
 
   // ----------
 
@@ -95,7 +90,7 @@ abstract class EventsourcedRecoveringSnapshot[Command, Event, State](
 
         re match {
           case Success(seqNr) ⇒
-            setLastSequenceNr(seqNr)
+            lastSequenceNr = seqNr
             replayMessages(state, toSnr)
 
           case Failure(cause) ⇒

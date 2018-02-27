@@ -17,12 +17,12 @@ import akka.{ actor ⇒ a }
 import scala.util.control.NonFatal
 
 abstract class EventsourcedRecoveringEvents[Command, Event, State](
-  val context:                 ActorContext[Any],
-  val internalStash:           StashBuffer[Any],
-  val initialState:            State,
-  recovery:                    Recovery,
-  private var _lastSequenceNr: Long,
-  writerIdentity:              WriterIdentity
+  val context:                ActorContext[Any],
+  val internalStash:          StashBuffer[Any],
+  val initialState:           State,
+  recovery:                   Recovery,
+  private var lastSequenceNr: Long,
+  writerIdentity:             WriterIdentity
 ) extends MutableBehavior[Any]
   with EventsourcedBehavior[Command, Event, State]
   with EventsourcedStashManagement {
@@ -39,7 +39,7 @@ abstract class EventsourcedRecoveringEvents[Command, Event, State](
   replayEvents(lastSequenceNr + 1L, recovery.toSequenceNr)
   // ---- end of initialize ----
 
-  val commandContext: ActorContext[Command] = context.asInstanceOf[ActorContext[Command]]
+  private def commandContext: ActorContext[Command] = context.asInstanceOf[ActorContext[Command]]
 
   // ----------
 
@@ -47,14 +47,13 @@ abstract class EventsourcedRecoveringEvents[Command, Event, State](
 
   // ----------
 
-  def lastSequenceNr: Long = _lastSequenceNr
   def snapshotSequenceNr: Long = lastSequenceNr
 
   private def updateLastSequenceNr(persistent: PersistentRepr): Unit =
-    if (persistent.sequenceNr > _lastSequenceNr) _lastSequenceNr = persistent.sequenceNr
+    if (persistent.sequenceNr > lastSequenceNr) lastSequenceNr = persistent.sequenceNr
 
   private def setLastSequenceNr(value: Long): Unit =
-    _lastSequenceNr = value
+    lastSequenceNr = value
 
   // ----------
 
@@ -138,7 +137,7 @@ abstract class EventsourcedRecoveringEvents[Command, Event, State](
       recoveryCompleted(commandContext, state)
 
       val b = this
-      val running = new EventsourcedRunning[Command, Event, State](context, internalStash, _lastSequenceNr, writerIdentity) {
+      val running = new EventsourcedRunning[Command, Event, State](context, internalStash, lastSequenceNr, writerIdentity) {
         override def timers: TimerScheduler[Any] = b.timers
         override def persistenceId: String = b.persistenceId
         override def initialState: State = state
