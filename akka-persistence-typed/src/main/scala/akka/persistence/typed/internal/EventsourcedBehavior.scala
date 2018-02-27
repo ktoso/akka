@@ -41,16 +41,6 @@ private[akka] object EventsourcedBehavior {
   @InternalApi private[akka] final case class RecoveryTickEvent(snapshot: Boolean) extends EventsourcedProtocol
   @InternalApi private[akka] final case class ReceiveTimeout(timeout: akka.actor.ReceiveTimeout) extends EventsourcedProtocol
 
-  /** INTERNAL DSL */
-  private[akka] implicit class UnlessStopped[T](val b: Behavior[T]) extends AnyVal {
-    /** Returns `other` behavior if the wrapped one is `Stopped`. */
-    def unlessStopped(other: ⇒ Behavior[T]): Behavior[T] =
-      b match {
-        case _: StoppedBehavior[T @unchecked] ⇒ b // still the stopped one
-        case _                                ⇒ other
-      }
-  }
-
   implicit object PersistentBehaviorLogSource extends LogSource[EventsourcedBehavior[_, _, _]] {
     override def genString(b: EventsourcedBehavior[_, _, _]): String = {
       val behaviorShortName = b match {

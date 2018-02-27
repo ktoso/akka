@@ -222,11 +222,13 @@ abstract class EventsourcedRunning[Command, Event, State](
 
     effect match {
       case CompositeEffect(e, currentSideEffects) ⇒
-        applyEffects(msg, e, currentSideEffects ++ sideEffects) unlessStopped tryUnstash(context, this)
-      //      case CompositeEffect(effect, currentSideEffects) ⇒
-      //        applyEffects(msg, effect, currentSideEffects ++ sideEffects) // "unwrap" & recur
-      //      case CompositeEffect(_, currentSideEffects) ⇒
-      //        applySideEffects(currentSideEffects ++ sideEffects) unlessStopped tryUnstash(context, this)
+        // unwrap and accumulate effects
+        applyEffects(msg, e, currentSideEffects ++ sideEffects)
+      // tryUnstash(context, this) // FIXME where to unstash
+
+      //            case CompositeEffect(effect, currentSideEffects) ⇒
+      //              applyEffects(msg, effect, currentSideEffects ++ sideEffects) // "unwrap" & recur
+      //            case CompositeEffect(_, currentSideEffects) ⇒
 
       case Persist(event) ⇒
         // apply the event before persist so that validation exception is handled before persisting
@@ -280,11 +282,12 @@ abstract class EventsourcedRunning[Command, Event, State](
           same
         }
 
-      case _: PersistNothing.type @unchecked ⇒
-        // ignore, no effects to apply
-        same
+      case e: PersistNothing.type @unchecked ⇒
+        applySideEffects(sideEffects)
+        tryUnstash(context, this) // FIXME where to unstash?
 
       case _: Unhandled.type @unchecked ⇒
+        applySideEffects(sideEffects)
         Behavior.unhandled
 
       case c: ChainableEffect[_, S] ⇒

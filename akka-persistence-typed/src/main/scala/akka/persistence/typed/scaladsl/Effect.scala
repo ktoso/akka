@@ -49,7 +49,7 @@ object Effect {
   /**
    * Stop this persistent actor
    */
-  def stop[Event, State]: ChainableEffect[Event, State] = Behaviors.stopped.asInstanceOf[ChainableEffect[Event, State]]
+  def stop[Event, State]: ChainableEffect[Event, State] = Stop.asInstanceOf[ChainableEffect[Event, State]]
 }
 
 /**

@@ -40,6 +40,8 @@ private[akka] final case class CompositeEffect[Event, State](
 
   override def sideEffects[E >: Event]: im.Seq[ChainableEffect[E, State]] = _sideEffects.asInstanceOf[im.Seq[ChainableEffect[E, State]]]
 
+  override def toString: String =
+    s"CompositeEffect($persistingEffect, sideEffects: ${_sideEffects.size})"
 }
 
 /** INTERNAL API */
