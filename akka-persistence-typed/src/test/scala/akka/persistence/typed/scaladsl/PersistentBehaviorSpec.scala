@@ -133,9 +133,11 @@ object PersistentBehaviorSpec {
               loggingActor ! firstLogging
             }
         case LogThenStop ⇒
-          Effect.none.andThen {
-            loggingActor ! firstLogging
-          }.andThenStop
+          Effect.none
+            .andThen {
+              loggingActor ! firstLogging
+            }
+            .andThenStop
       },
       eventHandler = (state, evt) ⇒ evt match {
         case Incremented(delta) ⇒
@@ -155,7 +157,7 @@ class PersistentBehaviorSpec extends ActorTestKit with TypedAkkaSpecWithShutdown
 
   "A typed persistent actor" must {
 
-    "xoxo persist an event" in {
+    "persist an event" in {
       val c = spawn(counter("c1"))
 
       val probe = TestProbe[State]
@@ -259,7 +261,7 @@ class PersistentBehaviorSpec extends ActorTestKit with TypedAkkaSpecWithShutdown
       probe.expectMessage(State(1, Vector(0)))
     }
 
-    "stop after persisting" in {
+    "stop after logging (no persisting)" in {
       val loggingProbe = TestProbe[String]
       val c: ActorRef[Command] = spawn(counter("c8", loggingProbe.ref))
       val watchProbe = watcher(c)
