@@ -33,7 +33,7 @@ private[akka] object EventsourcedBehavior {
   }
   @InternalApi private[akka] final case class WriterIdentity(instanceId: Int, writerUuid: String)
 
-  /** INTERNAL API: Protocol used internally by the eventsourced behaviors, ever exposed to user-land */
+  /** INTERNAL API: Protocol used internally by the eventsourced behaviors, never exposed to user-land */
   @InternalApi private[akka] sealed trait EventsourcedProtocol
   @InternalApi private[akka] case object RecoveryPermitGranted extends EventsourcedProtocol
   @InternalApi private[akka] final case class JournalResponse(msg: akka.persistence.JournalProtocol.Response) extends EventsourcedProtocol
