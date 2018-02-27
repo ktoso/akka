@@ -13,8 +13,6 @@ import akka.persistence.JournalProtocol._
 import akka.persistence._
 import akka.persistence.journal.Tagged
 import akka.persistence.typed.internal.EventsourcedBehavior.WriterIdentity
-import akka.persistence.typed.scaladsl.PersistentBehaviors._
-import akka.{ actor ⇒ a }
 
 import scala.annotation.tailrec
 import scala.collection.immutable
@@ -28,7 +26,6 @@ abstract class EventsourcedRunning[Command, Event, State](
   with EventsourcedBehavior[Command, Event, State]
   with EventsourcedStashManagement { same ⇒
 
-  import Behaviors.same
   import EventsourcedBehavior._
   import akka.actor.typed.scaladsl.adapter._
 
@@ -217,18 +214,11 @@ abstract class EventsourcedRunning[Command, Event, State](
   def applyEvent(s: S, event: E): S =
     eventHandler(s, event)
 
-  private def applyEffects(msg: Any, effect: EffectImpl[E, S], sideEffects: immutable.Seq[ChainableEffect[_, S]] = Nil): Behavior[Any] = {
-    log.info(s"ApplyEffects: ${msg} => Effect: ${effect}")
-
+  @tailrec private def applyEffects(msg: Any, effect: EffectImpl[E, S], sideEffects: immutable.Seq[ChainableEffect[_, S]] = Nil): Behavior[Any] = {
     effect match {
       case CompositeEffect(e, currentSideEffects) ⇒
         // unwrap and accumulate effects
         applyEffects(msg, e, currentSideEffects ++ sideEffects)
-      // tryUnstash(context, this) // FIXME where to unstash
-
-      //            case CompositeEffect(effect, currentSideEffects) ⇒
-      //              applyEffects(msg, effect, currentSideEffects ++ sideEffects) // "unwrap" & recur
-      //            case CompositeEffect(_, currentSideEffects) ⇒
 
       case Persist(event) ⇒
         // apply the event before persist so that validation exception is handled before persisting
@@ -238,20 +228,14 @@ abstract class EventsourcedRunning[Command, Event, State](
         val tags = tagger(event)
         val eventToPersist = if (tags.isEmpty) event else Tagged(event, tags)
 
-        log.info(s" >>>> [${context.self.path.name}] in Persist($event) @ ${lastSequenceNr}")
-
         internalPersist(eventToPersist) { _ ⇒
           applySideEffects(sideEffects)
 
-          log.info(s" >>>> [${context.self.path.name}] in Persist($event) CALLBACK @ ${lastSequenceNr}")
-
-          log.info(s"persist callback [${context.self.path.name}] == seqNr=${lastSequenceNr} => ${snapshotWhen(state, event, lastSequenceNr)}")
           if (snapshotWhen(state, event, lastSequenceNr))
             internalSaveSnapshot(state)
         }
 
       case PersistAll(events) ⇒
-        log.info(s"PERSIST ALL: ${events}")
         if (events.nonEmpty) {
           // apply the event before persist so that validation exception is handled before persisting
           // the invalid event, in case such validation is implemented in the event handler.
@@ -284,7 +268,6 @@ abstract class EventsourcedRunning[Command, Event, State](
         tryUnstash(context, same)
 
       case e: PersistNothing.type @unchecked ⇒
-        println(s"PERSIST NOTHING ===== ")
         tryUnstash(context, applySideEffects(sideEffects))
 
       case _: Unhandled.type @unchecked ⇒
@@ -294,10 +277,6 @@ abstract class EventsourcedRunning[Command, Event, State](
       case c: ChainableEffect[_, S] ⇒
         applySideEffect(c)
     }
-  }
-
-  private def shouldNotHappen(): Behavior[Any] = {
-    throw new RuntimeException("Received message which should not happen in Running state!")
   }
 
   private def popApplyHandler(payload: Any): Unit =
@@ -324,20 +303,18 @@ abstract class EventsourcedRunning[Command, Event, State](
   }
 
   private def becomePersistingEvents(): Behavior[Any] = {
-    log.info(" >>>> becomePersistingEvents <<<<")
-    require(phase != PersistingEvents, "Attempted to become PersistingEvents while already in this phase! Logic error?")
+    if (phase == PersistingEvents) throw new IllegalArgumentException(
+      "Attempted to become PersistingEvents while already in this phase! Logic error?")
 
     phase = PersistingEvents
     same
   }
   private def tryBecomeHandlingCommands(): Behavior[Any] = {
-    require(phase != HandlingCommands, "Attempted to become HandlingCommands while already in this phase! Logic error?")
+    if (phase == HandlingCommands) throw new IllegalArgumentException(
+      "Attempted to become HandlingCommands while already in this phase! Logic error?")
 
     if (hasNoPendingInvocations) {
-      log.info(s" >>>> becomeHandlingCommands YES <<<<")
       phase = HandlingCommands
-    } else {
-      log.info(s" >>>> becomeHandlingCommands NOPE -- pending invocations: ${pendingInvocations.size()} <<<<")
     }
 
     same

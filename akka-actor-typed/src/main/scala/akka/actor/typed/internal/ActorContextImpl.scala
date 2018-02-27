@@ -18,9 +18,7 @@ import scala.util.Try
 
 import akka.annotation.InternalApi
 import akka.util.OptionVal
-import akka.event.LoggingAdapter
 import akka.util.Timeout
-import akka.{ actor ⇒ a }
 
 /**
  * INTERNAL API
