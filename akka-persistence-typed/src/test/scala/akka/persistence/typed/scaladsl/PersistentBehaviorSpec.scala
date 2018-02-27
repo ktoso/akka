@@ -11,7 +11,7 @@ import akka.persistence.typed.scaladsl.PersistentBehaviors._
 import akka.persistence.{ SelectedSnapshot, SnapshotMetadata, SnapshotSelectionCriteria }
 import akka.testkit.typed.TestKitSettings
 import akka.testkit.typed.scaladsl._
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{ Config, ConfigFactory }
 import org.scalatest.concurrent.Eventually
 
 import scala.concurrent.Future
@@ -146,9 +146,10 @@ object PersistentBehaviorSpec {
 
 }
 
-class PersistentBehaviorSpec extends TestKit(PersistentBehaviorSpec.config) with Eventually with TypedAkkaSpecWithShutdown {
-
+class PersistentBehaviorSpec extends ActorTestKit with TypedAkkaSpecWithShutdown with Eventually {
   import PersistentBehaviorSpec._
+
+  override def config: Config = PersistentBehaviorSpec.config
 
   implicit val testSettings = TestKitSettings(system)
 
