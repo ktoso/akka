@@ -19,7 +19,7 @@ import scala.util.control.NonFatal
 
 /** INTERNAL API */
 @InternalApi
-private[akka] object Eventsourced {
+private[persistence] object Eventsourced {
   // ok to wrap around (2*Int.MaxValue restarts will not happen within a journal roundtrip)
   private[akka] val instanceIdCounter = new AtomicInteger(1)
 

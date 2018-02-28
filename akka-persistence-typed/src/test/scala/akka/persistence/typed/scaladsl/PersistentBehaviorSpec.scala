@@ -42,10 +42,14 @@ object PersistentBehaviorSpec {
     akka.persistence.snapshot-store.inmem.class = "akka.persistence.typed.scaladsl.PersistentBehaviorSpec$$InMemorySnapshotStore"
     akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
     akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.inmem"
+
+    akka.persistence.typed.log-stashing = INFO
     """)
 
   sealed trait Command
   final case object Increment extends Command
+  final case object IncrementThenLogThenStop extends Command
+  final case object IncrementTwiceThenLogThenStop extends Command
   final case class IncrementWithPersistAll(nr: Int) extends Command
   final case object IncrementLater extends Command
   final case object IncrementAfterReceiveTimeout extends Command
@@ -86,11 +90,28 @@ object PersistentBehaviorSpec {
       commandHandler = (ctx, state, cmd) ⇒ cmd match {
         case Increment ⇒
           Effect.persist(Incremented(1))
+
+        case IncrementThenLogThenStop ⇒
+          Effect.persist(Incremented(1))
+            .andThen {
+              loggingActor ! firstLogging
+            }
+            .andThenStop
+
+        case IncrementTwiceThenLogThenStop ⇒
+          Effect.persist(Incremented(1), Incremented(2))
+            .andThen {
+              loggingActor ! firstLogging
+            }
+            .andThenStop
+
         case IncrementWithPersistAll(n) ⇒
           Effect.persist((0 until n).map(_ ⇒ Incremented(1)))
+
         case GetValue(replyTo) ⇒
           replyTo ! state
           Effect.none
+
         case IncrementLater ⇒
           // purpose is to test signals
           val delay = ctx.spawnAnonymous(Behaviors.withTimers[Tick.type] { timers ⇒
@@ -101,14 +122,18 @@ object PersistentBehaviorSpec {
           })
           ctx.watchWith(delay, DelayFinished)
           Effect.none
+
         case DelayFinished ⇒
           Effect.persist(Incremented(10))
+
         case IncrementAfterReceiveTimeout ⇒
           ctx.setReceiveTimeout(10.millis, Timeout)
           Effect.none
+
         case Timeout ⇒
           ctx.cancelReceiveTimeout()
           Effect.persist(Incremented(100))
+
         case IncrementTwiceAndThenLog ⇒
           Effect
             .persist(Incremented(1), Incremented(1))
@@ -132,6 +157,7 @@ object PersistentBehaviorSpec {
             .andThen {
               loggingActor ! firstLogging
             }
+
         case LogThenStop ⇒
           Effect.none
             .andThen {
@@ -225,6 +251,27 @@ class PersistentBehaviorSpec extends ActorTestKit with TypedAkkaSpecWithShutdown
 
       loggingProbe.expectMessage(firstLogging)
       loggingProbe.expectMessage(secondLogging)
+    }
+
+    "persist then stop" in {
+      val loggingProbe = TestProbe[String]
+      val c = spawn(counter("c5a", loggingProbe.ref))
+      val watchProbe = watcher(c)
+
+      c ! IncrementThenLogThenStop
+      loggingProbe.expectMessage(firstLogging)
+      watchProbe.expectMessage("Terminated")
+    }
+
+    "persist(All) then stop" in {
+      val loggingProbe = TestProbe[String]
+      val c = spawn(counter("c5b", loggingProbe.ref))
+      val watchProbe = watcher(c)
+
+      c ! IncrementTwiceThenLogThenStop
+      loggingProbe.expectMessage(firstLogging)
+      watchProbe.expectMessage("Terminated")
+
     }
 
     /** Proves that side-effects are called when emitting an empty list of events */

@@ -22,12 +22,8 @@ private[akka] abstract class EffectImpl[+Event, State] extends javadsl.Effect[Ev
 /** INTERNAL API */
 @InternalApi
 private[akka] object CompositeEffect {
-  def apply[Event, State](effect: EffectImpl[Event, State], sideEffects: ChainableEffect[Event, State]): EffectImpl[Event, State] = {
-    CompositeEffect[Event, State](
-      effect,
-      sideEffects :: Nil
-    )
-  }
+  def apply[Event, State](effect: EffectImpl[Event, State], sideEffects: ChainableEffect[Event, State]): EffectImpl[Event, State] =
+    CompositeEffect[Event, State](effect, sideEffects :: Nil)
 }
 
 /** INTERNAL API */

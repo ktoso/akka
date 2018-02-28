@@ -5,7 +5,7 @@ package akka.persistence.typed.internal
 
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors.MutableBehavior
-import akka.actor.typed.scaladsl.{ ActorContext, StashBuffer }
+import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, StashBuffer }
 import akka.event.Logging
 import akka.persistence._
 import akka.persistence.typed.internal.EventsourcedBehavior.WriterIdentity
@@ -66,7 +66,8 @@ abstract class EventsourcedRequestingRecoveryPermit[Command, Event, State](val c
         becomeRecovering()
 
       case other ⇒
-        stash(other, same)
+        stash(other)
+        Behaviors.same
     }
   }
 
