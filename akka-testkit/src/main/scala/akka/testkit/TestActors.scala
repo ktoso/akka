@@ -3,7 +3,7 @@
  */
 package akka.testkit
 
-import akka.actor.{ Actor, ActorLogging, ActorRef, Props }
+import akka.actor.{ Props, Actor, ActorRef }
 
 /**
  * A collection of common actor patterns used in tests.
@@ -13,7 +13,7 @@ object TestActors {
   /**
    * EchoActor sends back received messages (unmodified).
    */
-  class EchoActor extends Actor with ActorLogging {
+  class EchoActor extends Actor {
     override def receive = {
       case message ⇒ sender() ! message
     }

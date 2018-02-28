@@ -157,19 +157,14 @@ object Behavior {
     override def toString = "Unhandled"
   }
 
-  /** INTERNAL API */
+  /**
+   * INTERNAL API
+   * Used to create untyped props from behaviours, or directly returning an untyped props that implements this behavior.
+   */
   @InternalApi
-  private[akka] abstract class UntypedBehavior[T] extends Behavior[T] {
+  private[akka] abstract class UntypedPropsBehavior[T] extends Behavior[T] {
     /** INTERNAL API */
-    @InternalApi private[akka] def untypedProps: akka.actor.Props
-  }
-
-  // FIXME not final solution I guess
-  /** INTERNAL API: Used to bridge Behaviors between Java DSL and Scala DSL, where one of the sides is the implementation */
-  @InternalApi
-  private[akka] abstract class DelegatingBehavior[T] extends Behavior[T] {
-    /** INTERNAL API */
-    @InternalApi private[akka] def delegate: Behavior[T]
+    @InternalApi private[akka] def untypedProps(props: Props): akka.actor.Props
   }
 
   /**
@@ -313,10 +308,7 @@ object Behavior {
       case null ⇒ throw new InvalidMessageException("[null] is not an allowed message")
       case SameBehavior | UnhandledBehavior ⇒
         throw new IllegalArgumentException(s"cannot execute with [$behavior] as behavior")
-      case _: UntypedBehavior[_] ⇒
-        throw new IllegalArgumentException(s"cannot wrap behavior [$behavior] in " +
-          "Behaviors.setup, Behaviors.supervise or similar")
-      case _: DelegatingBehavior[_] ⇒
+      case _: UntypedPropsBehavior[_] ⇒
         throw new IllegalArgumentException(s"cannot wrap behavior [$behavior] in " +
           "Behaviors.setup, Behaviors.supervise or similar")
       case d: DeferredBehavior[_] ⇒ throw new IllegalArgumentException(s"deferred [$d] should not be passed to interpreter")

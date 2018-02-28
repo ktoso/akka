@@ -5,24 +5,42 @@ package akka.persistence.typed.internal
 
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors.MutableBehavior
-import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, StashBuffer }
+import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, StashBuffer, TimerScheduler }
+import akka.annotation.InternalApi
 import akka.event.Logging
 import akka.persistence._
 import akka.persistence.typed.internal.EventsourcedBehavior.WriterIdentity
-import akka.{ actor ⇒ a }
+import akka.persistence.typed.scaladsl.PersistentBehaviors.CommandHandler
 
-abstract class EventsourcedRequestingRecoveryPermit[Command, Event, State](val context: ActorContext[Any])
-  extends MutableBehavior[Any]
+/** INTERNAL API */
+@InternalApi
+private[akka] class EventsourcedRequestingRecoveryPermit[Command, Event, State](
+  override val context:  ActorContext[Any],
+  override val timers:   TimerScheduler[Any],
+  val persistenceId:     String,
+  val initialState:      State,
+  val commandHandler:    CommandHandler[Command, Event, State],
+  val eventHandler:      (State, Event) ⇒ State,
+  val recoveryCompleted: (ActorContext[Command], State) ⇒ Unit,
+  val tagger:            Event ⇒ Set[String],
+  val journalPluginId:   String,
+  val snapshotPluginId:  String,
+  val snapshotWhen:      (State, Event, Long) ⇒ Boolean,
+  val recovery:          Recovery
+) extends MutableBehavior[Any]
   with EventsourcedBehavior[Command, Event, State]
   with EventsourcedStashManagement {
 
-  import Behavior.same
   import akka.actor.typed.scaladsl.adapter._
 
   // has to be lazy, since we want to obtain the persistenceId
   protected lazy val log = Logging(context.system.toUntyped, this)
 
-  override protected val internalStash = StashBuffer[Any](32) // FIXME what size?
+  override protected val internalStash: StashBuffer[Any] = {
+    val stashSize = context.system.settings.config
+      .getInt("akka.persistence.typed.stash-buffer-size")
+    StashBuffer[Any](stashSize)
+  }
 
   // --- initialization ---
   // only once we have a permit, we can become active:
@@ -35,9 +53,6 @@ abstract class EventsourcedRequestingRecoveryPermit[Command, Event, State](val c
   // ----------
 
   def becomeRecovering(): Behavior[Any] = {
-    // FIXME configurable? mostly for "skip snapshot", we don't want to allow partial replays I think
-    val recovery = Recovery()
-
     log.info(s"[{}][{}] Becoming recovering SNAPSHOT: {}", persistenceId, context.self.path.name, recovery)
     val b = this
     new EventsourcedRecoveringSnapshot[Command, Event, State](context, internalStash, recovery, writerIdentity) {
@@ -52,7 +67,7 @@ abstract class EventsourcedRequestingRecoveryPermit[Command, Event, State](val c
       override def tagger = b.tagger
       override def journalPluginId = b.journalPluginId
       override def snapshotPluginId = b.snapshotPluginId
-    }.asInstanceOf[Behavior[Any]]
+    }
   }
 
   // ----------
