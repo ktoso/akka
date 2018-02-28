@@ -147,6 +147,16 @@ final class PersistentBehavior[Command, Event, State](
     copy(snapshotWhen = (_, _, seqNr) ⇒ seqNr % numberOfEvents == 0)
   }
 
+  def withPersistencePluginId(id: String): PersistentBehavior[Command, Event, State] = {
+    require(id != null, "persistence plugin id must not be null; use empty string for 'default' journal")
+    copy(journalPluginId = id)
+  }
+
+  def withSnapshotPluginId(id: String): PersistentBehavior[Command, Event, State] = {
+    require(id != null, "snapshot plugin id must not be null; use empty string for 'default' snapshot store")
+    copy(snapshotPluginId = id)
+  }
+
   /**
    * The `tagger` function should give event tags, which will be used in persistence query
    */

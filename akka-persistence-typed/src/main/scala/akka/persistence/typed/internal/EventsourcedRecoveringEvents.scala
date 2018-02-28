@@ -69,7 +69,8 @@ abstract class EventsourcedRecoveringEvents[Command, Event, State](
 
   def onCommand(cmd: Command): Behavior[Any] = {
     // during recovery, stash all incoming commands
-    stash(cmd, same)
+    stash(cmd)
+    same
   }
 
   def onJournalResponse(response: JournalProtocol.Response): Behavior[Any] = try {
@@ -94,7 +95,8 @@ abstract class EventsourcedRecoveringEvents[Command, Event, State](
         onRecoveryFailure(cause, event = None)
 
       case other ⇒
-        stash(other, same)
+        stash(other)
+        Behaviors.same
     }
   } catch {
     case NonFatal(e) ⇒
@@ -104,7 +106,7 @@ abstract class EventsourcedRecoveringEvents[Command, Event, State](
 
   def onSnapshotterResponse(response: SnapshotProtocol.Response): Behavior[Any] = {
     log.warning("Unexpected [{}] from SnapshotStore, already in recovering events state.", Logging.simpleName(response))
-    same // ignore
+    Behaviors.same // ignore the response
   }
 
   /**

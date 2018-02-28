@@ -62,7 +62,8 @@ abstract class EventsourcedRecoveringSnapshot[Command, Event, State](
 
   def onCommand(cmd: Command): Behavior[Any] = {
     // during recovery, stash all incoming commands
-    stash(cmd, Behavior.same)
+    stash(cmd)
+    Behavior.same
   }
 
   def onJournalResponse(response: JournalProtocol.Response): Behavior[Any] = try {
@@ -105,7 +106,8 @@ abstract class EventsourcedRecoveringSnapshot[Command, Event, State](
         onRecoveryFailure(cause, event = None)
 
       case other ⇒
-        stash(other, same)
+        stash(other)
+        same
     }
   } catch {
     case NonFatal(cause) ⇒
