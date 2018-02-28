@@ -40,10 +40,6 @@ abstract class EventsourcedRunning[Command, Event, State](
   // Holds callbacks for persist calls (note that we do not implement persistAsync currently)
   private def hasNoPendingInvocations: Boolean = pendingInvocations.isEmpty
   private val pendingInvocations = new java.util.LinkedList[PendingHandlerInvocation]() // we only append / isEmpty / get(0) on it
-  private var eventBatch: List[PersistentEnvelope] = Nil
-
-  private var journalBatch = Vector.empty[PersistentEnvelope]
-  private var writeInProgress = false
 
   // ----------
 
@@ -130,11 +126,11 @@ abstract class EventsourcedRunning[Command, Event, State](
           } else same
 
         case WriteMessagesSuccessful ⇒
-          writeInProgress = false
-          flushJournalBatch()
+          // ignore
+          same
 
         case WriteMessagesFailed(_) ⇒
-          writeInProgress = false
+          // ignore
           same // it will be stopped by the first WriteMessageFailure message; not applying side effects
 
         case _: LoopMessageSuccess ⇒
@@ -282,27 +278,7 @@ abstract class EventsourcedRunning[Command, Event, State](
   }
 
   private def popApplyHandler(payload: Any): Unit =
-    try pendingInvocations.pop().handler(payload)
-    finally flushBatch()
-
-  private def flushBatch() {
-    if (eventBatch.nonEmpty) {
-      journalBatch ++= eventBatch.reverse
-      eventBatch = Nil
-    }
-
-    flushJournalBatch()
-  }
-
-  private def flushJournalBatch(): Behavior[Any] = {
-    if (!writeInProgress && journalBatch.nonEmpty) {
-      journal ! WriteMessages(journalBatch, selfUntypedAdapted, writerIdentity.instanceId) // TODO maybe we don't need the adapting...
-      journalBatch = Vector.empty
-      writeInProgress = true
-    }
-
-    same
-  }
+    pendingInvocations.pop().handler(payload)
 
   private def becomePersistingEvents(sideEffects: immutable.Seq[ChainableEffect[_, S]]): Behavior[Any] = {
     if (phase.isInstanceOf[PersistingEvents]) throw new IllegalArgumentException(
@@ -336,9 +312,8 @@ abstract class EventsourcedRunning[Command, Event, State](
     val senderNotKnownBecauseAkkaTyped = null
     val repr = PersistentRepr(event, persistenceId = persistenceId, sequenceNr = nextSequenceNr(), writerUuid = writerIdentity.writerUuid, sender = senderNotKnownBecauseAkkaTyped)
 
-    eventBatch ::= AtomicWrite(repr) // batching not used, since no persistAsync
+    val eventBatch = AtomicWrite(repr) :: Nil // batching not used, since no persistAsync
     journal.tell(JournalProtocol.WriteMessages(eventBatch, selfUntypedAdapted, writerIdentity.instanceId), selfUntypedAdapted)
-    eventBatch = Nil
 
     becomePersistingEvents(sideEffects)
   }
@@ -350,12 +325,11 @@ abstract class EventsourcedRunning[Command, Event, State](
       events.foreach { event ⇒
         pendingInvocations addLast StashingHandlerInvocation(event, handler.asInstanceOf[Any ⇒ Unit])
       }
+
       val write = AtomicWrite(events.map(PersistentRepr.apply(_, persistenceId = persistenceId,
         sequenceNr = nextSequenceNr(), writerUuid = writerIdentity.writerUuid, sender = senderNotKnownBecauseAkkaTyped)))
 
-      eventBatch ::= write
-      journal.tell(JournalProtocol.WriteMessages(eventBatch, selfUntypedAdapted, writerIdentity.instanceId), selfUntypedAdapted)
-      eventBatch = Nil
+      journal.tell(JournalProtocol.WriteMessages(write :: Nil, selfUntypedAdapted, writerIdentity.instanceId), selfUntypedAdapted)
 
       becomePersistingEvents(sideEffects)
     } else same
