@@ -6,7 +6,7 @@ package internal
 package adapter
 
 import akka.actor.ExtendedActorSystem
-import akka.actor.typed.Behavior.{ DelegatingBehavior, UntypedBehavior }
+import akka.actor.typed.Behavior.UntypedPropsBehavior
 import akka.annotation.InternalApi
 import akka.util.OptionVal
 import akka.{ ConfigurationException, actor ⇒ a }
@@ -125,14 +125,9 @@ import scala.concurrent.duration._
 
   def spawnAnonymous[T](ctx: akka.actor.ActorContext, behavior: Behavior[T], props: Props): ActorRef[T] = {
     behavior match {
-      case b: UntypedBehavior[_] ⇒
+      case b: UntypedPropsBehavior[_] ⇒
         // TODO dispatcher from props
-        ActorRefAdapter(ctx.actorOf(b.untypedProps))
-
-      case b: DelegatingBehavior[_] ⇒
-        // FIXME likely we want to avoid the delegating one if possible?
-        // TODO dispatcher from props
-        ActorRefAdapter(ctx.actorOf(PropsAdapter(() ⇒ b.delegate, props)))
+        ActorRefAdapter(ctx.actorOf(b.untypedProps(props)))
 
       case _ ⇒
         try {
@@ -147,14 +142,9 @@ import scala.concurrent.duration._
 
   def spawn[T](ctx: akka.actor.ActorContext, behavior: Behavior[T], name: String, props: Props): ActorRef[T] = {
     behavior match {
-      case b: UntypedBehavior[_] ⇒
+      case b: UntypedPropsBehavior[_] ⇒
         // TODO dispatcher from props
-        ActorRefAdapter(ctx.actorOf(b.untypedProps, name))
-
-      case b: DelegatingBehavior[_] ⇒
-        // FIXME likely we want to avoid the delegating one if possible?
-        // TODO dispatcher from props
-        ActorRefAdapter(ctx.actorOf(PropsAdapter(() ⇒ b.delegate, props), name))
+        ActorRefAdapter(ctx.actorOf(b.untypedProps(props), name))
 
       case _ ⇒
         try {

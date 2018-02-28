@@ -5,26 +5,24 @@ package akka.persistence.typed.javadsl
 
 import java.util.Collections
 
-import akka.actor.Props
-import akka.actor.typed.Behavior
-import akka.actor.typed.Behavior.{ DelegatingBehavior, UntypedBehavior }
+import akka.actor.typed.Behavior.UntypedPropsBehavior
+import akka.actor.typed.internal.adapter.PropsAdapter
 import akka.actor.typed.javadsl.ActorContext
 import akka.annotation.{ ApiMayChange, InternalApi }
 import akka.persistence.typed._
 import akka.persistence.typed.internal._
-import akka.{ actor ⇒ untyped }
 
-import scala.collection.JavaConverters._
+/** Java API: Persistent Behaviour for */
+@ApiMayChange
+abstract class PersistentBehavior[Command, Event, State >: Null](val persistenceId: String) extends UntypedPropsBehavior[Command] {
 
-@ApiMayChange abstract class PersistentBehavior[Command, Event, State >: Null](val persistenceId: String) extends DelegatingBehavior[Command] {
+  protected def Effect: EffectFactories[Command, Event, State] = EffectFactory.asInstanceOf[EffectFactories[Command, Event, State]]
 
-  def Effect: EffectFactories[Command, Event, State] = EffectFactory.asInstanceOf[EffectFactories[Command, Event, State]]
+  protected def initialState: State
 
-  val initialState: State
+  protected def commandHandler(): CommandHandler[Command, Event, State]
 
-  def commandHandler(): CommandHandler[Command, Event, State]
-
-  def eventHandler(): EventHandler[Event, State]
+  protected def eventHandler(): EventHandler[Event, State]
 
   /**
    * @return A new, mutable, by state command handler builder
@@ -63,13 +61,17 @@ import scala.collection.JavaConverters._
    */
   def tagsFor(event: Event): java.util.Set[String] = Collections.emptySet()
 
-  // FIXME not final solution I guess
-  override def delegate: Behavior[Command] =
-    scaladsl.PersistentBehaviors.immutable[Command, Event, State](
+  /** INTERNAL API */
+  @InternalApi private[akka] override def untypedProps(props: akka.actor.typed.Props): akka.actor.Props = {
+    val behaviorImpl = scaladsl.PersistentBehaviors.immutable[Command, Event, State](
       persistenceId,
       initialState,
       (c, state, cmd) ⇒ commandHandler()(c.asJava, state, cmd).asInstanceOf[EffectImpl[Event, State]],
       eventHandler()(_, _)
     )
+
+    PropsAdapter(() ⇒ behaviorImpl, props)
+  }
+
 }
 

@@ -29,8 +29,6 @@ import scala.reflect.ClassTag
     scaladsl.Behaviors.setup[T](wrapWithTimers(factory))
   }
 
-  /** INTERNAL API */
-  @InternalApi
   def wrapWithTimers[T](factory: TimerSchedulerImpl[T] ⇒ Behavior[T])(ctx: ActorContext[T]): Behavior[T] = {
     val timerScheduler = new TimerSchedulerImpl[T](ctx)
     val behavior = factory(timerScheduler)

@@ -6,9 +6,9 @@ package akka.persistence.typed.scaladsl
 import akka.actor.typed.Behavior
 import akka.actor.typed.Behavior.DeferredBehavior
 import akka.actor.typed.internal.TimerSchedulerImpl
-import akka.{ actor ⇒ a }
-import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, TimerScheduler }
+import akka.actor.typed.scaladsl.{ ActorContext, TimerScheduler }
 import akka.annotation.{ DoNotInherit, InternalApi }
+import akka.persistence.{ Recovery, SnapshotSelectionCriteria }
 import akka.persistence.typed.internal._
 import akka.persistence.typed.scaladsl.PersistentBehaviors.CommandHandler
 import akka.util.ConstantFun
@@ -29,15 +29,16 @@ object PersistentBehaviors {
     commandHandler: (ActorContext[Command], State, Command) ⇒ Effect[Event, State],
     eventHandler:   (State, Event) ⇒ State): PersistentBehavior[Command, Event, State] =
     new PersistentBehavior(
-      persistenceId,
-      initialState,
-      commandHandler,
-      eventHandler,
-      recoveryCompleted = ConstantFun.scalaAnyTwoToUnit,
-      tagger = (_: Event) ⇒ Set.empty,
-      snapshotWhen = ConstantFun.scalaAnyThreeToFalse,
-      journalPluginId = "",
-      snapshotPluginId = ""
+      persistenceId = persistenceId,
+      initialState = initialState,
+      commandHandler = commandHandler,
+      eventHandler = eventHandler
+    //      ,
+    //      recoveryCompleted = ConstantFun.scalaAnyTwoToUnit,
+    //      tagger = (_: Event) ⇒ Set.empty,
+    //      snapshotWhen = ConstantFun.scalaAnyThreeToFalse,
+    //      journalPluginId = "",
+    //      snapshotPluginId = ""
     )
 
   /**
@@ -92,22 +93,25 @@ object PersistentBehaviors {
   }
 }
 
-final class PersistentBehavior[Command, Event, State](
-  _persistenceId:        String,
-  val initialState:      State,
-  val commandHandler:    PersistentBehaviors.CommandHandler[Command, Event, State],
-  val eventHandler:      (State, Event) ⇒ State,
+@DoNotInherit
+class PersistentBehavior[Command, Event, State] private (
+  val persistenceId:  String,
+  val initialState:   State,
+  val commandHandler: PersistentBehaviors.CommandHandler[Command, Event, State],
+  val eventHandler:   (State, Event) ⇒ State,
+
   val recoveryCompleted: (ActorContext[Command], State) ⇒ Unit,
   val tagger:            Event ⇒ Set[String],
   val journalPluginId:   String,
   val snapshotPluginId:  String,
-  val snapshotWhen:      (State, Event, Long) ⇒ Boolean
+  val snapshotWhen:      (State, Event, Long) ⇒ Boolean,
+  val recovery:          Recovery
 ) extends DeferredBehavior[Command](ctx ⇒
   TimerSchedulerImpl.wrapWithTimers[Command](timers ⇒
-    new InitialPersistentBehavior(
+    new EventsourcedRequestingRecoveryPermit(
       ctx.asInstanceOf[ActorContext[Any]], // sorry
       timers.asInstanceOf[TimerScheduler[Any]],
-      _persistenceId,
+      persistenceId,
       initialState,
       commandHandler,
       eventHandler,
@@ -115,10 +119,30 @@ final class PersistentBehavior[Command, Event, State](
       tagger,
       journalPluginId,
       snapshotPluginId,
-      snapshotWhen
-    ).asInstanceOf[Behavior[Command]] // FIXME this is nasty, but works since we adapt other things
+      snapshotWhen,
+      recovery
+    ).narrow[Command]
 
   )(ctx)) {
+
+  def this(
+    persistenceId:  String,
+    initialState:   State,
+    commandHandler: PersistentBehaviors.CommandHandler[Command, Event, State],
+    eventHandler:   (State, Event) ⇒ State) {
+    this(
+      persistenceId,
+      initialState,
+      commandHandler,
+      eventHandler,
+      recoveryCompleted = ConstantFun.scalaAnyTwoToUnit,
+      tagger = (_: Event) ⇒ Set.empty[String],
+      journalPluginId = "",
+      snapshotPluginId = "",
+      snapshotWhen = ConstantFun.scalaAnyThreeToFalse,
+      recovery = Recovery()
+    )
+  }
 
   /**
    * The `callback` function is called to notify the actor that the recovery process
@@ -147,14 +171,32 @@ final class PersistentBehavior[Command, Event, State](
     copy(snapshotWhen = (_, _, seqNr) ⇒ seqNr % numberOfEvents == 0)
   }
 
+  /**
+   * Change the journal plugin id that this actor should use.
+   */
   def withPersistencePluginId(id: String): PersistentBehavior[Command, Event, State] = {
     require(id != null, "persistence plugin id must not be null; use empty string for 'default' journal")
     copy(journalPluginId = id)
   }
 
+  /**
+   * Change the snapshot store plugin id that this actor should use.
+   */
   def withSnapshotPluginId(id: String): PersistentBehavior[Command, Event, State] = {
     require(id != null, "snapshot plugin id must not be null; use empty string for 'default' snapshot store")
     copy(snapshotPluginId = id)
+  }
+
+  /**
+   * Changes the snapshot selection criteria used by this behavior.
+   * By default the most recent snapshot is used, and the remaining state updates are recovered by replaying events
+   * from the sequence number up until which the snapshot reached.
+   *
+   * You may configure the behavior to skip recovering snapshots completely, in which case the recovery will be
+   * performed by replaying all events -- which may take a long time.
+   */
+  def withSnapshotSelectionCriteria(selection: SnapshotSelectionCriteria) = {
+    copy(recovery = Recovery(selection))
   }
 
   /**
@@ -171,9 +213,10 @@ final class PersistentBehavior[Command, Event, State](
     tagger:            Event ⇒ Set[String]                   = tagger,
     snapshotWhen:      (State, Event, Long) ⇒ Boolean        = snapshotWhen,
     journalPluginId:   String                                = journalPluginId,
-    snapshotPluginId:  String                                = snapshotPluginId): PersistentBehavior[Command, Event, State] =
+    snapshotPluginId:  String                                = snapshotPluginId,
+    recovery:          Recovery                              = recovery): PersistentBehavior[Command, Event, State] =
     new PersistentBehavior[Command, Event, State](
-      _persistenceId = _persistenceId,
+      persistenceId = persistenceId,
       initialState = initialState,
       commandHandler = commandHandler,
       eventHandler = eventHandler,
@@ -181,21 +224,8 @@ final class PersistentBehavior[Command, Event, State](
       tagger = tagger,
       journalPluginId = journalPluginId,
       snapshotPluginId = snapshotPluginId,
-      snapshotWhen = snapshotWhen)
+      snapshotWhen = snapshotWhen,
+      recovery = recovery)
 
 }
 
-// this is only convenience as it's a pain to create the abstract one directly in the immutable factory method
-final class InitialPersistentBehavior[Command, Event, State](
-  override val context:  ActorContext[Any],
-  override val timers:   TimerScheduler[Any],
-  val persistenceId:     String,
-  val initialState:      State,
-  val commandHandler:    PersistentBehaviors.CommandHandler[Command, Event, State],
-  val eventHandler:      (State, Event) ⇒ State,
-  val recoveryCompleted: (ActorContext[Command], State) ⇒ Unit,
-  val tagger:            Event ⇒ Set[String],
-  val journalPluginId:   String,
-  val snapshotPluginId:  String,
-  val snapshotWhen:      (State, Event, Long) ⇒ Boolean
-) extends EventsourcedRequestingRecoveryPermit[Command, Event, State](context)

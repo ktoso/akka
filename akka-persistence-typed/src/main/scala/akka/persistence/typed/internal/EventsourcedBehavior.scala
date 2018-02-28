@@ -31,22 +31,22 @@ private[akka] object EventsourcedBehavior {
       WriterIdentity(instanceId, writerUuid)
     }
   }
-  @InternalApi private[akka] final case class WriterIdentity(instanceId: Int, writerUuid: String)
+  private[akka] final case class WriterIdentity(instanceId: Int, writerUuid: String)
 
-  /** INTERNAL API: Protocol used internally by the eventsourced behaviors, never exposed to user-land */
-  @InternalApi private[akka] sealed trait EventsourcedProtocol
-  @InternalApi private[akka] case object RecoveryPermitGranted extends EventsourcedProtocol
-  @InternalApi private[akka] final case class JournalResponse(msg: akka.persistence.JournalProtocol.Response) extends EventsourcedProtocol
-  @InternalApi private[akka] final case class SnapshotterResponse(msg: akka.persistence.SnapshotProtocol.Response) extends EventsourcedProtocol
-  @InternalApi private[akka] final case class RecoveryTickEvent(snapshot: Boolean) extends EventsourcedProtocol
-  @InternalApi private[akka] final case class ReceiveTimeout(timeout: akka.actor.ReceiveTimeout) extends EventsourcedProtocol
+  /** Protocol used internally by the eventsourced behaviors, never exposed to user-land */
+  private[akka] sealed trait EventsourcedProtocol
+  private[akka] case object RecoveryPermitGranted extends EventsourcedProtocol
+  private[akka] final case class JournalResponse(msg: akka.persistence.JournalProtocol.Response) extends EventsourcedProtocol
+  private[akka] final case class SnapshotterResponse(msg: akka.persistence.SnapshotProtocol.Response) extends EventsourcedProtocol
+  private[akka] final case class RecoveryTickEvent(snapshot: Boolean) extends EventsourcedProtocol
+  private[akka] final case class ReceiveTimeout(timeout: akka.actor.ReceiveTimeout) extends EventsourcedProtocol
 
   implicit object PersistentBehaviorLogSource extends LogSource[EventsourcedBehavior[_, _, _]] {
     override def genString(b: EventsourcedBehavior[_, _, _]): String = {
       val behaviorShortName = b match {
         case _: EventsourcedRunning[_, _, _]                  ⇒ "running"
-        case _: EventsourcedRecoveringEvents[_, _, _]         ⇒ "recover-evts"
-        case _: EventsourcedRecoveringSnapshot[_, _, _]       ⇒ "recover-snap"
+        case _: EventsourcedRecoveringEvents[_, _, _]         ⇒ "recover-events"
+        case _: EventsourcedRecoveringSnapshot[_, _, _]       ⇒ "recover-snapshot"
         case _: EventsourcedRequestingRecoveryPermit[_, _, _] ⇒ "awaiting-permit"
       }
       s"PersistentBehavior[id:${b.persistenceId}][${b.context.self.path}][$behaviorShortName]"

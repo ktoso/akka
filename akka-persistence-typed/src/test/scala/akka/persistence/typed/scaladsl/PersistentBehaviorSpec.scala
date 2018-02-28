@@ -39,11 +39,12 @@ object PersistentBehaviorSpec {
   val config = ConfigFactory.parseString(
     s"""
     akka.loglevel = INFO
+    # akka.persistence.typed.log-stashing = INFO
+
     akka.persistence.snapshot-store.inmem.class = "akka.persistence.typed.scaladsl.PersistentBehaviorSpec$$InMemorySnapshotStore"
     akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
     akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.inmem"
 
-    akka.persistence.typed.log-stashing = INFO
     """)
 
   sealed trait Command
