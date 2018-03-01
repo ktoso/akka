@@ -46,7 +46,7 @@ private[akka] object EventsourcedBehavior {
       val behaviorShortName = b match {
         case _: EventsourcedRunning[_, _, _]                  ⇒ "running"
         case _: EventsourcedRecoveringEvents[_, _, _]         ⇒ "recover-events"
-        case _: EventsourcedRecoveringSnapshot[_, _, _]       ⇒ "recover-snapshot"
+        case _: EventsourcedRecoveringSnapshot[_, _, _]       ⇒ "recover-snap"
         case _: EventsourcedRequestingRecoveryPermit[_, _, _] ⇒ "awaiting-permit"
       }
       s"PersistentBehavior[id:${b.persistenceId}][${b.context.self.path}][$behaviorShortName]"
@@ -61,8 +61,8 @@ private[akka] trait EventsourcedBehavior[Command, Event, State] {
   import EventsourcedBehavior._
   import akka.actor.typed.scaladsl.adapter._
 
-  def context: ActorContext[Any]
-  def timers: TimerScheduler[Any]
+  protected def context: ActorContext[Any]
+  protected def timers: TimerScheduler[Any]
 
   type C = Command
   type AC = ActorContext[C]
@@ -72,28 +72,24 @@ private[akka] trait EventsourcedBehavior[Command, Event, State] {
   // used for signaling intent in type signatures
   type SeqNr = Long
 
-  // FIXME make this not even visible in the state that is "running", we'll never call it there again
   def persistenceId: String
 
-  def initialState: State
-  def commandHandler: PersistentBehaviors.CommandHandler[Command, Event, State]
-  def eventHandler: (State, Event) ⇒ State
+  protected def callbacks: EventsourcedCallbacks[Command, Event, State]
+  protected def initialState: State = callbacks.initialState
+  protected def commandHandler: PersistentBehaviors.CommandHandler[Command, Event, State] = callbacks.commandHandler
+  protected def eventHandler: (State, Event) ⇒ State = callbacks.eventHandler
+  protected def snapshotWhen: (State, Event, SeqNr) ⇒ Boolean = callbacks.snapshotWhen
+  protected def tagger: Event ⇒ Set[String] = callbacks.tagger
 
-  // FIXME make this not even visible in the state that is "running", we'll never call it there again
-  def recoveryCompleted: (ActorContext[Command], State) ⇒ Unit
-  def snapshotWhen: (State, Event, SeqNr) ⇒ Boolean
-
-  def tagger: Event ⇒ Set[String]
-  def journalPluginId: String
-  def snapshotPluginId: String
+  protected def pluginIds: EventsourcedPluginIds
+  protected final def journalPluginId: String = pluginIds.journalPluginId
+  protected final def snapshotPluginId: String = pluginIds.snapshotPluginId
 
   // ------ common -------
 
-  // FIXME make all things protected
-
-  lazy val extension = Persistence(context.system.toUntyped)
-  lazy val journal: a.ActorRef = extension.journalFor(journalPluginId)
-  lazy val snapshotStore: a.ActorRef = extension.snapshotStoreFor(snapshotPluginId)
+  protected lazy val extension = Persistence(context.system.toUntyped)
+  protected lazy val journal: a.ActorRef = extension.journalFor(journalPluginId)
+  protected lazy val snapshotStore: a.ActorRef = extension.snapshotStoreFor(snapshotPluginId)
 
   protected lazy val selfUntyped: a.ActorRef = context.self.toUntyped
   protected lazy val selfUntypedAdapted: a.ActorRef = context.messageAdapter[Any] {

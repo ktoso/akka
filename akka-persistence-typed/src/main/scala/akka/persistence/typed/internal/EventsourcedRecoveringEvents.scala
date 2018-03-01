@@ -6,23 +6,43 @@ package akka.persistence.typed.internal
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors.MutableBehavior
 import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, StashBuffer, TimerScheduler }
+import akka.annotation.InternalApi
 import akka.event.Logging
 import akka.persistence.JournalProtocol._
 import akka.persistence._
 import akka.persistence.typed.internal.EventsourcedBehavior.WriterIdentity
 import akka.persistence.typed.scaladsl.PersistentBehaviors._
 import akka.util.Helpers._
-import akka.{ actor ⇒ a }
 
 import scala.util.control.NonFatal
 
-abstract class EventsourcedRecoveringEvents[Command, Event, State](
-  val context:                ActorContext[Any],
-  val internalStash:          StashBuffer[Any],
-  val initialState:           State,
-  recovery:                   Recovery,
-  private var lastSequenceNr: Long,
-  writerIdentity:             WriterIdentity
+/**
+ * INTERNAL API
+ *
+ * Third (of four) behavior of an PersistentBehavior.
+ *
+ * In this behavior we finally start replaying events, beginning from the last applied sequence number
+ * (i.e. the one up-until-which the snapshot recovery has brought us).
+ *
+ * Once recovery is completed, the actor becomes [[EventsourcedRunning]], stashed messages are flushed
+ * and control is given to the user's handlers to drive the actors behavior from there.
+ *
+ */
+@InternalApi
+private[akka] class EventsourcedRecoveringEvents[Command, Event, State](
+  val persistenceId:          String,
+  override val context:       ActorContext[Any],
+  override val timers:        TimerScheduler[Any],
+  override val internalStash: StashBuffer[Any],
+
+  val recovery:           Recovery,
+  private var sequenceNr: Long,
+  val writerIdentity:     WriterIdentity,
+
+  private var state: State,
+
+  val callbacks: EventsourcedCallbacks[Command, Event, State],
+  val pluginIds: EventsourcedPluginIds
 ) extends MutableBehavior[Any]
   with EventsourcedBehavior[Command, Event, State]
   with EventsourcedStashManagement {
@@ -36,24 +56,20 @@ abstract class EventsourcedRecoveringEvents[Command, Event, State](
   // -------- initialize --------
   startRecoveryTimer()
 
-  replayEvents(lastSequenceNr + 1L, recovery.toSequenceNr)
+  replayEvents(sequenceNr + 1L, recovery.toSequenceNr)
   // ---- end of initialize ----
 
   private def commandContext: ActorContext[Command] = context.asInstanceOf[ActorContext[Command]]
 
   // ----------
 
-  private[this] var state: S = initialState
-
-  // ----------
-
-  def snapshotSequenceNr: Long = lastSequenceNr
+  def snapshotSequenceNr: Long = sequenceNr
 
   private def updateLastSequenceNr(persistent: PersistentRepr): Unit =
-    if (persistent.sequenceNr > lastSequenceNr) lastSequenceNr = persistent.sequenceNr
+    if (persistent.sequenceNr > sequenceNr) sequenceNr = persistent.sequenceNr
 
   private def setLastSequenceNr(value: Long): Unit =
-    lastSequenceNr = value
+    sequenceNr = value
 
   // ----------
 
@@ -123,34 +139,34 @@ abstract class EventsourcedRecoveringEvents[Command, Event, State](
 
     event match {
       case Some(evt) ⇒
-        log.error(cause, "Exception in receiveRecover when replaying event type [{}] with sequence number [{}].", evt.getClass.getName, lastSequenceNr, persistenceId)
+        log.error(cause, "Exception in receiveRecover when replaying event type [{}] with sequence number [{}].", evt.getClass.getName, sequenceNr)
         Behaviors.stopped
 
       case None ⇒
-        log.error(cause, "Persistence failure when replaying events for persistenceId [{}]. " +
-          "Last known sequence number [{}]", persistenceId, lastSequenceNr)
+        log.error(cause, "Persistence failure when replaying events.  Last known sequence number [{}]", persistenceId, sequenceNr)
         Behaviors.stopped
     }
   }
 
   protected def onRecoveryCompleted(state: State): Behavior[Any] = {
     try {
-      returnRecoveryPermit("finally in on recovery completed")
-      recoveryCompleted(commandContext, state)
+      returnRecoveryPermit("recovery completed successfully")
+      callbacks.recoveryCompleted(commandContext, state)
 
-      val b = this
-      val running = new EventsourcedRunning[Command, Event, State](context, internalStash, lastSequenceNr, writerIdentity) {
-        override def timers: TimerScheduler[Any] = b.timers
-        override def persistenceId: String = b.persistenceId
-        override def initialState: State = state
-        override def commandHandler: CommandHandler[Command, Event, State] = b.commandHandler
-        override def eventHandler: (State, Event) ⇒ State = b.eventHandler
-        override def recoveryCompleted: (ActorContext[Command], State) ⇒ Unit = b.recoveryCompleted
-        override def snapshotWhen: (State, Event, SeqNr) ⇒ Boolean = b.snapshotWhen
-        override def tagger: Event ⇒ Set[String] = b.tagger
-        override def journalPluginId: String = b.journalPluginId
-        override def snapshotPluginId: String = b.snapshotPluginId
-      }
+      val running = new EventsourcedRunning[Command, Event, State](
+        persistenceId,
+        context,
+        timers,
+        internalStash,
+
+        sequenceNr,
+        writerIdentity,
+
+        state,
+
+        callbacks,
+        pluginIds
+      )
 
       tryUnstash(context, running)
     } finally {
@@ -158,12 +174,11 @@ abstract class EventsourcedRecoveringEvents[Command, Event, State](
     }
   }
 
-  // FIXME separate the waiting for snapshot state from the waiting for events one // EventsourcedSnapshotRecovery -> EventsourcedRecovery
   protected def onRecoveryTick(snapshot: Boolean): Behavior[Any] =
     if (!snapshot) {
       if (!eventSeenInInterval) {
         cancelRecoveryTimer()
-        val msg = s"Recovery timed out, didn't get event within $timeout, highest sequence number seen $lastSequenceNr"
+        val msg = s"Recovery timed out, didn't get event within $timeout, highest sequence number seen $sequenceNr"
         onRecoveryFailure(new RecoveryTimedOut(msg), event = None) // TODO allow users to hook into this?
       } else {
         eventSeenInInterval = false
@@ -190,14 +205,14 @@ abstract class EventsourcedRecoveringEvents[Command, Event, State](
 
   // ---------- journal interactions ---------
 
-  private def replayEvents(fromSeqNr: SeqNr, toSeqNr: SeqNr): Behavior[Any] = {
-    log.info("START REPLAY EVENTS: " + ReplayMessages(fromSeqNr, toSeqNr, recovery.replayMax, persistenceId, selfUntypedAdapted))
+  private def replayEvents(fromSeqNr: SeqNr, toSeqNr: SeqNr): Unit = {
+    log.debug("Replaying messages: from: {}, to: {}", fromSeqNr, toSeqNr)
+    // reply is sent to `selfUntypedAdapted`, it is important to target that one
     journal ! ReplayMessages(fromSeqNr, toSeqNr, recovery.replayMax, persistenceId, selfUntypedAdapted)
-    same // FIXME this should become another Behaviour
   }
 
   private def returnRecoveryPermit(reason: String): Unit = {
-    log.info("returning permit... Reason: " + reason)
+    log.debug("Returning recovery permit, reason: " + reason)
     // IMPORTANT to use selfUntyped, and not an adapter, since recovery permitter watches/unwatches those refs (and adapters are new refs)
     extension.recoveryPermitter.tell(RecoveryPermitter.ReturnRecoveryPermit, selfUntyped)
   }

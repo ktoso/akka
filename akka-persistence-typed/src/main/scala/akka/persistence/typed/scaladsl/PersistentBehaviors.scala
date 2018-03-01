@@ -33,12 +33,6 @@ object PersistentBehaviors {
       initialState = initialState,
       commandHandler = commandHandler,
       eventHandler = eventHandler
-    //      ,
-    //      recoveryCompleted = ConstantFun.scalaAnyTwoToUnit,
-    //      tagger = (_: Event) ⇒ Set.empty,
-    //      snapshotWhen = ConstantFun.scalaAnyThreeToFalse,
-    //      journalPluginId = "",
-    //      snapshotPluginId = ""
     )
 
   /**
@@ -107,23 +101,29 @@ class PersistentBehavior[Command, Event, State] private (
   val snapshotWhen:      (State, Event, Long) ⇒ Boolean,
   val recovery:          Recovery
 ) extends DeferredBehavior[Command](ctx ⇒
-  TimerSchedulerImpl.wrapWithTimers[Command](timers ⇒
-    new EventsourcedRequestingRecoveryPermit(
-      ctx.asInstanceOf[ActorContext[Any]], // sorry
-      timers.asInstanceOf[TimerScheduler[Any]],
-      persistenceId,
+  TimerSchedulerImpl.wrapWithTimers[Command] { timers ⇒
+    val callbacks = EventsourcedCallbacks[Command, Event, State](
       initialState,
       commandHandler,
       eventHandler,
-      recoveryCompleted,
-      tagger,
-      journalPluginId,
-      snapshotPluginId,
       snapshotWhen,
-      recovery
+      recoveryCompleted,
+      tagger
+    )
+    val pluginIds = EventsourcedPluginIds(
+      journalPluginId,
+      snapshotPluginId
+    )
+    new EventsourcedRequestingRecoveryPermit(
+      persistenceId,
+      ctx.asInstanceOf[ActorContext[Any]], // sorry
+      timers.asInstanceOf[TimerScheduler[Any]], // sorry
+      recovery,
+      callbacks,
+      pluginIds
     ).narrow[Command]
 
-  )(ctx)) {
+  }(ctx)) {
 
   def this(
     persistenceId:  String,
@@ -137,8 +137,8 @@ class PersistentBehavior[Command, Event, State] private (
       eventHandler,
       recoveryCompleted = ConstantFun.scalaAnyTwoToUnit,
       tagger = (_: Event) ⇒ Set.empty[String],
-      journalPluginId = "",
-      snapshotPluginId = "",
+      journalPluginId = "" /* default plugin */ ,
+      snapshotPluginId = "" /* default plugin */ ,
       snapshotWhen = ConstantFun.scalaAnyThreeToFalse,
       recovery = Recovery()
     )
@@ -195,7 +195,7 @@ class PersistentBehavior[Command, Event, State] private (
    * You may configure the behavior to skip recovering snapshots completely, in which case the recovery will be
    * performed by replaying all events -- which may take a long time.
    */
-  def withSnapshotSelectionCriteria(selection: SnapshotSelectionCriteria) = {
+  def withSnapshotSelectionCriteria(selection: SnapshotSelectionCriteria): PersistentBehavior[Command, Event, State] = {
     copy(recovery = Recovery(selection))
   }
 
