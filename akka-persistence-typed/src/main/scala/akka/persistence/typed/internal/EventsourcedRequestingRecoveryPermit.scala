@@ -10,23 +10,25 @@ import akka.annotation.InternalApi
 import akka.event.Logging
 import akka.persistence._
 import akka.persistence.typed.internal.EventsourcedBehavior.WriterIdentity
-import akka.persistence.typed.scaladsl.PersistentBehaviors.CommandHandler
 
-/** INTERNAL API */
+/**
+ * INTERNAL API
+ *
+ * First (of four) behaviour of an PersistentBehaviour.
+ *
+ * Requests a permit to start recovering this actor; this is tone to avoid
+ * hammering the journal with too many concurrently recovering actors.
+ */
 @InternalApi
-private[akka] class EventsourcedRequestingRecoveryPermit[Command, Event, State](
-  override val context:  ActorContext[Any],
-  override val timers:   TimerScheduler[Any],
-  val persistenceId:     String,
-  val initialState:      State,
-  val commandHandler:    CommandHandler[Command, Event, State],
-  val eventHandler:      (State, Event) ⇒ State,
-  val recoveryCompleted: (ActorContext[Command], State) ⇒ Unit,
-  val tagger:            Event ⇒ Set[String],
-  val journalPluginId:   String,
-  val snapshotPluginId:  String,
-  val snapshotWhen:      (State, Event, Long) ⇒ Boolean,
-  val recovery:          Recovery
+private[akka] final class EventsourcedRequestingRecoveryPermit[Command, Event, State](
+  val persistenceId:    String,
+  override val context: ActorContext[Any],
+  override val timers:  TimerScheduler[Any],
+
+  val recovery: Recovery,
+
+  val callbacks: EventsourcedCallbacks[Command, Event, State],
+  val pluginIds: EventsourcedPluginIds
 ) extends MutableBehavior[Any]
   with EventsourcedBehavior[Command, Event, State]
   with EventsourcedStashManagement {
@@ -53,31 +55,28 @@ private[akka] class EventsourcedRequestingRecoveryPermit[Command, Event, State](
   // ----------
 
   def becomeRecovering(): Behavior[Any] = {
-    log.info(s"[{}][{}] Becoming recovering SNAPSHOT: {}", persistenceId, context.self.path.name, recovery)
-    val b = this
-    new EventsourcedRecoveringSnapshot[Command, Event, State](context, internalStash, recovery, writerIdentity) {
-      override def timers = b.timers
+    log.debug(s"Initializing snapshot recovery: {}", recovery)
 
-      override def persistenceId = b.persistenceId
-      override def initialState = b.initialState
-      override def commandHandler = b.commandHandler
-      override def eventHandler = b.eventHandler
-      override def recoveryCompleted = b.recoveryCompleted
-      override def snapshotWhen = b.snapshotWhen
-      override def tagger = b.tagger
-      override def journalPluginId = b.journalPluginId
-      override def snapshotPluginId = b.snapshotPluginId
-    }
+    new EventsourcedRecoveringSnapshot(
+      persistenceId,
+      context,
+      timers,
+      internalStash,
+
+      recovery,
+      writerIdentity,
+
+      callbacks,
+      pluginIds
+    )
   }
 
   // ----------
 
   override def onMessage(msg: Any): Behavior[Any] = {
-    log.info("INITIALIZING onMessage: " + msg)
-
     msg match {
       case RecoveryPermitter.RecoveryPermitGranted ⇒
-        log.info("INIT, finished got: RecoveryPermitGranted")
+        log.debug("Awaiting permit, received: RecoveryPermitGranted")
         becomeRecovering()
 
       case other ⇒

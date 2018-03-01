@@ -340,10 +340,7 @@ class PersistentBehaviorSpec extends ActorTestKit with TypedAkkaSpecWithShutdown
     }
 
     "check all events for snapshot in PersistAll" in {
-      val snapshotAtTwo = counter("c11").snapshotWhen { (s, _, _) ⇒
-        println(">>> SHOULD SNAP? " + s + " ??? " + (s.value == 2))
-        s.value == 2
-      }
+      val snapshotAtTwo = counter("c11").snapshotWhen { (s, _, _) ⇒ s.value == 2 }
       val c: ActorRef[Command] = spawn(snapshotAtTwo)
       val watchProbe = watcher(c)
       val replyProbe = TestProbe[State]()

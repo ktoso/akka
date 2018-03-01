@@ -142,7 +142,7 @@ import akka.japi.function.{ Function ⇒ JFunction }
 
         val untypedEntityPropsFactory: String ⇒ akka.actor.Props = { entityId ⇒
           behavior(entityId) match {
-            case u: UntypedPropsBehavior[_] ⇒ u.untypedProps // PersistentBehavior
+            case u: UntypedPropsBehavior[_] ⇒ u.untypedProps(Props.empty) // PersistentBehavior
             case b                          ⇒ PropsAdapter(b, entityProps)
           }
         }

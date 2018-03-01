@@ -6,22 +6,40 @@ package akka.persistence.typed.internal
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors.MutableBehavior
 import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, StashBuffer, TimerScheduler }
+import akka.annotation.InternalApi
 import akka.event.Logging
 import akka.persistence.SnapshotProtocol.{ LoadSnapshot, LoadSnapshotFailed, LoadSnapshotResult }
 import akka.persistence._
 import akka.persistence.typed.internal.EventsourcedBehavior.WriterIdentity
-import akka.persistence.typed.scaladsl.PersistentBehaviors._
 import akka.util.Helpers._
-import akka.{ actor ⇒ a }
 
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success, Try }
 
-abstract class EventsourcedRecoveringSnapshot[Command, Event, State](
-  val context:       ActorContext[Any],
-  val internalStash: StashBuffer[Any],
-  recovery:          Recovery,
-  writerIdentity:    WriterIdentity
+/**
+ * INTERNAL API
+ *
+ * Second (of four) behavior of an PersistentBehavior.
+ *
+ * In this behavior the recovery process is initiated.
+ * We try to obtain a snapshot from the configured snapshot store,
+ * and if it exists, we use it instead of the `initialState`.
+ *
+ * Once snapshot recovery is done (or no snapshot was selected),
+ * recovery of events continues in [[EventsourcedRecoveringEvents]].
+ */
+@InternalApi
+final class EventsourcedRecoveringSnapshot[Command, Event, State](
+  val persistenceId:          String,
+  override val context:       ActorContext[Any],
+  override val timers:        TimerScheduler[Any],
+  override val internalStash: StashBuffer[Any],
+
+  val recovery:       Recovery,
+  val writerIdentity: WriterIdentity,
+
+  val callbacks: EventsourcedCallbacks[Command, Event, State],
+  val pluginIds: EventsourcedPluginIds
 ) extends MutableBehavior[Any]
   with EventsourcedBehavior[Command, Event, State]
   with EventsourcedStashManagement {
@@ -118,20 +136,22 @@ abstract class EventsourcedRecoveringSnapshot[Command, Event, State](
   private def replayMessages(state: State, toSnr: SeqNr): Behavior[Any] = {
     cancelRecoveryTimer()
 
-    val b = this
     val rec = recovery.copy(toSequenceNr = toSnr, fromSnapshot = SnapshotSelectionCriteria.None) // TODO introduce new types
 
-    new EventsourcedRecoveringEvents[Command, Event, State](context, internalStash, state, rec, lastSequenceNr, writerIdentity) {
-      override def timers: TimerScheduler[Any] = b.timers
-      override def persistenceId: String = b.persistenceId
-      override def commandHandler: CommandHandler[Command, Event, State] = b.commandHandler
-      override def eventHandler: (State, Event) ⇒ State = b.eventHandler
-      override def recoveryCompleted: (ActorContext[Command], State) ⇒ Unit = b.recoveryCompleted
-      override def snapshotWhen: (State, Event, SeqNr) ⇒ Boolean = b.snapshotWhen
-      override def tagger: Event ⇒ Set[String] = b.tagger
-      override def journalPluginId: String = b.journalPluginId
-      override def snapshotPluginId: String = b.snapshotPluginId
-    }
+    new EventsourcedRecoveringEvents[Command, Event, State](
+      persistenceId,
+      context,
+      timers,
+      internalStash,
+
+      rec,
+      lastSequenceNr,
+      writerIdentity,
+
+      state,
+      callbacks,
+      pluginIds
+    )
   }
 
   /**
@@ -157,7 +177,6 @@ abstract class EventsourcedRecoveringSnapshot[Command, Event, State](
     }
   }
 
-  // FIXME separate the waiting for snapshot state from the waiting for events one // EventsourcedSnapshotRecovery -> EventsourcedRecovery
   protected def onRecoveryTick(snapshot: Boolean): Behavior[Any] =
     // we know we're in snapshotting mode
     if (snapshot) onRecoveryFailure(new RecoveryTimedOut(s"Recovery timed out, didn't get snapshot within $timeout"), event = None)
@@ -166,7 +185,6 @@ abstract class EventsourcedRecoveringSnapshot[Command, Event, State](
   // ----------
 
   override def onMessage(msg: Any): Behavior[Any] = {
-    log.info(s"[${Logging.simpleName(getClass)}] onMessage: " + msg)
     msg match {
       // TODO explore crazy hashcode hack to make this match quicker...?
       case SnapshotterResponse(r)      ⇒ onSnapshotterResponse(r)

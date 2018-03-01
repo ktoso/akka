@@ -12,16 +12,44 @@ import akka.annotation.{ ApiMayChange, InternalApi }
 import akka.persistence.typed._
 import akka.persistence.typed.internal._
 
-/** Java API: Persistent Behaviour for */
+/** Java API */
 @ApiMayChange
 abstract class PersistentBehavior[Command, Event, State >: Null](val persistenceId: String) extends UntypedPropsBehavior[Command] {
 
-  protected def Effect: EffectFactories[Command, Event, State] = EffectFactory.asInstanceOf[EffectFactories[Command, Event, State]]
+  /**
+   * Factory of effects.
+   *
+   * Return effects from your handlers in order to instruct persistence on how to act on the incoming message (i.e. persist events).
+   */
+  protected final def Effect: EffectFactories[Command, Event, State] = EffectFactory.asInstanceOf[EffectFactories[Command, Event, State]]
 
+  /**
+   * Implement by returning the initial state object.
+   * This object will be passed into this behaviors handlers, until a new state replaces it.
+   *
+   * Also known as "zero state" or "neutral state".
+   */
   protected def initialState: State
 
+  /**
+   * Implement by handling incoming commands and return an `Effect()` to persist or signal other effects
+   * of the command handling such as stopping the behavior or others.
+   *
+   * This method is only invoked when the actor is running (i.e. not recovering).
+   * While the actor is persisting events, the incoming messages are stashed and only
+   * delivered to the handler once persisting them has completed.
+   */
   protected def commandHandler(): CommandHandler[Command, Event, State]
 
+  /**
+   * Implement by applying the event to the current state in order to return a new state.
+   *
+   * This method invoked during recovery as well as running operation of this behavior,
+   * in order to keep updating the state state.
+   *
+   * For that reason it is strongly discouraged to perform side-effects in this handler;
+   * Side effects should be executed in `andThen` or `recoveryCompleted` blocks.
+   */
   protected def eventHandler(): EventHandler[Event, State]
 
   /**
@@ -37,7 +65,7 @@ abstract class PersistentBehavior[Command, Event, State >: Null](val persistence
     new ByStateCommandHandlerBuilder[Command, Event, State]()
 
   /**
-   * @return A new, mutable, builder
+   * @return A new, mutable, event handler builder
    */
   protected final def eventHandlerBuilder(): EventHandlerBuilder[Event, State] =
     new EventHandlerBuilder[Event, State]()

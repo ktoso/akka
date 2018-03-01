@@ -6,7 +6,8 @@ package akka.persistence.typed.internal
 import akka.actor.typed.Behavior
 import akka.actor.typed.Behavior.StoppedBehavior
 import akka.actor.typed.scaladsl.Behaviors.MutableBehavior
-import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, StashBuffer }
+import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, StashBuffer, TimerScheduler }
+import akka.annotation.InternalApi
 import akka.event.Logging
 import akka.persistence.Eventsourced.{ PendingHandlerInvocation, StashingHandlerInvocation }
 import akka.persistence.JournalProtocol._
@@ -17,11 +18,36 @@ import akka.persistence.typed.internal.EventsourcedBehavior.WriterIdentity
 import scala.annotation.tailrec
 import scala.collection.immutable
 
-abstract class EventsourcedRunning[Command, Event, State](
-  val context:            ActorContext[Any],
-  val internalStash:      StashBuffer[Any],
+/**
+ * INTERNAL API
+ *
+ * Fourth (of four) -- also known as 'final' or 'ultimate' -- form of PersistentBehavior.
+ *
+ * In this phase recovery has completed successfully and we continue handling incoming commands,
+ * as well as persisting new events as dictated by the user handlers.
+ *
+ * This behavior operates in two phases:
+ * - HandlingCommands - where the command handler is invoked for incoming commands
+ * - PersistingEvents - where incoming commands are stashed until persistence completes
+ *
+ * This is implemented as such to avoid creating many EventsourcedRunning instances,
+ * which perform the Persistence extension lookup on creation and similar things (config lookup)
+ *
+ */
+@InternalApi
+class EventsourcedRunning[Command, Event, State](
+  val persistenceId:          String,
+  override val context:       ActorContext[Any],
+  override val timers:        TimerScheduler[Any],
+  override val internalStash: StashBuffer[Any],
+
   private var sequenceNr: Long,
-  writerIdentity:         WriterIdentity
+  val writerIdentity:     WriterIdentity,
+
+  private var state: State,
+
+  val callbacks: EventsourcedCallbacks[Command, Event, State],
+  val pluginIds: EventsourcedPluginIds
 ) extends MutableBehavior[Any]
   with EventsourcedBehavior[Command, Event, State]
   with EventsourcedStashManagement { same ⇒
@@ -35,19 +61,16 @@ abstract class EventsourcedRunning[Command, Event, State](
 
   // ----------
 
-  private[this] var state: S = initialState
-
   // Holds callbacks for persist calls (note that we do not implement persistAsync currently)
   private def hasNoPendingInvocations: Boolean = pendingInvocations.isEmpty
   private val pendingInvocations = new java.util.LinkedList[PendingHandlerInvocation]() // we only append / isEmpty / get(0) on it
 
   // ----------
 
-  private def lastSequenceNr: Long = sequenceNr
-  private def snapshotSequenceNr: Long = lastSequenceNr
+  private def snapshotSequenceNr: Long = sequenceNr
 
   private def updateLastSequenceNr(persistent: PersistentRepr): Unit =
-    if (persistent.sequenceNr > lastSequenceNr) sequenceNr = persistent.sequenceNr
+    if (persistent.sequenceNr > sequenceNr) sequenceNr = persistent.sequenceNr
   private def nextSequenceNr(): Long = {
     sequenceNr += 1L
     sequenceNr
@@ -56,10 +79,13 @@ abstract class EventsourcedRunning[Command, Event, State](
 
   private def onSnapshotterResponse(response: SnapshotProtocol.Response): Behavior[Any] = {
     response match {
-      case SaveSnapshotSuccess(meta)     ⇒ log.info("Save snapshot successful: " + meta)
-      case SaveSnapshotFailure(meta, ex) ⇒ log.error(ex, "Save snapshot failed! " + meta) // FIXME no fail? no callback?
+      case SaveSnapshotSuccess(meta) ⇒
+        log.debug("Save snapshot successful: " + meta)
+        same
+      case SaveSnapshotFailure(meta, ex) ⇒
+        log.error(ex, "Save snapshot failed! " + meta)
+        same // FIXME https://github.com/akka/akka/issues/24637 should we provide callback for this? to allow Stop
     }
-    same
   }
 
   // ----------
@@ -86,17 +112,15 @@ abstract class EventsourcedRunning[Command, Event, State](
   object PersistingEventsNoSideEffects extends PersistingEvents(Nil)
 
   sealed class PersistingEvents(sideEffects: immutable.Seq[ChainableEffect[_, S]]) extends EventsourcedRunningPhase {
-    println(s"WAITING sideEffects = ${sideEffects}")
-
     def name = "PersistingEvents"
+
     final override def onCommand(c: Command): Behavior[Any] = {
-      log.info(s"PERSISTING EVENTS, command, STASH: ${c}")
       stash(c)
       same
     }
 
     final override def onJournalResponse(response: Response): Behavior[Any] = {
-      log.info("RESPONSE == " + response)
+      log.debug("Received Journal response: {}", response)
       response match {
         case WriteMessageSuccess(p, id) ⇒
           // instanceId mismatch can happen for persistAsync and defer in case of actor restart
@@ -134,12 +158,10 @@ abstract class EventsourcedRunning[Command, Event, State](
           same // it will be stopped by the first WriteMessageFailure message; not applying side effects
 
         case _: LoopMessageSuccess ⇒
-          ??? // ignore, not used in Typed Persistence (needed for persistAsync)
+          // ignore, should never happen as there is no persistAsync in typed
+          same
       }
     }
-
-    private def applySideEffectsAndUnstash(): Behavior[Any] =
-      tryUnstash(context, applySideEffects(sideEffects))
 
     private def onWriteMessageComplete(): Unit =
       tryBecomeHandlingCommands()
@@ -166,7 +188,6 @@ abstract class EventsourcedRunning[Command, Event, State](
   private[this] var phase: EventsourcedRunningPhase = HandlingCommands
 
   override def onMessage(msg: Any): Behavior[Any] = {
-    log.info("RUNNING onMessage: " + msg + s" @ ${phase.name}")
     msg match {
       // TODO explore crazy hashcode hack to make this match quicker...?
       case SnapshotterResponse(r) ⇒ onSnapshotterResponse(r)
@@ -202,8 +223,8 @@ abstract class EventsourcedRunning[Command, Event, State](
     case _: Stop.type @unchecked ⇒
       Behaviors.stopped
 
-    case SideEffect(callbacks) ⇒
-      callbacks(state)
+    case SideEffect(sideEffects) ⇒
+      sideEffects(state)
       same
 
     case _ ⇒
@@ -214,7 +235,9 @@ abstract class EventsourcedRunning[Command, Event, State](
     eventHandler(s, event)
 
   @tailrec private def applyEffects(msg: Any, effect: EffectImpl[E, S], sideEffects: immutable.Seq[ChainableEffect[_, S]] = Nil): Behavior[Any] = {
-    log.info(s"APPLY EFFECTS: ${msg} =>> ${effect} ;;; side: ${sideEffects}")
+    if (log.isDebugEnabled)
+      log.debug(s"Handled command [{}], resulting effect: [{}], side effects: [{}]", msg.getClass.getName, effect, sideEffects.size)
+
     effect match {
       case CompositeEffect(e, currentSideEffects) ⇒
         // unwrap and accumulate effects
@@ -229,7 +252,7 @@ abstract class EventsourcedRunning[Command, Event, State](
         val eventToPersist = if (tags.isEmpty) event else Tagged(event, tags)
 
         internalPersist(eventToPersist, sideEffects) { _ ⇒
-          if (snapshotWhen(state, event, lastSequenceNr))
+          if (snapshotWhen(state, event, sequenceNr))
             internalSaveSnapshot(state)
         }
 
@@ -239,7 +262,7 @@ abstract class EventsourcedRunning[Command, Event, State](
           // the invalid event, in case such validation is implemented in the event handler.
           // also, ensure that there is an event handler for each single event
           var count = events.size
-          var seqNr = lastSequenceNr
+          var seqNr = sequenceNr
           val (newState, shouldSnapshotAfterPersist) = events.foldLeft((state, false)) {
             case ((currentState, snapshot), event) ⇒
               seqNr += 1
@@ -306,7 +329,6 @@ abstract class EventsourcedRunning[Command, Event, State](
 
   // Any since can be `E` or `Tagged`
   private def internalPersist(event: Any, sideEffects: immutable.Seq[ChainableEffect[_, S]])(handler: Any ⇒ Unit): Behavior[Any] = {
-    println(s"internalPersist() SIDE: ${sideEffects}")
     pendingInvocations addLast StashingHandlerInvocation(event, handler.asInstanceOf[Any ⇒ Unit])
 
     val senderNotKnownBecauseAkkaTyped = null
