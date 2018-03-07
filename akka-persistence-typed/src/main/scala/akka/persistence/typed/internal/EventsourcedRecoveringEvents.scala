@@ -4,6 +4,7 @@
 package akka.persistence.typed.internal
 
 import akka.actor.typed.Behavior
+import akka.actor.typed.Behavior.DeferredBehavior
 import akka.actor.typed.scaladsl.Behaviors.MutableBehavior
 import akka.actor.typed.scaladsl.{ ActorContext, Behaviors, StashBuffer, TimerScheduler }
 import akka.annotation.InternalApi
@@ -38,7 +39,7 @@ private[akka] class EventsourcedRecoveringEvents[C, E, S](
   private var sequenceNr: Long,
 
   private var state: S
-) extends MutableBehavior[EventsourcedProtocol]
+) extends DeferredBehavior[EventsourcedProtocol]
   with EventsourcedBehavior[C, E, S]
   with EventsourcedStashManagement {
   import setup._
@@ -187,14 +188,24 @@ private[akka] class EventsourcedRecoveringEvents[C, E, S](
 
   // ----------
 
-  override def onMessage(msg: EventsourcedProtocol): Behavior[EventsourcedProtocol] = {
-    msg match {
-      case EventsourcedProtocol.JournalResponse(r)                ⇒ onJournalResponse(r)
-      case EventsourcedProtocol.RecoveryTickEvent(snapshot)       ⇒ onRecoveryTick(snapshot = snapshot)
-      case EventsourcedProtocol.SnapshotterResponse(r)            ⇒ onSnapshotterResponse(r)
-      case in: EventsourcedProtocol.IncomingCommand[C @unchecked] ⇒ onCommand(in)
+  def apply(ctx: ActorContext[EventsourcedProtocol]): Behavior[EventsourcedProtocol] =
+    Behaviors.immutable { (_, msg) ⇒
+      msg match {
+        case EventsourcedProtocol.JournalResponse(r)                ⇒ onJournalResponse(r)
+        case EventsourcedProtocol.RecoveryTickEvent(snapshot)       ⇒ onRecoveryTick(snapshot)
+        case EventsourcedProtocol.SnapshotterResponse(r)            ⇒ onSnapshotterResponse(r)
+        case in: EventsourcedProtocol.IncomingCommand[C @unchecked] ⇒ onCommand(in)
+      }
     }
-  }
+
+//  override def onMessage(msg: EventsourcedProtocol): Behavior[EventsourcedProtocol] = {
+//    msg match {
+//      case EventsourcedProtocol.JournalResponse(r)                ⇒ onJournalResponse(r)
+//      case EventsourcedProtocol.RecoveryTickEvent(snapshot)       ⇒ onRecoveryTick(snapshot = snapshot)
+//      case EventsourcedProtocol.SnapshotterResponse(r)            ⇒ onSnapshotterResponse(r)
+//      case in: EventsourcedProtocol.IncomingCommand[C @unchecked] ⇒ onCommand(in)
+//    }
+//  }
 
   // ----------
 
