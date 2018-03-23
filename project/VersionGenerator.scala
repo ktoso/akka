@@ -4,7 +4,7 @@
 
 package akka
 
-import sbt._
+import sbt.{Def, _}
 import sbt.Keys._
 
 /**
@@ -12,17 +12,30 @@ import sbt.Keys._
  */
 object VersionGenerator {
 
-  val settings: Seq[Setting[_]] = inConfig(Compile)(Seq(
-    resourceGenerators += generateVersion(resourceManaged, _ / "version.conf",
-      """|akka.version = "%s"
-         |"""),
-    sourceGenerators += generateVersion(sourceManaged, _ / "akka" / "Version.scala",
-      """|package akka
-         |
+  object Keys {
+    val versionPackage = settingKey[String]("key to set in version.conf and akka/Version.scala")
+    val versionScalaFileLocation = settingKey[File ⇒ File]("key to set in akka/.../Version.scala")
+  }
+  import Keys._
+
+  def settings(packageName: String, scalaFile: File ⇒ File): Seq[Def.Setting[_]] =
+    inConfig(Compile)(Seq(
+      versionPackage := packageName,
+      versionScalaFileLocation := scalaFile,
+      // ----
+
+      resourceGenerators += generateVersion(resourceManaged, _ / "version.conf",
+        s"""|${versionPackage.value}.version = "%s"
+            |"""),
+      sourceGenerators += generateVersion(sourceManaged, versionScalaFileLocation.value,
+        s"""|package ${versionPackage.value}
+            |
          |object Version {
-         |  val current: String = "%s"
-         |}
-         |""")))
+            |  val current: String = "%s"
+            |}
+            |""")
+    ))
+
 
   def generateVersion(dir: SettingKey[File], locate: File ⇒ File, template: String) = Def.task[Seq[File]] {
     val file = locate(dir.value)
